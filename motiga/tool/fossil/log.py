@@ -3,9 +3,30 @@ Utilities for logging things that happen during the skeleton/rig creation so
 the users can be warned appropriately.
 '''
 
-from pymel.core import cmds, dt
+from pymel.core import cmds, dt, listRelatives
 
+from ... import core
 from ... import lib
+
+
+def findRotatedBones(joints=None):
+    '''
+    Checks joints (defaulting to the )
+    '''
+
+    if not joints:
+        obj = core.findNode.getRoot()
+        joints = listRelatives(obj, ad=True, type='joint')
+
+    rotated = []
+
+    for j in joints:
+        if not core.math.isClose( j.r.get(), [0, 0, 0] ):
+            rotated.append( (j, j.r.get()) )
+
+    #print '{0} rotated of {1} tested'.format(len(rotated), len(joints) )
+    
+    return rotated
 
 
 # -----------------------------------------------------------------------------
@@ -141,7 +162,7 @@ class Rotation(Reporter):
     
     @classmethod
     def check(cls, joints, force=False):
-        rotated = lib.weights.findRotatedBones(joints)
+        rotated = findRotatedBones(joints)
         if rotated:
             for jnt, r in rotated:
                 cls.rotatedJoints.append(jnt.name())
@@ -179,19 +200,19 @@ class PostRigRotation(Reporter):
             prevVal = switchPlug.get()
             
             switchPlug.set(0)
-            rotated = lib.weights.findRotatedBones(joints)
+            rotated = findRotatedBones(joints)
             if rotated:
                 cls.issues.add(card)
             else:
                 switchPlug.set(1)
-                rotated = lib.weights.findRotatedBones(joints)
+                rotated = findRotatedBones(joints)
                 if rotated:
                     cls.issues.add(card)
             
             if prevVal != switchPlug.get():
                 switchPlug.set(prevVal)
         else:
-            rotated = lib.weights.findRotatedBones(joints)
+            rotated = findRotatedBones(joints)
             if rotated:
                 cls.issues.add(card)
         

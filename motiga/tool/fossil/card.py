@@ -1,6 +1,7 @@
 '''
 
 '''
+import os
 
 import math
 
@@ -161,10 +162,13 @@ def makeCard(jointCount=5, jointNames={'repeat': 'DEFAULT'}, rigInfo=None, size=
     # Make the actual card and tag with attrs
     card = nurbsPlane(w=width, lr=height / float(width), ax=(1, 0, 0), n=cardName, d=1, u=1, v=1 )[0]
     
+    card.addAttr( 'moRigData', dt='string' )
+    card.addAttr( 'moRigState', dt='string' )
+    
     addOutputControlsAttrs(card)
     addJointArrayAttr(card)
     
-    card.addAttr( 'moRigData', dt='string' )
+    
     #card.addAttr( 'skeletonInfo', at='bool' )
     #card.addAttr( 'buildOrder', at='long' )
     #card.addAttr( 'nameInfo', dt='string' )
@@ -176,7 +180,7 @@ def makeCard(jointCount=5, jointNames={'repeat': 'DEFAULT'}, rigInfo=None, size=
     
     rigData = {
         'buildOrder': 10,
-        'suffix': suffix,
+        'mirrorCode': suffix,
         'nameInfo': jointNames,
     }
     
@@ -572,9 +576,12 @@ def spineCard(spineCount, orientation=Orientation.VERTICAL, isStart=True):
 
 def arm(clav, side):
     leftArm = makeCard( 3, ['Bicep', 'Elbow', 'Wrist'], size=meters(.2, 1), suffix=side )
-    leftArm.rigCommand = 'Arm'
+    leftArm.rigCommand = 'IkChain'
     placeJoints( leftArm, [(0, 1), (0.5, 0), (0, -1)] )
     
+    rigData = leftArm.rigData
+    rigData['ikParams'] = {'name': 'Arm', 'endOrient': 'True_Zero'}
+    leftArm.rigData = rigData
     #clavicleEnd = getattr(clav, attrMap[side] )[0]
     
     moveCard.to( leftArm, clav.end() )
@@ -653,7 +660,11 @@ def leg( startJoint, dist ):
     suffix = 'L' if dist > 0 else 'R'
 
     leftLeg = makeCard( 3, ['Thigh', 'Knee', 'Ankle'], size=meters(.2, 1), suffix=suffix )
-    leftLeg.rigCommand = 'Leg'
+    leftLeg.rigCommand = 'IkChain'
+    rigData = leftLeg.rigData
+    rigData['ikParams'] = {'name': 'Leg', 'endOrient': 'True_Zero_Foot'}
+    leftLeg.rigData = rigData
+    
     placeJoints( leftLeg, [ (0, 1), (-0.23, 0.1), (0, -0.6) ] )
     moveCard.to( leftLeg, startJoint )
     moveCard.left( leftLeg, meters(dist) )
@@ -831,7 +842,7 @@ def bipedSetup(spineCount=4, neckCount=1, numFingers=4, legType='Human', thumb=T
 
     # Head
     head = makeCard( 2, 'Head HeadTip', size=meters(.3, .3) )
-    head.rigCommand = 'Head'
+    head.rigCommand = 'TranslateChain'
     head.rx.set( 180 )
         
     moveCard.to( head, neck.end() )

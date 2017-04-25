@@ -2378,10 +2378,10 @@ def splineChest(start, end, name='Chest', numChestJoints=3, useTrueZero=True, gr
     # Put pivot point at the bottom
     chestCtrl.ty.set( chestCtrl.boundingBox()[1][1] )
     
-    sharedShape.remove(chestCtrl)
+    lib.sharedShape.remove(chestCtrl)
     chestCtrl.setPivots( [0, 0, 0], worldSpace=True )
     makeIdentity( chestCtrl, a=True, t=True )
-    sharedShape.use(chestCtrl)
+    lib.sharedShape.use(chestCtrl)
     
     move( chestCtrl, xform(chestBase, q=True, ws=True, t=True), rpr=True )
     chestZero = core.dagObj.zero(chestCtrl)

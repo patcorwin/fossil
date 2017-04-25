@@ -4,8 +4,8 @@ import contextlib
 from functools import partial
 import itertools
 
-from PySide import QtGui
-from PySide.QtCore import Qt
+from Qt import QtWidgets
+from Qt.QtCore import Qt
 
 from pymel.core import cmds
 
@@ -14,10 +14,10 @@ from . import cardRigging
 
 
 '''
-class Cell(QtGui.QTableWidgetItem):
+class Cell(QtWidgets.QTableWidgetItem):
     
     def __init__(self, label='', checked=None):
-        QtGui.QTableWidgetItem.__init__(self, label)
+        QtWidgets.QTableWidgetItem.__init__(self, label)
         self.setFlags( Qt.ItemIsEnabled | Qt.ItemIsSelectable )
 
         if checked is not None:
@@ -25,10 +25,10 @@ class Cell(QtGui.QTableWidgetItem):
 '''
 
 
-class Label(QtGui.QTableWidgetItem):
+class Label(QtWidgets.QTableWidgetItem):
     
     def __init__(self, label='', checked=None):
-        QtGui.QTableWidgetItem.__init__(self, label)
+        QtWidgets.QTableWidgetItem.__init__(self, label)
         self.setFlags( Qt.ItemIsEnabled ) # | Qt.ItemIsSelectable )
 
         #if checked is not None:
@@ -39,10 +39,10 @@ class NOT_FOUND:
     pass
 
 
-class CardParams(QtGui.QTableWidget):
+class CardParams(QtWidgets.QTableWidget):
     
     def __init__(self, *args, **kwargs):
-        QtGui.QTableWidget.__init__(self, *args, **kwargs)
+        QtWidgets.QTableWidget.__init__(self, *args, **kwargs)
         
         self._disabled = False
         self._prevState = []
@@ -110,19 +110,19 @@ class CardParams(QtGui.QTableWidget):
         self.params.append(param)
         
         if param.type == param.BOOL:
-            checkBox = QtGui.QTableWidgetItem()
+            checkBox = QtWidgets.QTableWidgetItem()
             state = Qt.Checked if card.rigData.get('ikParams', {}).get(param.kwargName, param.default) else Qt.Unchecked
             checkBox.setCheckState( state )
             self.setItem( row, 1, checkBox )
             
         elif param.type == param.INT:
-            self.setItem( row, 1, QtGui.QTableWidgetItem(str(0 if not card.rigData.get('ikParams', {}).get(param.kwargName, param.default) else param.default)) )
+            self.setItem( row, 1, QtWidgets.QTableWidgetItem(str(0 if not card.rigData.get('ikParams', {}).get(param.kwargName, param.default) else param.default)) )
             
         elif param.type == param.FLOAT:
-            self.setItem( row, 1, QtGui.QTableWidgetItem(str(0.0 if not card.rigData.get('ikParams', {}).get(param.kwargName, param.default) else param.default)) )
+            self.setItem( row, 1, QtWidgets.QTableWidgetItem(str(0.0 if not card.rigData.get('ikParams', {}).get(param.kwargName, param.default) else param.default)) )
             
         elif param.type == param.ENUM:
-            dropdown = QtGui.QComboBox()
+            dropdown = QtWidgets.QComboBox()
             dropdown.addItems(param.enum.keys())
             #dropdown.currentIndexChanged.connect( partial(self.enumChange, param) )
             #for key, val in param.enum.items():
@@ -135,10 +135,10 @@ class CardParams(QtGui.QTableWidget):
             
         elif param.type == param.STR:
             val = card.rigData.get('ikParams', {}).get(param.kwargName, param.default)
-            self.setItem( row, 1, QtGui.QTableWidgetItem(val) )
+            self.setItem( row, 1, QtWidgets.QTableWidgetItem(val) )
             
         elif param.type in (param.CURVE, param.NODE_0):  # Just accept curves, they are all I connect to
-            dropdown = QtGui.QComboBox()
+            dropdown = QtWidgets.QComboBox()
             # Get all the curve transforms under the skeletonBlueprint
             curves = cmds.listRelatives( cmds.listRelatives('skeletonBlueprint', type='nurbsCurve', f=True, ad=True), p=True, f=True)
             self.paramSceneOptions[param] = curves
@@ -184,7 +184,7 @@ class CardParams(QtGui.QTableWidget):
                 # Param takes multiple input types
             if isinstance( param, list ):
                 
-                dropdown = QtGui.QComboBox()
+                dropdown = QtWidgets.QComboBox()
                 dropdown.addItems( [p.name for p in param] )
                 
                 self.setCellWidget(row, 0, dropdown)

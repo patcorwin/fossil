@@ -10,12 +10,25 @@ import xml.etree.ElementTree as xml
 from maya import OpenMayaUI
 
 # I think the * imports are for the compiling in loadUiType
-from PySide.QtGui import *
-from PySide.QtCore import *
+from Qt.QtGui import *
+from Qt.QtCore import *
 
-from PySide import QtGui
-import pysideuic
-from shiboken import wrapInstance
+from Qt import QtWidgets
+
+# Load up the correct ui compiler
+try:
+    import pysideuic
+except ImportError:
+    try:
+        import pyside2uic as pysideuic
+    except ImportError:
+        pass
+
+# Load up the correct shiboken*.wrapInstance
+try:
+    from shiboken import wrapInstance
+except ImportError:
+    from shiboken2 import wrapInstance
 
 from pymel.core import *
 #from pymel.core import optionVar, Callback, checkBox, frameLayout, menuItem
@@ -24,7 +37,7 @@ from pymel.core import *
 def mayaMainWindow():
     try:
         mayaMainWindowPtr = OpenMayaUI.MQtUtil.mainWindow()
-        window = wrapInstance(long(mayaMainWindowPtr), QWidget)
+        window = wrapInstance(long(mayaMainWindowPtr), QtWidgets.QWidget)
     except Exception:
         print( 'No Main window found, assumed to be batch mode.' )
         return None
@@ -112,7 +125,7 @@ def loadUiType(uiFile):
     return form_class, base_class
 
 
-class VerticalLabel(QtGui.QWidget):
+class VerticalLabel(QtWidgets.QWidget):
     '''
     Almost works!  'Below the line' letters like 'g' get cut off.
     '''

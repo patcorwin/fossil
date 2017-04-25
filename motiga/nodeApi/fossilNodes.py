@@ -328,7 +328,7 @@ HELPER_CARDS = ('Group',)
 
 def deprecatedSuffixSetter(obj, value):
     rigData = obj.rigData
-    rigData['suffix'] = value
+    rigData['mirrorCode'] = value
     obj.rigData = rigData
 
 
@@ -394,7 +394,9 @@ class Card(nt.Transform):
     rigState            = core.factory.JsonAccess('moRigState')  # &&& Thsi replaces MoVisGroup, MoCtrlLink, MoSDK, MoCustumAttr, MoSpaces
     
     # Need to update these with direct references to rigData[*]
-    suffix              = core.factory.DeprecatedAttr( lambda obj: obj.rigData.get('suffix'), deprecatedSuffixSetter)
+    
+    # !*suffix -> mirrorCode*!
+    suffix              = core.factory.DeprecatedAttr( lambda obj: obj.rigData.get('mirrorCode'), deprecatedSuffixSetter)
     nameInfo            = core.factory.DeprecatedAttr( deprecated_nameInfo_get, deprecated_nameInfo_set )
     
     rigCommand          = core.factory.DeprecatedAttr( lambda obj: obj.rigData.get('rigCmd'), deprecatedRigCommandSetter, mayaAttr=False)
@@ -421,7 +423,35 @@ class Card(nt.Transform):
         
         if self.hasAttr('rigParameters'):
             d = cardRigging.ParamInfo.toDict(self.rigParams)
-            rigData.update( {'ikParams': d} )
+            
+            ikParams = rigData.get('ikParams', {})
+            ikParams.update(d)
+            rigData.update( {'ikParams': ikParams} )
+
+        if rigData.get('rigCmd') == 'Arm':
+            ikParams = rigData.get('ikParams', {})
+            print('ik', ikParams, 'ikParams' in rigData)
+            if 'name' not in ikParams:
+                ikParams['name'] = 'Arm'
+            if 'endOrient' not in ikParams:
+                ikParams['endOrient'] = 'True_Zero'
+                
+            rigData['rigCmd'] = 'IkChain'
+            rigData['ikParams'] = ikParams
+
+
+        elif rigData.get('rigCmd') == 'Leg':
+            ikParams = rigData.get('ikParams', {})
+            if 'name' not in ikParams:
+                ikParams['name'] = 'Leg'
+            if 'endOrient' not in ikParams:
+                ikParams['endOrient'] = 'True_Zero_Foot'
+            
+            rigData['rigCmd'] = 'IkChain'
+            rigData['ikParams'] = ikParams
+
+        elif rigData.get('rigCmd') in ('Head', 'Neck'):
+            rigData['rigCmd'] = 'TranslateChain'
 
         self.rigData = rigData
         
@@ -598,7 +628,7 @@ class Card(nt.Transform):
         '''
         
         #suffix = '_' + self.suffix.get() if self.suffix.get() else ''
-        suffix = self.rigData.get('suffix', '')
+        suffix = self.rigData.get('mirrorCode', '')
         suffix = '_' + suffix if suffix else ''
         
         
@@ -607,7 +637,7 @@ class Card(nt.Transform):
             mirrorSrc = self.isCardMirrored()
             if mirrorSrc:
                 #suffix = '_' + mirrorSrc.suffix.get() if mirrorSrc.suffix.get() else ''
-                suffix = mirrorSrc.rigData.get('suffix', '')
+                suffix = mirrorSrc.rigData.get('mirrorCode', '')
                 suffix = '_' + suffix if suffix else ''
                 
         

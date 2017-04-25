@@ -2,8 +2,8 @@ from __future__ import print_function, absolute_import
 from functools import partial
 import itertools
 
-from PySide import QtGui, QtCore
-from PySide.QtCore import Qt
+from Qt import QtWidgets, QtCore
+from Qt.QtCore import Qt
 
 from pymel.core import delete, select
 
@@ -13,17 +13,17 @@ from . import proxy
 from . import util
 
 
-class Cell(QtGui.QTableWidgetItem):
+class Cell(QtWidgets.QTableWidgetItem):
     
     def __init__(self, label='', checked=None):
-        QtGui.QTableWidgetItem.__init__(self, label)
+        QtWidgets.QTableWidgetItem.__init__(self, label)
         self.setFlags( Qt.ItemIsEnabled | Qt.ItemIsSelectable )
 
         if checked is not None:
             self.setCheckState(Qt.Checked if checked else Qt.Unchecked)
 
 
-class JointLister(QtGui.QTableWidget):
+class JointLister(QtWidgets.QTableWidget):
     
     jointListerColumnWidths = [120, 50, 120, 50, 120, 120, 50]
     
@@ -128,7 +128,7 @@ class JointLister(QtGui.QTableWidget):
         bpJoint = self.joints[row]
         
         if col == self.JOINT_LISTER_CHILDOF:
-            menu = QtGui.QMenu()
+            menu = QtWidgets.QMenu()
             menu.addAction('-Clear-').triggered.connect( partial(self.changeParent, row, bpJoint, '') )
             
             for card in sorted(core.findNode.allCards()):
@@ -148,7 +148,7 @@ class JointLister(QtGui.QTableWidget):
             menu.exec_(self.viewport().mapToGlobal(position))
         
         elif col == self.JOINT_LISTER_ORIENT:
-            menu = QtGui.QMenu()
+            menu = QtWidgets.QMenu()
             menu.addAction('-clear-').triggered.connect( partial(self.setOrientTarget, row, bpJoint, None) )
             menu.addAction('-world-').triggered.connect( partial(self.setOrientTarget, row, bpJoint, '-world-') )
             #menu.addAction('-custom-') ?????? &&& ???

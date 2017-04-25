@@ -1628,6 +1628,10 @@ def updateIkChainCommands():
             card.rigParams = ParamInfo.toStr(temp)
 
 
+if 'raiseErrors' not in globals():
+    raiseErrors = False
+
+
 def buildRig(cards):
     '''
     Build the rig for the given cards, defaulting to all of them.
@@ -1664,9 +1668,9 @@ def buildRig(cards):
     if errors:
     
         for card, err in errors:
-            print( lib.util.writeInBox( str(card) + '\n' + err ) )
+            print( core.text.writeInBox( str(card) + '\n' + err ) )
     
-        print( lib.util.writeInBox( "The following cards had errors:\n" +
+        print( core.text.writeInBox( "The following cards had errors:\n" +
                 '\n'.join([str(card) for card, err in errors]) ) ) # noqa e127
                 
         confirmDialog( m='Errors occured!  See script editor for details.' )

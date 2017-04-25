@@ -376,7 +376,7 @@ class FREEFORM(object):
         if main:
             if main.getMotionType().endswith('.ik'):
 
-                if main.getSide() == 'Center' or (settings.toWord(main.card.rigData.get('suffix')) == main.getSide()):
+                if main.getSide() == 'Center' or (settings.toWord(main.card.rigData.get('mirrorCode')) == main.getSide()):
                     parentProxy = main.card.start().real.getParent()
 
                 else:

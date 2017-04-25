@@ -6,11 +6,10 @@ import os
 import re
 import traceback
 
-import PySide
-from PySide import QtGui
+import Qt
 
 #from pymel.core import *
-from pymel.core import select, setParent, scriptJob, confirmDialog, getAttr, objExists, setAttr, Callback, selected, xform, hide, ls, showHidden, warning, MeshVertex
+from pymel.core import select, setParent, scriptJob, confirmDialog, getAttr, objExists, setAttr, Callback, selected, xform, hide, showHidden, warning, MeshVertex
 
 from pymel.core import frameLayout, columnLayout, button, text, textScrollList, textFieldButtonGrp, rowColumnLayout, optionMenu, menuItem, intFieldGrp, checkBox, rowLayout, floatField, connectControl, layout, deleteUI
 
@@ -29,11 +28,10 @@ from . import space
 from . import util
 
 
-#RigToolUI = core.ui.getQtUIClass(motigaconfig.taToolsDir('Maya/UI/rigToolUI.ui'))
-RigToolUI = core.ui.getQtUIClass( os.path.dirname(__file__) + 'rigToolUI.ui', 'motiga.tool.fossil.ui.rigToolUI')
+RigToolUI = core.ui.getQtUIClass( os.path.dirname(__file__) + '/ui/rigToolUI.ui', 'motiga.tool.fossil.ui.rigToolUI')
 
 
-class RigTool(QtGui.QMainWindow):
+class RigTool(Qt.QtWidgets.QMainWindow):
     
     _inst = None
     
@@ -93,25 +91,25 @@ class RigTool(QtGui.QMainWindow):
         self.ui.deleteJointBtn.clicked.connect(self.deleteJoint)
         
         # Start Group Tab
-        qtLayout = PySide.QtGui.QVBoxLayout(self.ui.tab)
+        qtLayout = Qt.QtWidgets.QVBoxLayout(self.ui.tab)
         qtLayout.setObjectName( "Mot_RigTool_StartTab" )
         setParent( "Mot_RigTool_StartTab" )
         self.startTab = StartLayout( self )
         
         # Util Group Tab
-        qtLayout = PySide.QtGui.QVBoxLayout(self.ui.tab_2)
+        qtLayout = Qt.QtWidgets.QVBoxLayout(self.ui.tab_2)
         qtLayout.setObjectName( "Mot_RigTool_UtilTab" )
         setParent( "Mot_RigTool_UtilTab" )
         self.utilTab = UtilLayout()
         
         # Vis Group Tab
-        qtLayout = PySide.QtGui.QVBoxLayout(self.ui.tab_4)
+        qtLayout = Qt.QtWidgets.QVBoxLayout(self.ui.tab_4)
         qtLayout.setObjectName( "Mot_RigTool_VisGroupTab" )
         setParent( "Mot_RigTool_VisGroupTab" )
         self.visGroupTab = VisGroupLayout()
         
         # Space Tab
-        qtLayout = PySide.QtGui.QVBoxLayout(self.ui.tab_5)
+        qtLayout = Qt.QtWidgets.QVBoxLayout(self.ui.tab_5)
         qtLayout.setObjectName( "Mot_RigTool_SpaceTab" )
         setParent( "Mot_RigTool_SpaceTab")
         self.spaceTab = SpaceLayout()

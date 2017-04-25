@@ -2,8 +2,8 @@ from __future__ import print_function
 
 import contextlib
 
-from PySide import QtGui
-from PySide.QtCore import Qt
+from Qt import QtWidgets
+from Qt.QtCore import Qt
 
 from ...add import simpleName
 from ... import core
@@ -12,10 +12,14 @@ from . import cardRigging
 from . import util
 
 
-class CardRow(QtGui.QTreeWidgetItem):
+class CardRow(QtWidgets.QTreeWidgetItem):
     
     options = ['-'] + cardRigging.availableControlTypeNames()
     mirrorOptions = ['-', 'Yes', 'Inherited', 'Skip', 'Yes:Twin']
+    
+    NAME_HEAD = 3
+    NAME_REPEAT = 4
+    NAME_TAIL = 5
     
     def __init__(self, card):
         
@@ -31,7 +35,7 @@ class CardRow(QtGui.QTreeWidgetItem):
         
         side = rigData.get('mirrorCode', '')
         
-        QtGui.QTreeWidgetItem.__init__( self, [name, '', '', head, repeat, tail, '', side] )
+        QtWidgets.QTreeWidgetItem.__init__( self, [name, '', '', head, repeat, tail, '', side] )
         
         self.setCheckState( 1, Qt.Checked if card.visibility.get() else Qt.Unchecked )
         self.setFlags( Qt.ItemIsEnabled | Qt.ItemIsEditable | Qt.ItemIsSelectable )
@@ -62,7 +66,7 @@ class CardRow(QtGui.QTreeWidgetItem):
     
     def buildControls(self):
         # Make the rig type option
-        self.type = QtGui.QComboBox()
+        self.type = QtWidgets.QComboBox()
         self.type.addItems( self.options )
         self.treeWidget().setItemWidget(self, 2, self.type)
         
@@ -77,7 +81,7 @@ class CardRow(QtGui.QTreeWidgetItem):
         self.type.currentIndexChanged.connect( self.rigTypeChanged )
         
         # Make the mirror options
-        self.mirror = QtGui.QComboBox()
+        self.mirror = QtWidgets.QComboBox()
         self.mirror.addItems( self.mirrorOptions )
         self.treeWidget().setItemWidget(self, 6, self.mirror)
         
@@ -107,6 +111,11 @@ def cardJointBuildOrder():
     space application comes again for all at the end.
     
     I think I can just use the cardHierarchy instead.
+    '''
+    
+    cards = [temp[0] for temp in cardHierarchy()]
+    
+    return cards[1:]
     '''
     parentCards = []
     mirrored = {}
@@ -147,6 +156,7 @@ def cardJointBuildOrder():
             break
     
     return ordered
+    '''
 
 
 def cardHierarchy():
@@ -189,7 +199,7 @@ def cardHierarchy():
     return parentCards
 
 
-class CardLister(QtGui.QTreeWidget):
+class CardLister(QtWidgets.QTreeWidget):
 
     cardListerColumnWidths = [220, 30, 120, 160, 100, 100, 75, 30]
             
@@ -204,6 +214,8 @@ class CardLister(QtGui.QTreeWidget):
         
         self.itemClicked.connect(self.cardListerItemClicked)
         self.itemChanged.connect(self.newDataEntered)
+        
+        self.highlightedCards = set()
         
         self._dataChangeActive = True
         self.cardOrder = []
@@ -365,3 +377,17 @@ class CardLister(QtGui.QTreeWidget):
         if self._dataChangeActive:
             print( 'Stuff changed', topLeft.row(), topLeft.column(), bottomRight )
     '''
+    
+    def updateNames(self, card):
+        '''
+        Given the card, refresh the name ui
+        '''
+        names = card.rigData.get( 'nameInfo', {'head': [], 'repeat': '', 'tail': []} )
+
+        head = ' '.join(names.get('head', []))
+        repeat = names.get('repeat', '')
+        tail = ' '.join(names.get('tail', []))
+        
+        self.cardItems[card].setText(CardRow.NAME_HEAD, head)
+        self.cardItems[card].setText(CardRow.NAME_REPEAT, repeat)
+        self.cardItems[card].setText(CardRow.NAME_TAIL, tail)

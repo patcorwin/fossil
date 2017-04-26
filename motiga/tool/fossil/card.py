@@ -575,12 +575,12 @@ def spineCard(spineCount, orientation=Orientation.VERTICAL, isStart=True):
 
 
 def arm(clav, side):
-    leftArm = makeCard( 3, ['Bicep', 'Elbow', 'Wrist'], size=meters(.2, 1), suffix=side )
+    leftArm = makeCard( 3, ['Shoulder', 'Elbow', 'Wrist'], size=meters(.2, 1), suffix=side )
     leftArm.rigCommand = 'IkChain'
     placeJoints( leftArm, [(0, 1), (0.5, 0), (0, -1)] )
     
     rigData = leftArm.rigData
-    rigData['ikParams'] = {'name': 'Arm', 'endOrient': 'True_Zero'}
+    rigData['ikParams'] = {'name': 'Arm', 'endOrientType': 'True_Zero'}
     leftArm.rigData = rigData
     #clavicleEnd = getattr(clav, attrMap[side] )[0]
     
@@ -659,10 +659,10 @@ def leg( startJoint, dist ):
 
     suffix = 'L' if dist > 0 else 'R'
 
-    leftLeg = makeCard( 3, ['Thigh', 'Knee', 'Ankle'], size=meters(.2, 1), suffix=suffix )
+    leftLeg = makeCard( 3, ['Hip', 'Knee', 'Ankle'], size=meters(.2, 1), suffix=suffix )
     leftLeg.rigCommand = 'IkChain'
     rigData = leftLeg.rigData
-    rigData['ikParams'] = {'name': 'Leg', 'endOrient': 'True_Zero_Foot'}
+    rigData['ikParams'] = {'name': 'Leg', 'endOrientType': 'True_Zero_Foot'}
     leftLeg.rigData = rigData
     
     placeJoints( leftLeg, [ (0, 1), (-0.23, 0.1), (0, -0.6) ] )
@@ -678,7 +678,7 @@ def leg( startJoint, dist ):
 def hindleg(startJoint=None, dist=0.20):
     suffix = 'L' if dist > 0 else 'R'
 
-    leg = makeCard( 4, ['Thigh', 'Knee', 'Ankle', 'Toe'], size=meters(.2, 1), suffix=suffix )
+    leg = makeCard( 4, ['Hip', 'Knee', 'Ankle', 'Toe'], size=meters(.2, 1), suffix=suffix )
     leg.rigCommand = 'DogHindleg'
     placeJoints( leg, [ (0, 1), (-1, 0.1), (1, -0.5), (0.1, -1) ] )
     

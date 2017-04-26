@@ -491,28 +491,35 @@ class MetaControl(object):
 
         kwargs = collections.defaultdict(dict)
         kwargs.update( getattr(cls, kinematicType + 'Args' ))
-        kwargs['controlSpec'].update( getattr(cls, kinematicType + 'ControllerOptions' ) )
+        kwargs['controlSpec'].update(   getattr(cls, kinematicType + 'ControllerOptions' ) )
         kwargs.update( sideAlteration(**ikControlSpec) )
         
         # Load up the defaults from .ikInput
+        validNames = set()
         for argName, paramInfo in getattr(cls, kinematicType + 'Input').items():
             if isinstance( paramInfo, list ):
                 paramInfo = paramInfo[0]
             if paramInfo.default is not None:
                 kwargs[argName] = paramInfo.default
-        
-        userOverrides = ParamInfo.toDict( card.rigParams )
+                
+            validNames.add(argName)
+        print(validNames, 'VN')
+        userOverrides = card.rigData.get('ikParams', {}) # ParamInfo.toDict( card.rigParams )
+        print(userOverrides)
         # Not sure if decoding nodes is best done here or passed through in ParamInfo.toDict
         for key, val in userOverrides.items():
-            if val == 'NODE_0':
-                userOverrides[key] = card.extraNode[0]
-        
-        kwargs.update( userOverrides )
+            if key in validNames:  # Only copy over valid inputs, incase shenanigans happen
+                if val == 'NODE_0':
+                    kwargs[key] = card.extraNode[0]
+                else:
+                    kwargs[key] = val
 
         return kwargs
     
     readKwargs = classmethod( _readKwargs )
     readIkKwargs = classmethod( partial(_readKwargs, kinematicType='ik') )
+    
+    # Need to delete readFkKwards, it is not needed.
     readFkKwargs = classmethod( partial(_readKwargs, kinematicType='fk') )
 
     @classmethod
@@ -753,7 +760,8 @@ class IkChain(MetaControl):
     
     @classmethod
     def readIkKwargs(cls, card, isMirroredSide, sideAlteration):
-        kwargs = MetaControl.readIkKwargs(card, isMirroredSide, sideAlteration)
+        kwargs = super(IkChain, cls).readIkKwargs(card, isMirroredSide, sideAlteration)
+        
         '''
         try:
             kwargs['twists'] = json.loads( kwargs['twists'] )

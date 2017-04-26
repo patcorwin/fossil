@@ -6,7 +6,14 @@ import os
 import re
 import traceback
 
+import maya.OpenMayaUI
+
 import Qt
+
+try:
+    import shiboken
+except ImportError:
+    import shiboken2 as shiboken
 
 #from pymel.core import *
 from pymel.core import select, setParent, scriptJob, confirmDialog, getAttr, objExists, setAttr, Callback, selected, xform, hide, showHidden, warning, MeshVertex
@@ -26,6 +33,8 @@ from . import moveCard
 from . import proxy
 from . import space
 from . import util
+
+from .ui import controllerEdit
 
 
 RigToolUI = core.ui.getQtUIClass( os.path.dirname(__file__) + '/ui/rigToolUI.ui', 'motiga.tool.fossil.ui.rigToolUI')
@@ -125,9 +134,18 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         
         self.ui.jointLister.setup()
         
-        self.show()
-                
+        # Controller Edit
+        qtLayout = Qt.QtWidgets.QVBoxLayout(self.ui.controllerEdit)
+        qtLayout.setObjectName( 'Mo_Controller_EditSection' )
         
+        self.controllerEdit = controllerEdit.Gui()
+        ptr = maya.OpenMayaUI.MQtUtil.findLayout('Post_Control_Edit')
+        obj = shiboken.wrapInstance(long(ptr), Qt.QtWidgets.QWidget)
+        self.ui.testLayout.addWidget(obj)
+        #setParent( 'Mo_Controller_EditSection' )
+        #
+        
+        self.show()
         
         core.pubsub.subscribe(core.pubsub.Event.MAYA_DAG_OBJECT_CREATED, self.ui.cardLister.newObjMade)
     

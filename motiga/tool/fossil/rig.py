@@ -2758,11 +2758,12 @@ def ikChain2(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.T
     # Build the main ik control
     
     hide(mainIk)
+    hide(controlChain)
     
     if not name:
         name = trimName(start) + '_Ik'
     
-    ctrl = controller.control.build( name, controlSpec['main'], type=control.IK )
+    ctrl = controller.control.build( name, controlSpec['main'], type=controller.control.IK )
     
     container = group( n=name + '_grp' )
     container.setParent( lib.getNodes.mainGroup() )

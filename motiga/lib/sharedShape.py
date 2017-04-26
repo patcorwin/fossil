@@ -1,4 +1,3 @@
-
 '''
 Utility collection
 
@@ -12,6 +11,7 @@ Example usage:
 Many commands are done via cmds.* since pymel throws warnings about falling
 back to MFnDagNode when casting a curve with no cvs.
 '''
+from __future__ import absolute_import, print_function
 
 from pymel.core import cmds, objExists, delete, parent, warning, connectAttr, group, listConnections, deleteAttr, mel, setAttr, addAttr
 
@@ -28,6 +28,14 @@ def _makeSharedShape(obj, name, shapeType):
     '''
     shape = cmds.createNode( 'nurbsCurve', p=obj.longName() )
     
+    # 2017 added a bunch of keyable attrs so get rid of them if possible.
+    for attr in cmds.listAttr(shape, k=True):
+        try:
+            cmds.setAttr(shape + '.' + attr, k=False, l=True)
+        except Exception as e:  # noqa
+            #print( e )
+            pass
+        
     # Make it a valid curve so it doesn't get deleted during optimize scene
     # but lock and hide it.
     mel.eval('''setAttr "%s.cc" -type "nurbsCurve"

@@ -4,7 +4,6 @@ This wraps up interfacing rig components onto the card structures.
 from __future__ import print_function, absolute_import
 
 import collections
-import copy
 from functools import partial
 import inspect
 import re
@@ -14,7 +13,7 @@ import traceback
 
 from collections import OrderedDict
 
-from pymel.core import textField, optionMenu, warning, checkBox, intField, floatField, duplicate, move, xform, listRelatives, select, joint, spaceLocator, dt, delete, confirmDialog, selected
+from pymel.core import textField, optionMenu, warning, checkBox, intField, floatField, duplicate, move, xform, listRelatives, confirmDialog, selected
 #from pymel.core import *
 
 from ...add import shortName, simpleName
@@ -38,8 +37,6 @@ class ParamInfo(object):
             kwargs=NODE_0;
             
         or whatever number, thought it currently defaults to 0.
-        
-        * Add a bool?  Or just hack the UI to use a checkbox if min=0,max=1
     '''
 
     NODE_0 = 0
@@ -303,8 +300,8 @@ def colorParity(side, controlSpec={}):
         Verify all axis should be flipped
     '''
     
-    parity = {  ('R',       'L'):
-                ('green',   'red') }
+    parity = {  ('R',       'L'):       # noqa e241
+                ('green',   'red') }    # noqa e241
     
     # Determine if any color substitution needs to happen.
     for sidePairs, colorPairs in parity.items():
@@ -725,6 +722,7 @@ class TranslateChain(MetaControl):
     fkArgs = {'translatable': True}
 
 
+"""
 class IkChain(MetaControl):
     ''' Basic 3 joint ik chain. '''
     ik_ = 'motiga.tool.fossil.rig.ikChain'
@@ -737,14 +735,14 @@ class IkChain(MetaControl):
     
     ikArgs = {}
     fkArgs = {'translatable': True}
+"""
 
 
-class IkChain2(MetaControl):
+class IkChain(MetaControl):
     ''' Basic 3 joint ik chain. '''
     ik_ = 'motiga.tool.fossil.rig.ikChain2'
     ikInput = OrderedDict( [
         ('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, '')),
-        #('twists', ParamInfo( 'Twist Dict', 'Temp solution to make twists', ParamInfo.STR, '{0:1, 1:1}')),
         ('pvLen', ParamInfo('PV Length', 'How far the pole vector should be from the chain', ParamInfo.FLOAT, default=0) ),
         ('stretchDefault', ParamInfo('Stretch Default', 'Default value for stretch (set when you `zero`)', ParamInfo.FLOAT, default=1, min=0, max=1)),
         ('endOrientType', ParamInfo('Control Orient', 'How to orient the last control', ParamInfo.ENUM, enum=rig.EndOrient.asChoices())),
@@ -796,7 +794,7 @@ class SplineChest(MetaControl):
     fkArgs = {'translatable': True}
 
 
-class SplineChestThreeJoint(MetaControl):
+class SplineChest3Joint(MetaControl):
     ''' Spline control for the chest mass for just 3 joints. '''
     ik_ = 'motiga.tool.fossil.rig.splineChestThreeJoint'
     ikInput = OrderedDict( [('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, 'Chest'))] )
@@ -819,7 +817,7 @@ class SplineTwist(MetaControl):
         ('controlCountOrCrv', [
             ParamInfo( 'CV count', 'How many cvs to use in auto generated curve', ParamInfo.INT, default=4, min=4 ),
             ParamInfo( 'Curve', 'A nurbs curve to use for spline', ParamInfo.NODE_0 ),
-            ] ),
+        ] ),
         ('simplifyCurve',
             ParamInfo( 'Simplify Curve', 'If True, the curve cvs will space out evenly, possibly altering the postions', ParamInfo.BOOL, default=False) ),
         ('twistInfDist',
@@ -865,45 +863,6 @@ class SplineTwist(MetaControl):
         return kwargs
 
 
-class Head(MetaControl):
-    ''' Probably useless, same as a Rotate Chain but tries to add spaces. '''
-    fkArgs = {'translatable': False}
-    fkControllerOptions = {'main': {'color': 'blue .5', 'size': 13 }}
-    
-    '''
-    @classmethod
-    def postCreate(cls, card):
-        for mainCtrl in [card.outputCenter.fk, card.outputLeft.fk, card.outputRight.fk]:
-            if mainCtrl:
-                mode = space.Mode.ROTATE
-                space.add( mainCtrl, card.start().parent.real, 'parent', mode=mode )
-                space.add( mainCtrl, card.parentCard.start().parent.real, 'chest', mode=mode )
-                space.addWorld( mainCtrl, mode=mode )
-    '''
-    
-    @classmethod
-    def postCreate(cls, card):
-        for ctrl, side, type in card._outputs():
-                
-            if side == 'Right':
-                neck = card.start().parent.realMirror
-                chest = card.parentCard.start().parent.realMirror
-            else:
-                neck = card.start().parent.real
-                chest = card.parentCard.start().parent.real
-                
-            space.addWorld( ctrl )
-            space.add( ctrl, neck, spaceName='clavicle_pos_only' )
-            space.add( ctrl, chest, spaceName='chest')
-    
-    
-class Neck(MetaControl):
-    ''' DOES NOT DO ANYTHING
-    ..  todo:: Here to add space switching
-    '''
-    pass
-
-
 class DogHindleg(MetaControl):
     ''' 4 joint dog hindleg. '''
     ik_ = 'motiga.tool.fossil.rig.dogleg'
@@ -915,13 +874,14 @@ class DogHindleg(MetaControl):
     ] )
 
 
+"""  Eventually a space and params presets system will replace these, but it's too much to deal with for now.
 class Arm(MetaControl):
     ''' Same as IkChain but tries to add spaces for clavicle and chest. '''
     ik_ = 'motiga.tool.fossil.rig.ikChain'
     ikInput = OrderedDict( [
         ('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, 'Arm')),
         ('pvLen', ParamInfo('PV Length', 'How far the pole vector should be from the chain', ParamInfo.FLOAT, default=0) ),
-        ('stretchDefault', ParamInfo('Stretch Default', 'Default value for stretch (set when you `zero`)', ParamInfo.FLOAT, default=1,  min=0, max=1)),
+        ('stretchDefault', ParamInfo('Stretch Default', 'Default value for stretch (set when you `zero`)', ParamInfo.FLOAT, default=1, min=0, max=1)),
         ('endOrientType', ParamInfo('Control Orient', 'How to orient the last control', ParamInfo.ENUM, default=rig.EndOrient.TRUE_ZERO, enum=rig.EndOrient.asChoices())),
     ] )
     
@@ -962,7 +922,7 @@ class Leg(MetaControl):
     ikInput = OrderedDict( [
         ('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, 'Leg')),
         ('pvLen', ParamInfo('PV Length', 'How far the pole vector should be from the chain', ParamInfo.FLOAT, default=0) ),
-        ('stretchDefault', ParamInfo('Stretch Default', 'Default value for stretch (set when you `zero`)', ParamInfo.FLOAT, default=1,  min=0, max=1)),
+        ('stretchDefault', ParamInfo('Stretch Default', 'Default value for stretch (set when you `zero`)', ParamInfo.FLOAT, default=1, min=0, max=1)),
         ('endOrientType', ParamInfo('Control Orient', 'How to orient the last control', ParamInfo.ENUM, default=rig.EndOrient.TRUE_ZERO_FOOT, enum=rig.EndOrient.asChoices())),
     ] )
             
@@ -988,6 +948,7 @@ class Leg(MetaControl):
             names[1] = 'leg'
             names[2] = 'leg_pos_only'
             space.setNames(pv, names)
+"""
 
 
 class SplineNeck(MetaControl):
@@ -1024,6 +985,7 @@ class SplineNeck(MetaControl):
         return kwargs
 
 
+""" I think this is best left to each control to define and deal with than a leaf joint that interferes with default weighting.
 class TwistHelper(MetaControl):
     ''' Special controller to automate distributed twisting, like on the forearm. '''
     #displayInUI = False
@@ -1060,6 +1022,7 @@ class TwistHelper(MetaControl):
             side = settings.otherWord(side)
             ctrl, container = cls.fk(card.joints[0].realMirror, card.extraNode[0].realMirror, **kwargs)
             card.getSide(side).fk = ctrl
+"""
 
 
 class SquashStretch(MetaControl):
@@ -1157,17 +1120,6 @@ class SquashStretch(MetaControl):
                         lib.anim.applySetDrivenKeys(squasher, crv)
 
 
-class Weapon(TranslateChain):
-    '''
-    Use this in the BODY rig as the point that can be attached to.
-    Just a translate chain that can only have a single joints.
-    
-    ..  todo::
-        Make it so that it only can have a singe joint.
-    '''
-    pass
-    
-
 class Group(MetaControl):
     ''' A control that doesn't control a joint.  Commonly used as a space for other controls. '''
     fkInput = OrderedDict( [
@@ -1249,7 +1201,7 @@ class Group(MetaControl):
 
 
 class Freeform(MetaControl):
-    ''' A control that doesn't control a joint.  Commonly used as a space for other controls. '''
+    ''' Allows for non-linear arbitrary joint chains with translating and rotating controls. '''
     fkInput = OrderedDict( [
         ('translatable', ParamInfo( 'Translatable', 'It can translate', ParamInfo.BOOL, default=True)),
     ] )
@@ -1297,6 +1249,7 @@ class Freeform(MetaControl):
         return OutputControls(fkCtrl, ikCtrl)
 
 
+"""  Once a system is made to easily mark non-binding joints, this shouldn't be needed.
 class SplineProxy(MetaControl):
     '''
     Super fancy control that lets you control a daisy chained ik system with a
@@ -1383,11 +1336,11 @@ class SplineProxy(MetaControl):
                 node,
                 matchup[driveCard.extraNode[i * 2]],
                 matchup[driveCard.extraNode[ i * 2 + 1 ]]
-                ])
+            ])
         
         # v---
         # &&& This ripped right out of the original _buildIk
-        ikControlSpec = cls.controlOverrides(card, 'ik')
+        ikControlSpec = cls.controlOverrides(card, 'ik') # noqa
         
         kwargs = cls.readIkKwargs(card, isMirroredSide, sideAlteration)
 
@@ -1403,82 +1356,7 @@ class SplineProxy(MetaControl):
         
         ctrl, constraints = rig.chainedIk(start, end, chain, handleInfo, splineOptions=kwargs)
         return name, ctrl, constraints
-
-
-class GlueOrigin(MetaControl):
-    '''
-        Both this and Glue match up cards by card.rigData['id'].  If gluing to a
-        mirrored component, then specify provide a suffix,
-        ex: card.rigData['glue'] = 'L'
-        (or 'R') to specify the side to glue to.
-
-        On an attachment, there must be exactly one card (the top) tagged as
-        GlueOrigin, the rest just are set to Glue.
-
-        ..  todo:: Is it easy/safe for the top card to know it's the top so I can just have Glue as the type?
-
-        OLD:
-        attachment.tagForWorldZeroOnExport( GLUE CTRL )  ?? SHOULD BE BY DEFAULT?
-    '''
-    ik = None
-
-    @classmethod
-    def _buildSide(cls, card, start, end, isMirroredSide, side=None, buildFk=True):
-        '''
-        PaCo *thinks* this should only ever be on a single side, that's the whole point.
-        '''
-
-        # Side name not really important but might as well be consistent.
-        #if side == 'L':
-        #    kwargs['name'] += '_L'
-        #elif side == 'R':
-        #    kwargs['name'] += '_R'
-
-        fkCtrl, constraints = rig.fkChain(start, start, translatable=True)
-
-        return OutputControls(fkCtrl, None)
-
-
-class Glue(MetaControl):
-    ik = None
-    fk = None
-
-
-class TransZeroed(TranslateChain):
-    # Identical to Translate chain but control will zero when attached.
-    pass
-
-
-class WorldOriented(MetaControl):
-    '''
-    Makes a control forcing the joint to be world oriented so dazed FX don't tilt.
-    '''
-    fkArgs = {'translatable': False}
-
-    @classmethod
-    def postCreate(cls, card):
-        for ctrl, side, type in card._outputs():
-            space.addTrueWorld(ctrl)
-            core.dagObj.lockRot(ctrl)
-            ctrl.visibility.set(0)
-            #ctrl.visibility.lock()
-
-
-class Follower(Group):
-    '''
-    For use in attachment rigs.  This lets you define proxies in the attachment
-    rig to use as spaces.  They attach to the joint specified in the follow field.
-    '''
-    
-    fkInput = OrderedDict( [
-        ('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, '')),
-        ('follow', ParamInfo( 'Follow', 'The joint to follow', ParamInfo.STR, '')),
-        ] )
-
-    @classmethod
-    def validate(cls, card):
-        # &&& Eventually just validate that all it's joints are non-helpers
-        pass
+"""
 
 
 # Collect all the controls that can be made and make a nice sorted list of them.

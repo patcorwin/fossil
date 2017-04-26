@@ -145,7 +145,8 @@ class RigTool(Qt.QtWidgets.QMainWindow):
     def selectAll(self):
         select( core.findNode.allCards() )
     
-    def buildBones(self):
+    @staticmethod
+    def buildBones():
         sel = set(util.selectedCards())
         if not sel:
             confirmDialog( m='No cards selected' )
@@ -155,14 +156,14 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         for card in cardlister.cardJointBuildOrder():
             if card in sel:
                 card.buildJoints()
-            
-    def buildRig(self):
+    
+    @staticmethod
+    def buildRig():
         '''
         Makes the rig, saving shapes and removing the old rig if needed.
         '''
         cards = util.selectedCards()
         
-        #mode = self.rebuildMode.getValue()
         mode = 'Use Rig Info Shapes'
         
         if not cards:

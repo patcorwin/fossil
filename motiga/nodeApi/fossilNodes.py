@@ -1003,6 +1003,8 @@ class Card(nt.Transform):
         if self.rigData.get( 'rigCmd' ) in HELPER_CARDS:
             return
         
+        self.removeBones()
+                
         trueRoot = core.findNode.getRoot(make='root')
 
         core.layer.putInLayer(trueRoot, 'Joints')
@@ -1751,7 +1753,7 @@ class Card(nt.Transform):
     def removeBones(self):
         self.removeRig()
 
-        delete([j for j in self.getOutputJoints() if objExists(j)])
+        delete(self.getRealJoints())
 
     thingsToSave = [
         ('visGroup', lib.sharedShape.getVisGroup, lib.sharedShape.connect, 'MoVisGroup'),

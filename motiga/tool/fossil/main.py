@@ -46,7 +46,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
     
     settings = core.ui.Settings( "Skeleton Tool Settings",
         {
-            "spineCount": 4,
+            "spineCount": 5,
             "fingerCount": 4,
             "thumb": True,
             "spineOrient": "Vertical",

@@ -2839,12 +2839,12 @@ def ikChain2(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.T
     
     # Since we don't want twists affecting eachother, base them off the mainArmature
     for startSegment, endSegment in zip( mainArmature, mainArmature[1:] ):
-        print( 'HAS SUB TWISTS', startSegment in subTwists )
+        #print( 'HAS SUB TWISTS', startSegment in subTwists )
         if startSegment in subTwists:
             twistSetup(ctrl, subTwists[startSegment], startSegment, endSegment)
             
             
-    '''    
+    '''
     # Build the groups to hold the twist controls
     groups = []
     for i, (j, nextJ) in enumerate(zip(mainArmature[:-1], mainArmature[1:])):

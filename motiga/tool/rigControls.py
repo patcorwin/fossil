@@ -1,24 +1,44 @@
 from pymel.core import hide, showHidden, selected, select
 
 from .. import core
+from ..nodeApi import fossilNodes
 
 
 class QuickHideControls(object):
+    '''
+    Toggle the visibility of the selected rig controls.
+    '''
     
     controlsToHide = []
     hideMain = False
     mainShapes = None
+
+    @staticmethod
+    @core.alt.name( 'Quick Hide Controls' )
+    def act():
+        if not QuickHideControls.controlsToHide or all( [not o.exists() for o in QuickHideControls.controlsToHide] ):
+            QuickHideControls.start()
+        else:
+            QuickHideControls.end()
     
     @classmethod
     def start(cls):
         temp = core.findNode.controllers()
         ctrls = temp[:-2]  # Cut out the main controller and root motion
-        cls.controlsToHide = set( ctrls ).difference( selected() )
+        
+        # Artificially add the parents of the selected controls so they are hidden as a result
+        selectedControls = set(selected())
+        for ctrl in selected():
+            if type(ctrl) in (fossilNodes.SubController, fossilNodes.RigController):
+                selectedControls.update(ctrl.getAllParents())
+        
+        # Hide the spaces since the controls vis is locked and hidden to prevent accidentally being keyed hidden.
+        cls.controlsToHide = set( ctrls ).difference( selectedControls )
         for obj in cls.controlsToHide:
             hide(obj.getParent(), obj.getParent().getParent())
         
         main = temp[-2]
-        cls.hideMain = main not in selected()
+        cls.hideMain = main not in selectedControls
         
         if cls.hideMain:
             cls.mainShapes = core.shape.getShapes(main)
@@ -42,14 +62,6 @@ class QuickHideControls(object):
                 plug = cls.mainShapes[0].visibility.listConnections(s=True, p=True)
                 if plug:
                     plug[0].set(1)
-    
-    @staticmethod
-    @core.alt.name( 'Quick Hide Controls' )
-    def act():
-        if not QuickHideControls.controlsToHide or all( [not o.exists() for o in QuickHideControls.controlsToHide] ):
-            QuickHideControls.start()
-        else:
-            QuickHideControls.end()
                   
         
 @core.alt.name('Select Related Controllers')

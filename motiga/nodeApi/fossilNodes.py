@@ -702,7 +702,7 @@ class Card(nt.Transform):
         '''
         output = collections.OrderedDict()
         
-        names = iter(self.nameList(usePrefix=usePrefix))
+        names = iter( itertools.chain(self.nameList(usePrefix=usePrefix), itertools.cycle(['NOT_ENOUGH_NAMES'])) )
         
         for j in self.joints:
             if j.isHelper:
@@ -1361,13 +1361,11 @@ class Card(nt.Transform):
         
         queued = {}
         
-        names = iter(self.nameList(usePrefix=False, mirroredSide=False))
         
         for jnt in self.joints:
             if not jnt.isHelper:
                 targetName = names.next() + '_bpj'
                 if simpleName(jnt) != targetName:
-                    if cmds.ls(targetName, r=1):
                         jnt.rename('_temp_')
                         queued[jnt] = targetName
                     else:

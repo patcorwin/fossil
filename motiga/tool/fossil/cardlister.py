@@ -3,7 +3,7 @@ from __future__ import print_function
 import contextlib
 
 from Qt import QtWidgets
-from Qt.QtCore import Qt
+from Qt.QtCore import Qt, Signal
 
 from ...add import simpleName
 from ... import core
@@ -202,7 +202,9 @@ def cardHierarchy():
 class CardLister(QtWidgets.QTreeWidget):
 
     cardListerColumnWidths = [220, 30, 120, 160, 100, 100, 75, 30]
-            
+    
+    namesChanged = Signal()
+    
     def setup(self):
         '''
         Since the widget is really built in the setupUi() call, some gui editing
@@ -345,23 +347,30 @@ class CardLister(QtWidgets.QTreeWidget):
         else:
             return
         
-        rigData = item.card.rigData
-        names = rigData.get( 'nameInfo', {'head': [], 'repeat': '', 'tail': []} )
-        if column == 3:
-            names['head'] = item.text(column).strip().split()
+        if (3 <= column <= 5) or column == 7:
+            rigData = item.card.rigData
+            names = rigData.get( 'nameInfo', {'head': [], 'repeat': '', 'tail': []} )
+            if column == 3:
+                names['head'] = item.text(column).strip().split()
+                
+            elif column == 4:
+                names['repeat'] = item.text(column).strip()
+                
+            elif column == 5:
+                names['tail'] = item.text(column).strip().split()
             
-        elif column == 4:
-            names['repeat'] = item.text(column).strip()
+            elif column == 7:
+                rigData['mirrorCode'] = item.text(column).strip()
+                print( 'setting', rigData['mirrorCode'] )
             
-        elif column == 5:
-            names['tail'] = item.text(column).strip().split()
+            rigData['nameInfo'] = names
         
-        elif column == 7:
-            rigData['mirrorCode'] = item.text(column).strip().split()
-        
-        rigData['nameInfo'] = names
-        
-        item.card.rigData = rigData
+            item.card.rigData = rigData
+            
+            item.card.setTempNames()
+            
+            self.namesChanged.emit()
+            
     
     def newObjMade(self):
         

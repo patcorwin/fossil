@@ -34,6 +34,9 @@ class JointLister(QtWidgets.QTableWidget):
     JOINT_LISTER_ORIENT = 4
     JOINT_LISTER_CHILDOF = 5
                 
+    class FORCE_UPDATE:
+        pass
+    
     def setup(self):
         '''
         Since the widget is really built in the setupUi() call, some gui editing
@@ -81,12 +84,14 @@ class JointLister(QtWidgets.QTableWidget):
             item.setCheckState( Qt.Checked if item.checkState() == Qt.Unchecked else Qt.Unchecked )
             bpJoint.displayHandle.set( item.checkState() == Qt.Checked )
     
-    def jointListerRefresh(self, card):
-        
+    def jointListerRefresh(self, card=FORCE_UPDATE):
         if self.displayedCard == card:
             return
         
-        self.displayedCard = card
+        if card is self.FORCE_UPDATE:
+            card = self.displayedCard
+        else:
+            self.displayedCard = card
         
         self.clearContents()
         self.joints = []
@@ -256,11 +261,14 @@ class JointLister(QtWidgets.QTableWidget):
         
         if tempJoint.parent:
             # Technically this will fail if there is a helper also has a child (which is just fine, just not useful)
-            outputMap = tempJoint.parent.card.getOutputMap(includeHelpers=False)
+            outputMap = tempJoint.parent.card.getOutputMap(includeHelpers=True)
             if tempJoint.info.get('options', {}).get('mirroredSide'):
                 parentName = outputMap[tempJoint.parent][1]
             else:
                 parentName = outputMap[tempJoint.parent][0]
+            
+            if not parentName:  # This being empty means the parent is a helper
+                parentName = '!helper! ' + add.simpleName(tempJoint.parent)
         
         elif tempJoint.extraNode[0]:
             outputMap = tempJoint.extraNode[0].card.getOutputMap(includeHelpers=False)

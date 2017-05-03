@@ -134,6 +134,8 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         
         self.ui.jointLister.setup()
         
+        self.ui.cardLister.namesChanged.connect( self.ui.jointLister.jointListerRefresh )
+        
         # Controller Edit
         qtLayout = Qt.QtWidgets.QVBoxLayout(self.ui.controllerEdit)
         qtLayout.setObjectName( 'Mo_Controller_EditSection' )

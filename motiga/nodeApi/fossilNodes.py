@@ -13,7 +13,7 @@ from maya.api import OpenMaya
 
 import pymel.api
 #from pymel.core import *
-from pymel.core import select, objExists, PyNode, ls, nt, listRelatives, joint, hasAttr, removeMultiInstance, xform, mirrorJoint, delete, warning, dt, connectAttr, pointConstraint, parentConstraint, group, getAttr
+from pymel.core import cmds, select, objExists, PyNode, ls, nt, listRelatives, joint, hasAttr, removeMultiInstance, xform, mirrorJoint, delete, warning, dt, connectAttr, pointConstraint, parentConstraint, group, getAttr
 
 from ..add import simpleName, shortName, meters
 from .. import core
@@ -1344,7 +1344,8 @@ class Card(nt.Transform):
         '''
         Set the names of the temp joints based on what their output joints will be.
         '''
-        
+
+        """
         # Rename all the joints so when the second renaming occurs, it doesn't increment the name.
         for jnt in self.joints:
             jnt.rename('__placeholder')
@@ -1356,6 +1357,27 @@ class Card(nt.Transform):
                 # Should they be renamed after their parent?
                 if not jnt.name().endswith('_tip'):
                     jnt.rename( simpleName(jnt.parent, '{0}_tip') )
+        """
+        
+        queued = {}
+        
+        names = iter(self.nameList(usePrefix=False, mirroredSide=False))
+        
+        for jnt in self.joints:
+            if not jnt.isHelper:
+                targetName = names.next() + '_bpj'
+                if simpleName(jnt) != targetName:
+                    if cmds.ls(targetName, r=1):
+                        jnt.rename('_temp_')
+                        queued[jnt] = targetName
+                    else:
+                        jnt.rename(targetName)
+            else:
+                jnt.rename('_helper_pbj')
+        
+        for jnt, targetName in queued.items():
+            jnt.rename(targetName)
+                
            
     def orientJoints(self):
         '''

@@ -28,6 +28,14 @@ import motiga.tool.fossil.main
 motiga.tool.fossil.main.RigTool()
 ```
 
+## Utilities
+```python
+import motiga.tool.rigTools
+
+# This toggles isolating the selected controls.  Note - parents of selected controls will remain visible.
+motiga.core.alt.call('Quick Hide Controls')()
+```
+
 ### Simple Walkthrough
 
 Here is a walkthrough just to get an idea of how to start making rigs.

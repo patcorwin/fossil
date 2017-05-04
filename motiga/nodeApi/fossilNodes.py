@@ -1361,11 +1361,13 @@ class Card(nt.Transform):
         
         queued = {}
         
+        names = iter( itertools.chain(self.nameList(usePrefix=False, mirroredSide=False), itertools.cycle(['NOT_ENOUGH_NAMES'])) )
         
         for jnt in self.joints:
             if not jnt.isHelper:
                 targetName = names.next() + '_bpj'
                 if simpleName(jnt) != targetName:
+                    if cmds.ls(targetName, r=1) and targetName != 'NOT_ENOUGH_NAMES_bpj':
                         jnt.rename('_temp_')
                         queued[jnt] = targetName
                     else:

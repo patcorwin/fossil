@@ -156,6 +156,7 @@ class JointLister(QtWidgets.QTableWidget):
             menu = QtWidgets.QMenu()
             menu.addAction('-clear-').triggered.connect( partial(self.setOrientTarget, row, bpJoint, None) )
             menu.addAction('-world-').triggered.connect( partial(self.setOrientTarget, row, bpJoint, '-world-') )
+            menu.addAction('-as card-').triggered.connect( partial(self.setOrientTarget, row, bpJoint, '-as card-') )
             #menu.addAction('-custom-') ?????? &&& ???
             
             #joints = util.listTempJoints(includeHelpers=True)
@@ -206,6 +207,11 @@ class JointLister(QtWidgets.QTableWidget):
             self.clearCustomOrient(bpJoint)
             self.item(row, self.JOINT_LISTER_ORIENT).setText('')
         
+        elif newTarget == '-as card-':
+            bpJoint.orientTarget = None
+            bpJoint.customOrient = bpJoint.card
+            self.item(row, self.JOINT_LISTER_ORIENT).setText('-as card-')
+        
         elif newTarget == '-world-':
             '''
             ..  todo:: Make a pass to fix the old stuff then remove the code
@@ -250,7 +256,11 @@ class JointLister(QtWidgets.QTableWidget):
         # --- Orient ---
         orientText = ''
         if tempJoint.customOrient:
-            orientText = add.shortName(tempJoint.customOrient)
+            
+            if tempJoint.customOrient == tempJoint.card:
+                orientText = '-as card-'
+            else:
+            
         elif isinstance(tempJoint.orientTarget, basestring):
             orientText = tempJoint.orientTarget
         elif tempJoint.orientTarget:

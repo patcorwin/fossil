@@ -222,11 +222,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         event.accept()
     
     def selectionChanged(self):
-        if self.ui.cardLister.uiActive:
-            # This looks like it happens 100% of the time
-            self.ui.cardLister.updateHighlight()
-        else:
-            pass
+        self.ui.cardLister.updateHighlight()
         
         selectedCard = util.selectedCardsSoft(single=True)
         

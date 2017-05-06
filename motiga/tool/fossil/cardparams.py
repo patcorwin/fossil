@@ -46,11 +46,18 @@ class CardParams(QtWidgets.QTableWidget):
         
         self._disabled = False
         self._prevState = []
-        self.cellChanged.connect(self.dataChange)
         
         self.currentCard = None
         self.params = []
         self.paramSceneOptions = {}
+    
+    def clearContents(self):
+        try:
+            self.cellChanged.disconnect(self.dataChange)
+        except:
+            pass
+        QtWidgets.QTableWidget.clearContents(self)
+        
     
     @contextlib.contextmanager
     def disableChangeCallback(self):
@@ -128,10 +135,14 @@ class CardParams(QtWidgets.QTableWidget):
             #for key, val in param.enum.items():
             #    dropdown.addItem( key ).triggered.connect( partial(self.changeEnum, param.kwargName, val) )
             
-            dropdown.currentIndexChanged.connect( partial(self.enumChange, param=param) )
             self.setCellWidget(row, 1, dropdown)
-            enumVal = param.enum.values().index( card.rigData.get('ikParams', {}).get(param.kwargName, param.default) )
-            dropdown.setCurrentIndex(enumVal)
+            
+            try:
+                enumVal = param.enum.values().index( card.rigData.get('ikParams', {}).get(param.kwargName, param.default) )
+                dropdown.setCurrentIndex(enumVal)
+                dropdown.currentIndexChanged.connect( partial(self.enumChange, param=param) )
+            except:
+                print( 'oerror with', param.kwargName, param.default, card, row )
             
         elif param.type == param.STR:
             val = card.rigData.get('ikParams', {}).get(param.kwargName, param.default)
@@ -229,7 +240,9 @@ class CardParams(QtWidgets.QTableWidget):
                 self.setItem(row, 0, Label(param.name))
                 
                 self.setInputField(card, row, param)
-
+        
+        self.cellChanged.connect(self.dataChange)
+        
 
 def update(self, card):
     
@@ -266,4 +279,8 @@ def update(self, card):
                 self.ui.cardParams.addParams(card)
             else:
                 self.ui.cardParams.clearContents()
-                
+    else:
+        self.ui.cardParams.clearContents()
+        self.ui.cardParams.setRowCount( 1 )
+        self.ui.cardParams.setItem(0, 0, Label('No options'))
+        self.ui.cardParams.setItem(0, 1, Label(''))

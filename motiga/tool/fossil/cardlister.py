@@ -238,7 +238,6 @@ class CardLister(QtWidgets.QTreeWidget):
         
         self.uiActive = self._uiStateStack.pop()
         
-    
     def cardListerRefresh(self, force=False):
         
         if self.allCards == core.findNode.allCards() and not force:
@@ -269,39 +268,23 @@ class CardLister(QtWidgets.QTreeWidget):
                     item.setExpanded(True)
                     self.cardItems[childCard] = item
             
-            """
-            parentCards = []
-            for card in core.findNode.allCards():
-                if not card.parentCard:
-                    parentCards.append(card)
-            
-            def makeItems(cards, parent):
-                for card in cards:
-                
-                    item = self.cardListerAddRow(card, parent)
-                
-                    makeItems(sorted(card.childrenCards), item)
-                    
-                    item.setExpanded(True)
-            
-            makeItems(parentCards, None)
-            """
-            
     def updateHighlight(self):
         '''
         ..  todo::
             When subControls are easily identifiable, also check them
         '''
         with self.disableUI():
-            selectedCards = util.selectedCardsSoft()
+            selectedCards = set(util.selectedCardsSoft())
+            selectedInUI = set(self.selectedItems())
             
             # Deselect any selected items
             self._dataChangeActive = False
-            for item in self.selectedItems():
-                self.setItemSelected(item, False)
+            for item in selectedInUI:
+                if item not in selectedCards:
+                    self.setItemSelected(item, False)
             
             for card, item in self.cardItems.items():
-                if card in selectedCards:
+                if card in selectedCards and card not in selectedInUI:
                     self.setItemSelected( item, True )
                     
             """ Old soft highlight code that I might not be able to use with the QTreeWidget
@@ -380,12 +363,6 @@ class CardLister(QtWidgets.QTreeWidget):
         else:
             #print('New CARD!', set(core.findNode.allCards()).difference(self.allCards) )
             self.cardListerRefresh(force=True)
-    
-    '''
-    def dataChanged(self, topLeft, bottomRight):
-        if self._dataChangeActive:
-            print( 'Stuff changed', topLeft.row(), topLeft.column(), bottomRight )
-    '''
     
     def updateNames(self, card):
         '''

@@ -73,7 +73,9 @@ class ParamInfo(object):
         elif type == self.BOOL:
             self.default = False
         elif type == self.ENUM:
-            self.default = ''
+            # Is this fair to default to the first enum?  Should I assert instead
+            raise Exception( 'ParamInfo "{}", "{}" is an enum but specifies no default'.format(name, desc) )
+            #self.default = enum.values()[0]
         else:
             # &&& I think this is because curves need a default?
             self.default = None
@@ -752,7 +754,7 @@ class IkChain(MetaControl):
         ('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, '')),
         ('pvLen', ParamInfo('PV Length', 'How far the pole vector should be from the chain', ParamInfo.FLOAT, default=0) ),
         ('stretchDefault', ParamInfo('Stretch Default', 'Default value for stretch (set when you `zero`)', ParamInfo.FLOAT, default=1, min=0, max=1)),
-        ('endOrientType', ParamInfo('Control Orient', 'How to orient the last control', ParamInfo.ENUM, enum=rig.EndOrient.asChoices())),
+        ('endOrientType', ParamInfo('Control Orient', 'How to orient the last control', ParamInfo.ENUM, enum=rig.EndOrient.asChoices(), default=rig.EndOrient.TRUE_ZERO)),
     ] )
     
     ikArgs = {}

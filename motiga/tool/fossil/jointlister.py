@@ -260,6 +260,7 @@ class JointLister(QtWidgets.QTableWidget):
             if tempJoint.customOrient == tempJoint.card:
                 orientText = '-as card-'
             else:
+                orientText = 'custom:' + add.shortName(tempJoint.customOrient)
             
         elif isinstance(tempJoint.orientTarget, basestring):
             orientText = tempJoint.orientTarget

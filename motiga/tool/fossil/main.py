@@ -99,6 +99,8 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         self.ui.addTipBtn.clicked.connect(partial(self.insertJoint, True))
         self.ui.deleteJointBtn.clicked.connect(self.deleteJoint)
         
+        self.ui.rebuildProxyBtn.clicked.connect( proxy.rebuildConnectorProxy )
+        
         # Start Group Tab
         qtLayout = Qt.QtWidgets.QVBoxLayout(self.ui.tab)
         qtLayout.setObjectName( "Mot_RigTool_StartTab" )

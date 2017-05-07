@@ -208,6 +208,19 @@
                     <string>Delete Rig</string>
                    </property>
                   </widget>
+                  <widget class="QPushButton" name="rebuildProxyBtn">
+                   <property name="geometry">
+                    <rect>
+                     <x>430</x>
+                     <y>3</y>
+                     <width>81</width>
+                     <height>23</height>
+                    </rect>
+                   </property>
+                   <property name="text">
+                    <string>Rebuild Proxy</string>
+                   </property>
+                  </widget>
                  </widget>
                 </item>
                 <item>

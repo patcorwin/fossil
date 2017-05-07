@@ -1761,7 +1761,7 @@ class Card(nt.Transform):
     def removeRig(self):
         # Sometimes deleting the rig flips things out, so try deleting the constraints first
         try:
-            for j in self.getOutputJoints():
+            for j in self.getRealJoints():
                 constraints = listRelatives(j, type='constraint')
                 if constraints:
                     delete(constraints)

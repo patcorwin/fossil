@@ -32,7 +32,8 @@ def add( a, b ):
     
     _assignInput( node.input1D[0], a )
     _assignInput( node.input1D[1], b )
-        
+
+    node.rename('add')
     return node.output1D
 
 
@@ -42,7 +43,8 @@ def sub( a, b ):
     
     _assignInput( node.input1D[0], a )
     _assignInput( node.input1D[1], b )
-        
+    
+    node.rename('minus')
     return node.output1D
 
 
@@ -52,7 +54,8 @@ def divide( a, b ):
     
     _assignInput( node.input1X, a )
     _assignInput( node.input2X, b )
-        
+    
+    node.rename('div')
     return node.outputX
 
 
@@ -73,7 +76,8 @@ def multiply( a, b ):
         _assignInput( node.input2Z, b[2] )
     else:
         _assignInput( node.input2X, b )
-        
+    
+    node.rename('mul')
     return node.outputX
 
 
@@ -96,21 +100,22 @@ def condition( a, symbol, b, true=1, false=0 ):
     values if the condition is true or false (defaults to 1 and 0 respectively)
     '''
     mapping = {
-        '=':  0, # noqa e241
-        '!=': 1,
-        '>':  2, # noqa e241
-        '>=': 3,
-        '<':  4, # noqa e241
-        '<=': 5, }
+        '=':  (0, 'EQ'), # noqa e241
+        '!=': (1, 'NE'),
+        '>':  (2, 'GT'), # noqa e241
+        '>=': (3, 'GE'),
+        '<':  (4, 'LT'), # noqa e241
+        '<=': (5, 'LE'), }
         
     node = createNode( 'condition' )
-    node.operation.set( mapping[symbol] )
+    node.operation.set( mapping[symbol][0] )
     _assignInput( node.firstTerm, a )
     _assignInput( node.secondTerm, b )
     
     _assignInput( node.colorIfTrueR, true )
     _assignInput( node.colorIfFalseR, false )
     
+    node.rename( mapping[symbol][1] )
     return node.outColorR
 
 

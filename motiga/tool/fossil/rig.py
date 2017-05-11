@@ -591,6 +591,7 @@ def makeStretchy(controller, ik, stretchDefault=1):
             core.math.multiply( jointLenMultiplier, j.restLength) >> j.attr('t' + jointAxis)
         else:
             
+            attrName = 'segLen' + str(i)
             
             # Make an attribute that is -10 to 10 map to multiplying the restLength by 0 to 2
             controller.addAttr( attrName, at='double', k=True, min=-10, max=10 )

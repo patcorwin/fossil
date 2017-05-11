@@ -160,7 +160,7 @@ class CardParams(QtWidgets.QTableWidget):
     def enumChange(self, index, param):
         rigData = self.card.rigData
         key, val = param.enum.items()[index]
-        rigData.get('ikParams')[param.kwargName] = val
+        rigData.setdefault('ikParams', {})[param.kwargName] = val
         
         self.card.rigData = rigData
     

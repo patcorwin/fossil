@@ -843,7 +843,7 @@ class SplineTwist(MetaControl):
         ('allowOffset',
             ParamInfo( 'Allow Offset', 'If you Simplyify Curve, the joints will slightly shift unless you Allow Offset or the joints are straight', ParamInfo.BOOL, default=False) ),
         ('twistStyle',
-            ParamInfo( 'Twist Style', '0 = advanced, 1=x, 2=-x 3=y ...', ParamInfo.ENUM, default=rig.TwistStyle.ADVANCED, enum=rig.TwistStyle.asChoices() ) ),
+            ParamInfo( 'Twist Style', '0 = advanced, 1=x, 2=-x 3=y ...', ParamInfo.ENUM, enum=rig.TwistStyle.asChoices(), default=rig.TwistStyle.ADVANCED ) ),
         
         ('name',
             ParamInfo( 'Name', 'Name', ParamInfo.STR, '')),

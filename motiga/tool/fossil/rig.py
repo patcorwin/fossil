@@ -3175,13 +3175,13 @@ class TwistStyle:
     Used by splineIk.  Advanced uses advanced twist while the others determin
     which rotation axis drives the twist attribute.
     '''
-    ADVANCED = 'Advanced',
-    X        = 'X',
-    NEG_X    = '-X',
-    Y        = 'Y',
-    NEG_Y    = '-Y',
-    Z        = 'Z',
-    NEG_Z    = '-Z',
+    ADVANCED = 'Advanced'
+    X        = 'X'
+    NEG_X    = '-X'
+    Y        = 'Y'
+    NEG_Y    = '-Y'
+    Z        = 'Z'
+    NEG_Z    = '-Z'
     
     @classmethod
     def asChoices(cls):

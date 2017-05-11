@@ -33,7 +33,11 @@ class JointLister(QtWidgets.QTableWidget):
     JOINT_LISTER_HANDLES = 3
     JOINT_LISTER_ORIENT = 4
     JOINT_LISTER_CHILDOF = 5
-                
+    
+    def __init__(self, *args, **kwargs):
+        QtWidgets.QTableWidget.__init__(self, *args, **kwargs)
+        self.displayedCard = None
+        
     class FORCE_UPDATE:
         pass
     
@@ -52,8 +56,6 @@ class JointLister(QtWidgets.QTableWidget):
         self.customContextMenuRequested.connect(self.jointListerRightClick)
         
         self.itemClicked.connect(self.clicked)
-        
-        self.displayedCard = None
     
     def clicked(self, item):
         '''

@@ -529,7 +529,7 @@ def makeStretchy(controller, ik, stretchDefault=1):
     chain = getChain( start, end )
     jointAxis = identifyAxis( end )
     
-    switcher = createNode('blendTwoAttr')
+    switcher = createNode('blendTwoAttr', n='stretchSlider')
     switcher.input[0].set(1)
 
     drive(controller, 'stretch', switcher.attributesBlender, minVal=0, maxVal=1, dv=max(min(stretchDefault, 1), 0) )
@@ -584,9 +584,23 @@ def makeStretchy(controller, ik, stretchDefault=1):
 
     multiplier >> switcher.input[1]
     
-    for j in chain[1:]:
+    for i, j in enumerate(chain[1:], 1):
         util.recordFloat(j, 'restLength', j.attr('t' + jointAxis).get() )
-        core.math.multiply( jointLenMultiplier, j.restLength) >> j.attr('t' + jointAxis)
+        
+        if isSpline:
+            core.math.multiply( jointLenMultiplier, j.restLength) >> j.attr('t' + jointAxis)
+        else:
+            
+            
+            # Make an attribute that is -10 to 10 map to multiplying the restLength by 0 to 2
+            controller.addAttr( attrName, at='double', k=True, min=-10, max=10 )
+            normalizedMod = core.math.add(core.math.divide( controller.attr(attrName), 10), 1)
+            
+            core.math.multiply(
+                jointLenMultiplier,
+                core.math.multiply( normalizedMod, j.restLength)
+            ) >> j.attr('t' + jointAxis)
+            
         '''
         if isSpline:
             core.math.multiply(switcher.output, j.restLength) >> j.attr('t' + jointAxis)
@@ -3160,13 +3174,25 @@ class TwistStyle:
     Used by splineIk.  Advanced uses advanced twist while the others determin
     which rotation axis drives the twist attribute.
     '''
-    ADVANCED = 0
-    X        = 1
-    NEG_X    = 2
-    Y        = 3
-    NEG_Y    = 4
-    Z        = 5
-    NEG_Z    = 6
+    ADVANCED = 'Advanced',
+    X        = 'X',
+    NEG_X    = '-X',
+    Y        = 'Y',
+    NEG_Y    = '-Y',
+    Z        = 'Z',
+    NEG_Z    = '-Z',
+    
+    @classmethod
+    def asChoices(cls):
+        choices = collections.OrderedDict()
+        choices[cls.ADVANCED]   = cls.ADVANCED
+        choices[cls.X]          = cls.X
+        choices[cls.NEG_X]      = cls.NEG_X
+        choices[cls.Y]          = cls.Y
+        choices[cls.NEG_Y]      = cls.NEG_Y
+        choices[cls.Z]          = cls.Z
+        choices[cls.NEG_Z]      = cls.NEG_Z
+        return choices
 
 
 @adds('twist', 'stretch')

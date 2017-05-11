@@ -829,7 +829,7 @@ class SplineTwist(MetaControl):
             ParamInfo( 'Curve', 'A nurbs curve to use for spline', ParamInfo.NODE_0 ),
         ] ),
         ('simplifyCurve',
-            ParamInfo( 'Simplify Curve', 'If True, the curve cvs will space out evenly, possibly altering the postions', ParamInfo.BOOL, default=False) ),
+            ParamInfo( 'Simplify Curve', 'If True, the curve cvs will space out evenly, possibly altering the postions', ParamInfo.BOOL, default=True) ),
         ('twistInfDist',
             ParamInfo( 'Twist influence', 'How many joints on one side are influenced by the twisting, zero means it is done automatically.', ParamInfo.INT, default=0, min=0) ),
         ('tipBend',
@@ -843,7 +843,7 @@ class SplineTwist(MetaControl):
         ('allowOffset',
             ParamInfo( 'Allow Offset', 'If you Simplyify Curve, the joints will slightly shift unless you Allow Offset or the joints are straight', ParamInfo.BOOL, default=False) ),
         ('twistStyle',
-            ParamInfo( 'Twist', '0 = advanced, 1=x, 2=-x 3=y ...', ParamInfo.INT, default=rig.TwistStyle.ADVANCED) ),
+            ParamInfo( 'Twist Style', '0 = advanced, 1=x, 2=-x 3=y ...', ParamInfo.ENUM, default=rig.TwistStyle.ADVANCED, enum=rig.TwistStyle.asChoices() ) ),
         
         ('name',
             ParamInfo( 'Name', 'Name', ParamInfo.STR, '')),

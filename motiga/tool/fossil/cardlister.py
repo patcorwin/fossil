@@ -74,7 +74,7 @@ class CardRow(QtWidgets.QTreeWidgetItem):
         cmd = self.card.rigData.get('rigCmd', '')
         if not cmd:
             cmd = '-'
-        index = self.options.index(cmd)
+        index = self.options.index(cmd) if cmd in self.options else -1
         if index > -1:
             self.type.setCurrentIndex(index)
         

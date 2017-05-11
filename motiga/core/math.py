@@ -91,6 +91,7 @@ def opposite( a ):
     node.input1D[0].set( 1 )
     _assignInput( node.input1D[1], a )
     
+    node.rename('opposite')
     return node.output1D
 
 

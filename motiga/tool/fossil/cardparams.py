@@ -82,7 +82,7 @@ class CardParams(QtWidgets.QTableWidget):
         #newVal = self.item(row, col).text()
         param = self.params[row]
         if param.type == cardRigging.ParamInfo.BOOL:
-            params[param.kwargName] = bool(self.cellWidget(row, col).state() == Qt.Checked)
+            params[param.kwargName] = bool(self.item(row, col).checkState() == Qt.Checked)
         
         elif param.type == cardRigging.ParamInfo.INT:
             try:

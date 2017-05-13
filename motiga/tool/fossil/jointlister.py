@@ -136,7 +136,7 @@ class JointLister(QtWidgets.QTableWidget):
         
         if col == self.JOINT_LISTER_CHILDOF:
             menu = QtWidgets.QMenu()
-            menu.addAction('-Clear-').triggered.connect( partial(self.changeParent, row, bpJoint, '') )
+            menu.addAction('-Clear-').triggered.connect( partial(self.changeParent, bpJoint, None, False, row, '') )
             
             for card in sorted(core.findNode.allCards()):
                 outputMap = card.getOutputMap(includeHelpers=False)
@@ -188,7 +188,7 @@ class JointLister(QtWidgets.QTableWidget):
         if newParent is None:
             bpJoint.setBPParent(None)
             info.setdefault('options', {})['mirroredSide'] = False
-            proxy.pointer( newParent, bpJoint )
+            proxy.unpoint( bpJoint )
         
         elif not mirroredSide:
             bpJoint.setBPParent(newParent)

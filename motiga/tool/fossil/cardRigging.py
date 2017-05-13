@@ -1369,15 +1369,6 @@ class SplineProxy(MetaControl):
 """
 
 
-# Collect all the controls that can be made and make a nice sorted list of them.
-availableControlTypes = {}
-    
-for _name, _class in locals().items():
-    if inspect.isclass( _class ):
-        if issubclass( _class, MetaControl ) and _class != MetaControl:
-            availableControlTypes[_name] = _class
-
-
 class Foot(MetaControl):
     
     ik_ = 'motiga.tool.fossil.rig.foot'
@@ -1441,7 +1432,9 @@ class Foot(MetaControl):
             sideAlteration = partial( colorParity, 'R' )
         else:
             sideAlteration = lambda **kwargs: kwargs  # noqa
-            
+        
+        fkCtrl = None
+        
         if buildFk:
             fkControlSpec = cls.controlOverrides(card, 'fk')
             fkGroupName = card.getGroupName( **fkControlSpec )
@@ -1465,12 +1458,15 @@ class Foot(MetaControl):
         kwargs.update( sideAlteration(**ikControlSpec) )
         
         #fkCtrl, fkConstraints = rig.fkChain(ballJoint, ballJoint, translatable=True)
-        ikCtrl, ikConstraints = cls.ik( ballJoint, toePos, heelPos, legControl, **kwargs )
+        ikCtrl, ikConstraints = cls.ik( ballJoint, toePos, heelPos, legControl, side, **kwargs )
+        
+        switchPlug = None
+        if cls.ik and cls.fk and buildFk:
+            switchPlug = controller.ikFkSwitch( 'FootFKSwitch', ikCtrl, ikConstraints, fkCtrl, fkConstraints )
         
         #switchPlug = controller.ikFkSwitch( ballJoint.name(), ikCtrl, ikConstraints, fkCtrl, fkConstraints )
         
-        return OutputControls([], ikCtrl)
-
+        return OutputControls(fkCtrl, ikCtrl)
 
 
 def availableControlTypeNames():
@@ -1525,7 +1521,7 @@ def buildRig(cards):
     Build the rig for the given cards, defaulting to all of them.
     '''
     global raiseErrors  # Testing hack.
-    global availableControlTypes
+    global registeredControls
     errors = []
     
     #if not cards:
@@ -1541,7 +1537,7 @@ def buildRig(cards):
     for card in cards:
         if card.rigData.get('rigCmd'):
             try:
-                availableControlTypes[ card.rigData.get('rigCmd') ].build(card)
+                registeredControls[ card.rigData.get('rigCmd') ].build(card)
             except Exception:
                 print( traceback.format_exc() )
                 errors.append( (card, traceback.format_exc()) )
@@ -1549,7 +1545,7 @@ def buildRig(cards):
     # Afterwards, create any required space switching that comes default with that card
     for card in cards:
         if card.rigData.get('rigCmd'):
-            func = availableControlTypes[ card.rigData.get('rigCmd') ]
+            func = registeredControls[ card.rigData.get('rigCmd') ]
             if func:
                 func.postCreate(card)
                 

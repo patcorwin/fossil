@@ -720,7 +720,7 @@ def addC(ctrl, target):
         target = target.listRelatives(type='joint')[0]
     
     for i, s in enumerate(groups[2:-2], 2):
-        msg = '{0}.rz = {1[2]}.rz + ( {1[1]}.rz + {1[3]}.rz ) * 0.5 +  ( {1[0]}.rz + {1[4]}.rz ) * 0.2;'.format( s, controls[i-2:i + 3] )
+        msg = '{0}.rz = {1[2]}.rz + ( {1[1]}.rz + {1[3]}.rz ) * 0.5 +  ( {1[0]}.rz + {1[4]}.rz ) * 0.2;'.format( s, controls[i - 2:i + 3] )
         expression( s=msg )
     
     msg = '{0}.rz = {1[0]}.rz + ( {1[1]}.rz ) * 0.5 +  ( {1[2]}.rz ) * 0.2;'.format( groups[0], controls[:3] )
@@ -1570,8 +1570,8 @@ def twistSetup(control, twistJoints, startSegment, endSegment, twistLateralAxis=
         constraint.interpType.set(2)  # Set to "shortest" because it will flip otherwise.
     
         aimConstraint( endSegment, aimer, wut='objectrotation', wuo=endSegment, mo=True,
-                        u=twistLateralAxis, #identifyAxis(jnt, asVector=True),  # noqa e127
-                        aimVector=[1, 0, 0], #identifyAxis(jnt, asVector=True),
+                        u=twistLateralAxis, # identifyAxis(jnt, asVector=True),  # noqa e127
+                        aimVector=[1, 0, 0], # identifyAxis(jnt, asVector=True),
                         wu=driverLateralAxis,
                     )
         
@@ -1901,7 +1901,7 @@ def splineNeck(start, end, name='', matchEndOrient=False, endOrient=EndOrient.TR
     endJnt = duplicate( end, po=True )[0]
     endJnt.setParent(w=True)
     
-    midCtrl = controller.control.build( name+"_Mid", controlSpec['middle'], controller.control.SPLINE )
+    midCtrl = controller.control.build( name + "_Mid", controlSpec['middle'], controller.control.SPLINE )
     lockScale(midCtrl)
     midPoint = pointOnCurve( crv, pr=0.5, p=True, top=True )
     midChain = findClosest(midPoint, getChain(start, end))
@@ -1950,13 +1950,13 @@ def splineNeck(start, end, name='', matchEndOrient=False, endOrient=EndOrient.TR
     
     skinCluster(startJnt, endJnt, midJoint, crv, tsb=True)
     
-    startCtrl = controller.control.build( name +'_Start', controlSpec['start'], controller.control.SPLINE )
+    startCtrl = controller.control.build( name + '_Start', controlSpec['start'], controller.control.SPLINE )
     lockScale(startCtrl)
     core.dagObj.matchTo( startCtrl, startJnt )
     startSpace = core.dagObj.zero(startCtrl)
     startSpace.setParent(container)
     
-    endCtrl = controller.control.build( name +'_End', controlSpec['main'], controller.control.SPLINE )
+    endCtrl = controller.control.build( name + '_End', controlSpec['main'], controller.control.SPLINE )
     lockScale(endCtrl)
     
     #core.dagObj.moveTo( endCtrl, end )
@@ -2579,6 +2579,7 @@ def splineChest(start, end, name='Chest', numChestJoints=3, useTrueZero=True, gr
             [(neck.name(), 1.0)] ] )
     '''
 
+
 @adds('stretch', 'length')
 @defaultspec( {'shape': controller.control.box,    'size': 10, 'color': 'green 0.22' },  # noqa e231
            pv={'shape': controller.control.sphere, 'size': 5,  'color': 'green 0.22' },
@@ -3030,7 +3031,7 @@ def dogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=EndOrient.TRU
     out = calcOutVector(masterChain[0], masterChain[1], masterChain[-1])
     if not pvLen or pvLen < 0:
         pvLen = chainLength(masterChain[1:]) * 0.5
-    pvPos = out*pvLen + dt.Vector(xform(boundChain[1], q=True, ws=True, t=True))
+    pvPos = out * pvLen + dt.Vector(xform(boundChain[1], q=True, ws=True, t=True))
     
     pvCtrl = controller.control.build( name + '_pv', controlSpec['pv'], type=controller.control.POLEVECTOR )
     lockScale(pvCtrl)
@@ -3258,7 +3259,7 @@ def splineIk(start, end, controlCountOrCrv=4, twistInfDist=0, simplifyCurve=Fals
         mainIk, _effector, crv = ikHandle( sol='ikSplineSolver',
             sj=stretchingChain[0],
             ee=stretchingChain[-1],
-            ns=controlCountOrCrv-3,
+            ns=controlCountOrCrv - 3,
             simplifyCurve=simplifyCurve)
     else:
         if duplicateCurve:
@@ -3307,12 +3308,12 @@ def splineIk(start, end, controlCountOrCrv=4, twistInfDist=0, simplifyCurve=Fals
     
     grp = group(em=True, p=lib.getNodes.mainGroup(), n=start.name() + "_splineTwist")
     
-    controls = addControlsToCurve(name+'Ctrl', crv, controlSpec['main'])
+    controls = addControlsToCurve(name + 'Ctrl', crv, controlSpec['main'])
     for ctrl in controls:
         core.dagObj.zero(ctrl).setParent( grp )
 
     if endName:
-        controls[-1].rename(endName+'Ctrl')
+        controls[-1].rename(endName + 'Ctrl')
 
     if matchOrient:
         trueZeroSetup(start, controls[0])
@@ -3367,7 +3368,7 @@ def splineIk(start, end, controlCountOrCrv=4, twistInfDist=0, simplifyCurve=Fals
     # with spline controllers by the spline control.
     if not twistInfDist:
         numJoints = countJoints(start, end)
-        twistInfDist = int(math.ceil( numJoints - len(controls) ) / float(len(controls)-1))
+        twistInfDist = int(math.ceil( numJoints - len(controls) ) / float(len(controls) - 1))
         twistInfDist = max(1, twistInfDist)
     
     noInherit = group(em=True, p=grp, n='NoInheritTransform')
@@ -3411,8 +3412,8 @@ def splineIk(start, end, controlCountOrCrv=4, twistInfDist=0, simplifyCurve=Fals
     numControls = len(controls)
     numTwists = len(twists)
     for i, ctrl in enumerate(controls):
-        index = int(round( i * ((numTwists-1) / (numControls-1)) ))
-        drive( ctrl, 'twist', twists[index].attr('r'+jointAxis) )
+        index = int(round( i * ((numTwists - 1) / (numControls - 1)) ))
+        drive( ctrl, 'twist', twists[index].attr('r' + jointAxis) )
         space.add( ctrl, start.getParent(), 'local' )
     
     parents = [start.getParent()] + controls[:-1]
@@ -3483,7 +3484,7 @@ def splineIk(start, end, controlCountOrCrv=4, twistInfDist=0, simplifyCurve=Fals
         target = start.getParent()
         core.dagObj.matchTo(follow, stretchingChain[0])
         parentConstraint( target, follow, mo=1 )
-        follow.rename(target+'_follow')
+        follow.rename(target + '_follow')
         stretchingChain[0].setParent(follow)
         
     # Constraint the offset (if exists) to the stretch last to account for any adjustments.
@@ -3539,7 +3540,7 @@ def squashAndStretch(joints, squashCenter, orientAsParent=True, rangeMin=-5, ran
         lockScale(subCtrl)
         
         scalingLoc = spaceLocator()
-        scalingLoc.rename( trimName(j)+'_squasher' )
+        scalingLoc.rename( trimName(j) + '_squasher' )
         core.dagObj.matchTo(scalingLoc, j)
         hide(scalingLoc)
         scalingLoc.setParent(mainCtrl)
@@ -3604,7 +3605,7 @@ def chainedIk(start, end, driveChain, handleInfo, splineOptions={}, controlSpec=
     for ikJoint, ikParent, pvParent in handleInfo:
 
         jIndex = chain.index(ikJoint.real)
-        chunk = controlChain[chunkStartIndex:jIndex+1]
+        chunk = controlChain[chunkStartIndex:jIndex + 1]
         chunkStartIndex = jIndex
 
         out = calcOutVectorRaw(chunk[0], chunk[1], chunk[-1])
@@ -3613,7 +3614,7 @@ def chainedIk(start, end, driveChain, handleInfo, splineOptions={}, controlSpec=
         ik.rename( 'ik_' + ikJoint.name() )
         
         # PoleVector
-        pvPos = out * chainLength(chunk)/2.0 + dt.Vector(xform(chunk[1], q=True, ws=True, t=True))
+        pvPos = out * chainLength(chunk) / 2.0 + dt.Vector(xform(chunk[1], q=True, ws=True, t=True))
         pv = spaceLocator(n='pv_' + ikJoint.name())
         pv.t.set(pvPos)
         poleVectorConstraint( pv, ik )
@@ -3640,10 +3641,12 @@ def chainedIk(start, end, driveChain, handleInfo, splineOptions={}, controlSpec=
             toeTap={'shape': controller.control.pin,       'size': 3, 'color': 'green 0.22'},
          heelRaise={'shape': controller.control.pin,       'size': 3, 'color': 'red 0.22'},
             )
-def foot(ballJnt, toePos, heelPos, legControl, controlSpec={}):
+def foot(ballJnt, toePos, heelPos, legControl, side, controlSpec={}):
     # The foot container
     container = group(n='Foot_Deal', em=True, p=lib.getNodes.mainGroup())
-    side = getSide_fromName( trimName(legControl) )
+    
+    if not side:
+        side = ''
     
     # Fake joints for IK/FK switching tech
     ankle = joint(None, n='FakeAnkle')
@@ -3660,13 +3663,13 @@ def foot(ballJnt, toePos, heelPos, legControl, controlSpec={}):
     core.dagObj.moveTo(toe, toePos)
     
     #Foot Control
-    footCtrl = controller.control.build( "Foot_" + side[0] + "_ctrl", controlSpec['main'], type=controller.control.TRANSLATE )
+    footCtrl = controller.control.build( "Foot_" + side + "_ctrl", controlSpec['main'], type=controller.control.TRANSLATE )
     core.dagObj.moveTo(footCtrl, heelPos)
     footCtrl.setParent(container)
     core.dagObj.zero(footCtrl)
         
     # Toe Control
-    toeCtrl = controller.control.build( "Toe_" + side[0] + "_ctrl", controlSpec['toeControl'], type=controller.control.TRANSLATE )
+    toeCtrl = controller.control.build( "Toe_" + side + "_ctrl", controlSpec['toeControl'], type=controller.control.TRANSLATE )
     core.dagObj.matchTo(toeCtrl, toe)
     toeCtrl.setRotation( legControl.getRotation(space='world'), space='world' )
     toeCtrl.setParent(footCtrl)
@@ -3674,14 +3677,14 @@ def foot(ballJnt, toePos, heelPos, legControl, controlSpec={}):
     core.dagObj.zero(toeCtrl)
     
     # BaLL Control
-    ballCtrl = controller.control.build( "Ball_" + side[0] + "_ctrl", controlSpec['ballPivot'], type=controller.control.TRANSLATE )
+    ballCtrl = controller.control.build( "Ball_" + side + "_ctrl", controlSpec['ballPivot'], type=controller.control.TRANSLATE )
     core.dagObj.moveTo(ballCtrl, ballJnt)
     ballIk.setParent(ballCtrl)
     ballCtrl.setParent(toeCtrl)
     core.dagObj.zero(ballCtrl)
     
     # Toe Tap Control
-    toeTapCtrl = controller.control.build( "ToeTap_" + side[0] + "_ctrl", controlSpec['toeTap'], type=controller.control.ROTATE )
+    toeTapCtrl = controller.control.build( "ToeTap_" + side + "_ctrl", controlSpec['toeTap'], type=controller.control.ROTATE )
     core.dagObj.moveTo(toeTapCtrl, toePos)
     toeIk.setParent(toeTapCtrl)
     toeTapCtrl.setParent(ballCtrl)
@@ -3689,12 +3692,12 @@ def foot(ballJnt, toePos, heelPos, legControl, controlSpec={}):
     xform(toeTapCtrl, ws=True, rp=xform(ballJnt, q=True, ws=True, t=True))
     
     # Heel Raise Control
-    heelRaiseCtrl = controller.control.build( "HeelRaise_" + side[0] + "_ctrl", controlSpec['heelRaise'], type=controller.control.ROTATE )
+    heelRaiseCtrl = controller.control.build( "HeelRaise_" + side + "_ctrl", controlSpec['heelRaise'], type=controller.control.ROTATE )
     core.dagObj.moveTo(heelRaiseCtrl, heelPos)
     xform(heelRaiseCtrl, ws=True, rp=xform(ballJnt, q=True, ws=True, t=True))
     
     select(d=True)
-    space.add(legControl, heelRaiseCtrl) 
+    space.add(legControl, heelRaiseCtrl)
     heelRaiseCtrl.setParent(ballCtrl)
     core.dagObj.zero(heelRaiseCtrl)
     
@@ -3713,11 +3716,3 @@ def foot(ballJnt, toePos, heelPos, legControl, controlSpec={}):
     #constraints = []
     
     return ctrl, constraints
-
-def getSide_fromName( s ):
-    if s.endswith("_L"): return "Left"
-    elif s.endswith("_R"): return "Right"
-    elif "_L_" in s: return "Left" 
-    elif "_R_" in s: return "Right"
-    elif s.startswith( "L_" ): return "Left" 
-    elif s.startswith( "R_" ): return "Right" 

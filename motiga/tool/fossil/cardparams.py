@@ -173,7 +173,7 @@ class CardParams(QtWidgets.QTableWidget):
         #cardSettings = cardRigging.ParamInfo.toDict( card.rigParams )
         #cardSettings = card.rigData.get('ikParams', {})
         
-        metaControl = cardRigging.availableControlTypes[card.rigData['rigCmd']]
+        metaControl = cardRigging.registeredControls[card.rigData['rigCmd']]
         
         # &&& I'm looking at ik and fk args, but all the data is set to "ik", does fk have anything?
         
@@ -256,7 +256,7 @@ def update(self, card):
         self.ui.cardName.setText( add.shortName(card) )
         
         try:
-            rigClass = cardRigging.availableControlTypes[ card.rigData.get('rigCmd') ]
+            rigClass = cardRigging.registeredControls[ card.rigData.get('rigCmd') ]
         except Exception:
             rigClass = None
         
@@ -268,11 +268,11 @@ def update(self, card):
         self.ui.cardName.setText( '<None selected>' )
         
         
-    if card and card.rigData.get('rigCmd') in cardRigging.availableControlTypes:
+    if card and card.rigData.get('rigCmd') in cardRigging.registeredControls:
         
         self.ui.cardType.setText( card.rigData['rigCmd'] )
 
-        metaControl = cardRigging.availableControlTypes[card.rigData['rigCmd']]
+        metaControl = cardRigging.registeredControls[card.rigData['rigCmd']]
         
         with self.ui.cardParams.disableChangeCallback():
             if metaControl.ik or metaControl.fk:

@@ -132,17 +132,17 @@ class control(object):
         '''
         These points are used to make a 1 unit diameter circle by the sphere and disc.
         '''
-        major = 0.4924298071936164
-        minor = 0.099922938686686918
-        terminal = [0, 0, -.5]
+        major = 0.4924 * 0.9
+        minor = 0.0999 * 0.9
+        terminal = [0, 0, -.5 * 0.9]
         
-        body = [[-0.39180581244561, 0, -0.39180581244561],
-                [-0.55409709377719, 0, 0],
-                [-0.39180581244561, 0, 0.39180581244561],
-                [ 0,                   0, 0.55409709377719], # noqa
-                [0.39180581244561,  0, 0.39180581244561], # noqa
-                [0.55409709377719,  0, 0], # noqa
-                [0.39180581244561,  0, -0.39180581244561]] # noqa
+        body = [[-0.3918 * 0.9, 0, -0.3918 * 0.9],
+                [-0.5540 * 0.9, 0, 0],
+                [-0.3918 * 0.9, 0, 0.3918 * 0.9],
+                [ 0,                   0, 0.5540 * 0.9], # noqa
+                [0.3918 * 0.9,  0, 0.3918 * 0.9], # noqa
+                [0.5540 * 0.9,  0, 0], # noqa
+                [0.3918 * 0.9,  0, -0.3918 * 0.9]] # noqa
     
     @classmethod
     def build(cls, name, spec, type=''):
@@ -182,6 +182,33 @@ class control(object):
         return ctrl
     
     @classmethod
+    def boundingBox(cls, obj):
+        '''
+        Maya's boundingBox returns something that contains the object, not necessarily the tighetest fitting box, but
+        we need the tightes!
+        '''
+        x = []
+        y = []
+        z = []
+        for shape in core.shape.getShapes(obj):
+            if shape.type() == 'nurbsSurface':
+                for u in xrange(shape.numCVsInU()):
+                    for v in xrange(shape.numCVsInV()):
+                        p = xform(shape.cv[u][v], q=True, os=True, t=True)
+                        x.append(p[0])
+                        y.append(p[1])
+                        z.append(p[2])
+                
+            if shape.type() == 'nurbsCurve':
+                for i in xrange(shape.numCVs()):
+                    p = xform(shape.cv[i], q=True, os=True, t=True)
+                    x.append(p[0])
+                    y.append(p[1])
+                    z.append(p[2])
+        
+        return min(x), min(y), min(z), max(x), max(y), max(z)
+    
+    @classmethod
     def setShape(cls, obj, newShape):
         '''
         :param PyNode obj: The obj to get the shape
@@ -195,8 +222,18 @@ class control(object):
             else:
                 return  # Can't do anything, shape doesn't exist
 
-        bounds = obj.boundingBox()
-        size = max( bounds.height(), bounds.width(), bounds.depth() )
+        #bounds = obj.boundingBox()
+        #size = max( bounds.height(), bounds.width(), bounds.depth() )
+        bb = cls.boundingBox(obj)
+        size = max( bb[3] - bb[0], bb[4] - bb[1], bb[5] - bb[2] )
+        
+        # Spheres and discs have troublesome shapes that are ~25 larger so must be accounted for
+        if obj.hasAttr('shapeType'):
+            if obj.shapeType.get() in ('sphere',) and newShape.__name__ not in ('sphere', ):
+                size *= 1.0 / 1.17
+            elif obj.shapeType.get() not in ('sphere', 'disc') and newShape.__name__ in ('sphere', 'disc'):
+                #size *= 1.3
+                pass
         
         color = getShader( obj )
         if not color:
@@ -294,7 +331,7 @@ class control(object):
         made vertical, which puts the transition ending back on the ground plane,
         where the 4th hoop remains.
         '''
-        ctrl = sphere( ax=[0, 1, 0], ssw=0, esw=360, r=0.49, d=3, s=6, nsp=4 )[0]
+        ctrl = sphere( ax=[0, 1, 0], ssw=0, esw=360, r=0.49 * 0.9, d=3, s=6, nsp=4 )[0]
         
         major = cls.CirclePoints.major
         minor = cls.CirclePoints.minor
@@ -311,7 +348,7 @@ class control(object):
             [[-minor, 0, -major]] * 2 + \
             [body[0]] + \
             [[-major, 0, -minor]] * 2 + \
-            [[-.5, 0, 0]]
+            [[-.5 * 0.9, 0, 0]]
         
         line = curve(p=hoop * 3 + transArc + hoop, d=3 )
         
@@ -408,7 +445,7 @@ class control(object):
     @classmethod
     @_commonArgs
     def disc(cls):
-        crv = curve( d=1, p=((0, 0, 0), (0, 0, .5)))
+        crv = curve( d=1, p=((0, 0, 0), (0, 0, .5 * 0.9)))
         ctrl = revolve( crv, ch=False, ssw=0, esw=360, degree=3, ax=[0, 1, 0] )[0]
         
         major = cls.CirclePoints.major
@@ -420,7 +457,7 @@ class control(object):
         e = [minor, 0, -major]
         
         hoop = [terminal, s, s] + body + [e, e, terminal, terminal, terminal]
-        cross = [(0, 0, 0.5)]*3 + [(0, 0, 0)]*3 + [(0.5, 0, 0)]*3 + [(-0.5, 0, 0)]*3  # noqa
+        cross = [(0, 0, 0.5 * 0.9)]*3 + [(0, 0, 0)]*3 + [(0.5 * 0.9, 0, 0)]*3 + [(-0.5 * 0.9, 0, 0)]*3  # noqa
         
         offset = 0.001
         
@@ -462,7 +499,7 @@ class control(object):
     @classmethod
     @_commonArgs
     def band(cls):
-        ctrl = cylinder( ax=[0, 1, 0], ssw=0, esw=360, r=0.5, hr=0.5, d=3, ch=0)[0]
+        ctrl = cylinder( ax=[0, 1, 0], ssw=0, esw=360, r=0.455, hr=0.455, d=3, ch=0)[0]
         
         major = cls.CirclePoints.major
         minor = cls.CirclePoints.minor
@@ -487,9 +524,9 @@ class control(object):
     @classmethod
     @_commonArgs
     def hex(cls):
-        ctrl = torus(ax=[0, 1, 0], ssw=30, esw=390, msw=360, r=0.5, hr=0.25, d=1, s=6, nsp=4, ch=False)[0]
+        ctrl = torus(ax=[0, 1, 0], ssw=30, esw=390, msw=360, r=0.40, hr=0.25, d=1, s=6, nsp=4, ch=False)[0]
         
-        line = circle( nr=[0, 1, 0], sw=360, r=0.5, d=1, s=6, ch=False )[0]
+        line = circle( nr=[0, 1, 0], sw=360, r=0.40, d=1, s=6, ch=False )[0]
         line.rename('outline')
         line.getShape().setParent( ctrl, add=True, shape=True )
         delete(line)

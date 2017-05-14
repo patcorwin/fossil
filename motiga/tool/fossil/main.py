@@ -35,6 +35,7 @@ from . import space
 from . import util
 
 from .ui import controllerEdit
+from .ui import _visGroup
 
 
 RigToolUI = core.ui.getQtUIClass( os.path.dirname(__file__) + '/ui/rigToolUI.ui', 'motiga.tool.fossil.ui.rigToolUI')
@@ -114,10 +115,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         self.utilTab = UtilLayout()
         
         # Vis Group Tab
-        qtLayout = Qt.QtWidgets.QVBoxLayout(self.ui.tab_4)
-        qtLayout.setObjectName( "Mot_RigTool_VisGroupTab" )
-        setParent( "Mot_RigTool_VisGroupTab" )
-        self.visGroupTab = VisGroupLayout()
+        self.visGroupProxy = _visGroup.VisGroupLayout(self.ui)
         
         # Space Tab
         qtLayout = Qt.QtWidgets.QVBoxLayout(self.ui.tab_5)
@@ -574,70 +572,6 @@ def addCardOutputs():
     # Make sure the cards
     for card in core.findNode.allCards():
         fossil_card._addOutputControls( card )
-
-
-class VisGroupLayout( object ):
-    def __init__( self ):
-        frameLayout(l='Visiblity Groups')
-
-        columnLayout()
-        text( l='Existing Groups' )
-        self.current = textScrollList(nr=10, sc=core.alt.Callback(self.selectGroup))
-        self.groupName = textFieldButtonGrp( l="Assign to Group", bl='Assign' )
-        text(l='')
-        button( l='Use Vis Shared Shape', c=Callback(self.use) )
-        text(l='')
-        button( l='Remove Vis Shared Shape', c=Callback(self.remove) )
-        text(l='')
-        button( l='Prune Unused Vis Groups', c=Callback(self.prune) )
-        setParent("..")
-    
-        setParent("..")
-        
-        self.update()
-        
-    def selectGroup( self ):
-        self.groupName.setText( self.current.getSelectItem()[0] )
-        
-    def assignGroup(self):
-        name = self.groupName.getText()
-        
-        if not name:
-            warning( 'You must specify a vis group' )
-            return
-            
-        match = re.match( '[\w0-9]*', name )
-        if not match:
-            warning( "The group name isn't valid" )
-            return
-
-        if match.group(0) != name:
-            warning( "The group name isn't valid" )
-            return
-            
-        for obj in selected():
-            lib.sharedShape.connect( obj, name )
-            
-    def use(self):
-        sel = selected()
-        for obj in selected():
-            lib.sharedShape.use( obj )
-        select( sel )
-    
-    def remove(self):
-        sel = selected()
-        for obj in selected():
-            if lib.sharedShape.find(obj):
-                lib.sharedShape.remove( obj )
-        select( sel )
-        
-    def prune(self):
-        lib.sharedShape.pruneUnused()
-        
-    def update( self ):
-        self.current.removeAll()
-        for name in lib.sharedShape.existingGroups():
-            self.current.append( name )
 
 
 class SpaceLayout( object ):

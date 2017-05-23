@@ -60,7 +60,7 @@ def unsubscribe(event, action):
         #print( 'Did not exist: unsubscribed', getCallableAsStr(action) )
 
 
-def publish(event):
+def publish(event, *args):
     '''
     Publish an event, which runs any associated actions.
     '''
@@ -69,7 +69,7 @@ def publish(event):
     for action in _registeredActions[event].values():
         # Catch errors
         try:
-            action()
+            action(*args)
         except Exception:
             #print( traceback.format_exc() )
             warning('An error occurred in {0} when {1} was published'.format(action, event) )

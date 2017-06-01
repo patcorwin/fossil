@@ -151,5 +151,7 @@ def animationSwitchMenu(objName):
     except Exception:
         print( traceback.format_exc() )
 
-
+print('About to run overrides')
+dagMenuProc.override_dagMenuProc()
 dagMenuProc.registerMenu(animationSwitchMenu)
+print('Overrides complete')

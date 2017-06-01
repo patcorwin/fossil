@@ -39,6 +39,7 @@ def override_dagMenuProc():
                 fid.write( ''.join(lines) )
     
     print('Sourced override ' + overrideFilename)
+    mel.source('dagMenuProc')
     mel.source(overrideFilename)
     
 

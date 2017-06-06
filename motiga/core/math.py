@@ -143,14 +143,17 @@ def eulerFromMatrix( matrix, degrees=False ):
     Returns the euler rotation from a matrix, optionally in degrees.
     '''
     easy = matrix[0][2]
-    if easy == 1:
+    
+    if isCloseF(easy, 1, 0.000000000000001):
         z = math.pi
         y = -math.pi / 2.0
         x = -z + math.atan2( -matrix[1][0], -matrix[2][0] )
-    elif easy == -1:
+        
+    elif isCloseF(easy, -1, 0.000000000000001):
         z = math.pi
         y = math.pi / 2.0
         x = z + math.atan2( matrix[1][0], matrix[2][0] )
+        
     else:
         y = -math.asin( easy )
         cosY = math.cos( y )

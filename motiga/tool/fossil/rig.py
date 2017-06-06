@@ -1445,9 +1445,10 @@ def advancedTwist(start, end, baseCtrl, endCtrl, ik):
     endAxis.worldMatrix[0] >> ik.dWorldUpMatrixEnd
 
 
-def midAimer(start, end, midCtrl, name='aimer'):
+def midAimer(start, end, midCtrl, name='aimer', upVector=None):
     '''
-    Creates an object point contrained to two others, aiming at the second
+    Creates an object point contrained to two others, aiming at the second.  Up
+    vector defaults to the control's Y.
     '''
     aimer = group(em=True, name=name)
     #aimer.setParent(container)
@@ -1459,6 +1460,13 @@ def midAimer(start, end, midCtrl, name='aimer'):
     aimV = dt.Vector(xform(end, q=True, ws=True, t=True)) - dt.Vector( xform(aimer, q=1, ws=1, t=1) )
     aimV.normalize()
     
+    if upVector:
+        midCtrlYUp = upVector
+    else:
+        temp = xform(midCtrl, q=True, ws=True, m=True)
+        midCtrlYUp = dt.Vector( temp[4:7] )
+    
+    """
     # Generally the X axist is a good default up since things are normally  on that plane
     if abs(aimV[0]) < 0.0001 or min([abs(v) for v in aimV]) == abs(aimV[0]):
         upV = dt.Vector([-1, 0, 0])
@@ -1485,6 +1493,7 @@ def midAimer(start, end, midCtrl, name='aimer'):
             midCtrlYUp = recalcUp
             pass
     #
+    """
     
     # Determine which axis of the end is closest to the midControl's Y axis.
     endMatrix = xform(end, q=True, ws=True, m=True)
@@ -3525,7 +3534,7 @@ def squashAndStretch(joints, squashCenter, orientAsParent=True, rangeMin=-5, ran
                             
     xform(mainCtrl, ws=True, t=squashCenter)
     
-    space = core.dagObj.zero(mainCtrl)
+    core.dagObj.zero(mainCtrl)
     
     subControls = []
     for i, j in enumerate(joints):

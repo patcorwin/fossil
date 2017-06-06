@@ -51,7 +51,11 @@ def findConstraints(ctrl):
     res = {}
     for const in constTypes:
         ctrlConst = getattr( core.constraints, const + 'Serialize' )(ctrl)
-        alignConst = getattr( core.constraints, const + 'Serialize' )(align)
+        
+        if align:
+            alignConst = getattr( core.constraints, const + 'Serialize' )(align)
+        else:
+            alignConst = None
     
         if ctrlConst:
             res[const + ' ctrl'] = ctrlConst

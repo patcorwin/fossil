@@ -123,10 +123,10 @@ class CardParams(QtWidgets.QTableWidget):
             self.setItem( row, 1, checkBox )
             
         elif param.type == param.INT:
-            self.setItem( row, 1, QtWidgets.QTableWidgetItem(str(0 if not card.rigData.get('ikParams', {}).get(param.kwargName, param.default) else param.default)) )
+            self.setItem( row, 1, QtWidgets.QTableWidgetItem(str(card.rigData.get('ikParams', {}).get(param.kwargName, param.default))) )
             
         elif param.type == param.FLOAT:
-            self.setItem( row, 1, QtWidgets.QTableWidgetItem(str(0.0 if not card.rigData.get('ikParams', {}).get(param.kwargName, param.default) else param.default)) )
+            self.setItem( row, 1, QtWidgets.QTableWidgetItem(str( card.rigData.get('ikParams', {}).get(param.kwargName, param.default))) )
             
         elif param.type == param.ENUM:
             dropdown = QtWidgets.QComboBox()

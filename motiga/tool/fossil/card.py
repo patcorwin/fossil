@@ -263,14 +263,10 @@ def splitCard(tempJoint):
     newCvs = list(card.cv)
     newCvs = [newCvs[0], newCvs[2], newCvs[1], newCvs[3]]
 
-    if oldCard.listRelatives(type='mesh'):
-        points = [ dt.Vector(xform(v, q=True, ws=True, t=True)) for v in oldCard.vtx ]
-        vtx = list(oldCard.vtx)
-    else:
-        points = [ dt.Vector(xform(v, q=True, ws=True, t=True)) for v in oldCard.cv ]
-        points = [points[0], points[2], points[1], points[3]]  # vtx and points must be rearranged in the same way
-        vtx = list(oldCard.cv)
-        vtx = [vtx[0], vtx[2], vtx[1], vtx[3]]
+    points = [ dt.Vector(xform(v, q=True, ws=True, t=True)) for v in oldCard.cv ]
+    points = [points[0], points[2], points[1], points[3]]  # vtx and points must be rearranged in the same way
+    vtx = list(oldCard.cv)
+    vtx = [vtx[0], vtx[2], vtx[1], vtx[3]]
     
     midA = (points[0] - points[2]) / 2.0 + points[2]
     midB = (points[1] - points[3]) / 2.0 + points[3]
@@ -309,8 +305,8 @@ def splitCard(tempJoint):
     card.rename( card.nameInfo.get() )
     oldCard.rename( oldCard.nameInfo.get() )
     
+    # Move the appropriate joints to the new card.
     for j in oldCard.joints[index: ]:
-    
         prevConnection = j.message.listConnections(type=card.__class__, p=1)
         j.message.disconnect( prevConnection[0] )
         
@@ -318,6 +314,16 @@ def splitCard(tempJoint):
         pos = xform(j, q=True, ws=True, t=True)
         card.addJoint(j)
         xform(j, ws=True, t=pos)
+    
+    # Update .parentCard
+    movedJoints = set( card.joints )
+    for childCard in card.childrenCards:
+        for j in childCard.joints:
+            if j.parent in movedJoints:
+                childCard.parentCardLink = card
+                continue
+    
+    # There might be a way to deal with moving controls, but the fact a split happend indicates they will be rebuilt.
 
     
 def mirrorCard(card):

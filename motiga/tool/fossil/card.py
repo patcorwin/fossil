@@ -343,6 +343,8 @@ def mirrorCard(card):
 def duplicateCard(card):
     d = duplicate( card )[0]
     proxy.relink( card, d )
+    if card.parentCard:
+        d.parentCardLink = card.parentCard
     return d
 
 

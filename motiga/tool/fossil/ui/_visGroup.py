@@ -43,9 +43,12 @@ class VisGroupLayout( object ):
         if match.group(0) != name:
             warning( "The group name isn't valid" )
             return
-            
+        
+        level = self.ui.groupLevel.value() #obj.visibility.name()
+        print('LEVEL', level)
+        
         for obj in selected():
-            lib.sharedShape.connect( obj, name )
+            lib.sharedShape.connect( obj, name, level )
         
         self.update()
         select( sel )

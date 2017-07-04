@@ -13,7 +13,7 @@ back to MFnDagNode when casting a curve with no cvs.
 '''
 from __future__ import absolute_import, print_function
 
-from pymel.core import cmds, objExists, delete, parent, warning, connectAttr, group, listConnections, deleteAttr, mel, setAttr, addAttr
+from pymel.core import cmds, createNode, objExists, delete, parent, warning, connectAttr, group, listConnections, deleteAttr, mel, setAttr, addAttr, PyNode
 
 from ..add import shortName
 from .. import core
@@ -92,10 +92,13 @@ def get(create=True):
     '''
 
 
-def connect( obj, name ):
+def connect( obj, name, level=1 ):
     '''
     Hook the given obj's visibility to the `name` attribute on the sharedShape.
     If the attr doesn't exist, it will be made.
+    
+    Optionanal `level` will determine when the `obj` will become visible.  For
+    example, 2 will not be visible at 1, but will at 2 and higher.
     '''
     
     orig = obj
@@ -107,13 +110,20 @@ def connect( obj, name ):
     shape = get()
     plug = shape + '.' + name
     if not cmds.objExists( plug ):
-        cmds.addAttr( shape, ln=name, at='short', min=0, max=1, dv=1 )
+        cmds.addAttr( shape, ln=name, at='short', min=0, max=level, dv=1 )
         cmds.setAttr( shape + '.' + name, cb=True )
     elif cmds.getAttr( shape + '.' + name, type=True) not in ['bool', 'double', 'float', 'long', 'short']:
         warning( '{0} is not a good name for a vis group since the sharedShape has an attr already that is of the wrong type'.format(name) )
         return
     
-    connectAttr( plug, obj.visibility.name(), f=True)
+    if cmds.addAttr(plug, q=True, max=True) < level:
+        cmds.addAttr(plug, e=True, max=level)
+    
+    if level == 1:
+        connectAttr( plug, obj.visibility.name(), f=True)
+    else:
+        connectAttr( getConditionNode(plug, level).outColorR, obj.visibility, f=True)
+        
     obj.visibility.setKeyable(False)
     
     # If we have a main controller, put the container in a subgroup to make
@@ -124,6 +134,27 @@ def connect( obj, name ):
     if isinstance(orig, nodeApi.RigController):
         if shortName(orig.container.getParent()) != visGroupName:
             orig.setGroup(visGroupName)
+
+
+def getConditionNode(plug, level):
+    '''
+    '''
+    
+    conditions = PyNode(plug).listConnections(type='condition', p=True, d=True, s=False)
+    for condition in conditions:
+        if condition.attrName() == 'ft' and condition.node().secondTerm.get() == level:
+            return condition.node()
+    
+    condition = createNode('condition', n=plug.split('.')[1] + '_%i' % level)
+    condition.secondTerm.set(level)
+    condition.operation.set(3)
+    connectAttr( plug, condition.firstTerm, f=True )
+    
+    
+    condition.colorIfTrue.set(1, 1, 1)
+    condition.colorIfFalse.set(0, 0, 0)
+    
+    return condition
 
 
 def getVisGroup(obj):

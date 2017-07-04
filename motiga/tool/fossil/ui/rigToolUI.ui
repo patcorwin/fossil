@@ -698,7 +698,7 @@
          <rect>
           <x>10</x>
           <y>360</y>
-          <width>256</width>
+          <width>171</width>
           <height>20</height>
          </rect>
         </property>
@@ -727,6 +727,32 @@
         </property>
         <property name="text">
          <string>Assign to Group</string>
+        </property>
+       </widget>
+       <widget class="QSpinBox" name="groupLevel">
+        <property name="geometry">
+         <rect>
+          <x>230</x>
+          <y>360</y>
+          <width>41</width>
+          <height>21</height>
+         </rect>
+        </property>
+        <property name="minimum">
+         <number>1</number>
+        </property>
+       </widget>
+       <widget class="QLabel" name="label_4">
+        <property name="geometry">
+         <rect>
+          <x>194</x>
+          <y>362</y>
+          <width>31</width>
+          <height>16</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Level</string>
         </property>
        </widget>
       </widget>

@@ -363,6 +363,8 @@ def deprecated_nameInfo_set(obj, value):
 
 class Card(nt.Transform):
     
+    version = 1  # Look at updateRigState for a history of what has been updated.
+    
     VIS_STORAGE = 'MoVisGroup'
     SPACE_STORAGE = 'spaces'
     SPACES_STORAGE = 'MoSpaces'
@@ -371,7 +373,25 @@ class Card(nt.Transform):
     CUSTOM_ATTR_STORAGE = 'MoCustomAttr'
     
     parentCardLink = core.factory.SingleStringConnectionAccess('moParentCardLink')
+    
+    def updateRigState(self):
+        state = self.rigState
+        version = state.get('version', 0)
         
+        '''
+        1: Vis groups now have a level, which defaults to 1.
+        '''
+        if version < 1:
+            if 'visGroup' in state:
+                for controlVisGroupSettings in state['visGroup'].values():
+                    for ctrl in controlVisGroupSettings.keys():
+                        controlVisGroupSettings[ctrl] = (controlVisGroupSettings[ctrl], 1)
+        
+        state['version'] = self.version
+        
+        self.rigState = state
+        
+    
     @classmethod
     def _isVirtual(cls, obj, name):
         fn = pymel.api.MFnDependencyNode(obj)
@@ -395,7 +415,7 @@ class Card(nt.Transform):
     fkControllerOptions = core.factory.StringAccess('fkControllerOptions')
     
     rigData             = core.factory.JsonAccess('moRigData')  # This replaces NameInfo, Suffic, RigCmd,
-    rigState            = core.factory.JsonAccess('moRigState')  # &&& Thsi replaces MoVisGroup, MoCtrlLink, MoSDK, MoCustumAttr, MoSpaces
+    rigState            = core.factory.JsonAccess('moRigState')  # &&& This replaces MoVisGroup, MoCtrlLink, MoSDK, MoCustumAttr, MoSpaces
     
     # Need to update these with direct references to rigData[*]
     
@@ -1945,15 +1965,17 @@ class BPJoint(nt.Joint):
         
     @property
     def realMirror(self):
-        ''' Returns the actual bone. Done via the `.realJoint` connection.'''
+        ''' Returns the actual bone. Done via the `.realJointMirror` connection.'''
 
         mirror = core.factory._getSingleConnection(self, 'realJointMirror')
         if mirror:
             return mirror
         
+        '''
         real = self.real
         if real:
             return getMirror( real.name(), self )
+        '''
         
     @property
     def proxyChildren(self):

@@ -3,7 +3,7 @@ Utility collection
 
 Example usage:
     # Put a controller in a group
-    sharedShape.connect( someControler, 'footIk' )
+    sharedShape.connect( someControler, ('footIk', 1) )
     
     # Give the controller access to the sharedShape
     sharedShape.use( someControler )
@@ -13,7 +13,7 @@ back to MFnDagNode when casting a curve with no cvs.
 '''
 from __future__ import absolute_import, print_function
 
-from pymel.core import cmds, createNode, objExists, delete, parent, warning, connectAttr, group, listConnections, deleteAttr, mel, setAttr, addAttr, PyNode
+from pymel.core import cmds, createNode, objExists, delete, parent, warning, connectAttr, group, listConnections, deleteAttr, mel, setAttr, addAttr, PyNode, nodeType, getAttr
 
 from ..add import shortName
 from .. import core
@@ -92,7 +92,7 @@ def get(create=True):
     '''
 
 
-def connect( obj, name, level=1 ):
+def connect( obj, (name, level) ):
     '''
     Hook the given obj's visibility to the `name` attribute on the sharedShape.
     If the attr doesn't exist, it will be made.
@@ -158,6 +158,10 @@ def getConditionNode(plug, level):
 
 
 def getVisGroup(obj):
+    '''
+    Returns ('name', int:level) if it's in a group, otherwise an empty tuple.
+    '''
+    
     zero = core.dagObj.zero(obj, apply=False, make=False)
     if zero:
         obj = zero
@@ -166,10 +170,21 @@ def getVisGroup(obj):
     if visCon:
         node, attr = visCon[0].rsplit('|')[-1].split('.')
         shape = get(create=False)
+        
+        level = 1
+        
+        if nodeType(node) == 'condition' and attr == 'outColorR':
+            con = listConnections(node + '.firstTerm', p=True, s=True, d=False)
+            if con:
+                level = int(getAttr(node + '.secondTerm'))
+                node = shortName(con[0].node())
+                attr = con[0].attrName()
+                print(node, 'NODE')
+        
         if shape and shape.endswith('|' + node):
-            return attr
-    
-    return ''
+            return attr, level
+        
+    return ()
 
 
 def remove(obj):

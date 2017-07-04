@@ -417,7 +417,7 @@ def defaultspec(defSpec, **additionalSpecs):
             # visGroup, since they apply to the '_space' group, not the actual
             # control which is connected to the ik/fk switch attr
             if tempSpec['main']['visGroup']:
-                lib.sharedShape.connect(res[0], tempSpec['main']['visGroup'])
+                lib.sharedShape.connect(res[0], (tempSpec['main']['visGroup'], 1) )
             
             subControls = res[0].subControl.items()
             if subControls:
@@ -425,7 +425,7 @@ def defaultspec(defSpec, **additionalSpecs):
                 # If there is one spec and sub controls, it is a chain so apply the same visgroup
                 if len(tempSpec) == 1 and tempSpec['main']['visGroup']:
                     for name, ctrl in subControls:
-                        lib.sharedShape.connect(ctrl, tempSpec['main']['visGroup'])
+                        lib.sharedShape.connect(ctrl, (tempSpec['main']['visGroup'], 1) )
             
                 # If there are 2 specs, the non-main is the repeating one
                 elif len(tempSpec) == 2:
@@ -433,7 +433,7 @@ def defaultspec(defSpec, **additionalSpecs):
                     visGroup = tempSpec['main']['visGroup']
                     if visGroup:
                         for name, ctrl in subControls:
-                            lib.sharedShape.connect(ctrl, visGroup)
+                            lib.sharedShape.connect(ctrl, (visGroup, 1) )
                 
                 # Finally, each additional spec should match a sub control
                 else:
@@ -445,7 +445,7 @@ def defaultspec(defSpec, **additionalSpecs):
                             try:  # &&& Eventually this needs to not ignore errors
                                 lib.sharedShape.connect(
                                     res[0].subControl[specName],
-                                    tempSpec[specName]['visGroup']
+                                    (tempSpec[specName]['visGroup'], 1)
                                 )
                             except:
                                 pass
@@ -1734,7 +1734,7 @@ def freeform(joints, translatable=False, groupName='', controlSpec={} ):
     # Make a top level section for each lead joint in the subHierarchy
     #topLevel = [j for j in joints if j.getParent() not in joints]
 
-    topContainer = group(n='freeform', p=lib.getNodes.mainGroup(), em=True)
+    topContainer = group(n=simpleName(joints[0], '{0}_Freeform'), p=lib.getNodes.mainGroup(), em=True)
     
     #top = container
     #leadOrient, leadPoint = None, None

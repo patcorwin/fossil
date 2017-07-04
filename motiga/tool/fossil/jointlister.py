@@ -5,7 +5,7 @@ import itertools
 from Qt import QtWidgets, QtCore
 from Qt.QtCore import Qt
 
-from pymel.core import delete, select
+from pymel.core import delete, select, selected
 
 from ... import add
 from ... import core
@@ -182,6 +182,8 @@ class JointLister(QtWidgets.QTableWidget):
             menu.exec_(self.viewport().mapToGlobal(position))
     
     def changeParent(self, bpJoint, newParent, mirroredSide, row, text):
+        currentSelection = selected()
+        
         info = bpJoint.info
         self.item(row, self.JOINT_LISTER_CHILDOF).setText(text)
         
@@ -201,6 +203,10 @@ class JointLister(QtWidgets.QTableWidget):
             proxy.pointer( newParent, bpJoint )
             
         bpJoint.info = info
+        
+        if currentSelection:
+            select(currentSelection)
+        
     
     def setOrientTarget(self, row, bpJoint, newTarget):
         

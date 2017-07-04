@@ -616,7 +616,7 @@ class SpaceLayout( object ):
         self.clearMultiTarget()
         if targets[i].type in [space.Mode.MULTI_PARENT, space.Mode.MULTI_ORIENT]:
             
-            with rowColumnLayout( nc=2, p=self.mulitUI ):
+            with rowColumnLayout( nc=2, p=self.multiUI ):
                 state = space.serializeSpaces( sel[0] )[i]
                 
                 weights = targetConstraints[i].getWeightAliasList()

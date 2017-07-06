@@ -752,7 +752,7 @@ def copyShape(source, dest, mirror=False):
     newShapes = []
     for shape in core.shape.getShapes(source):
         srcShapes.append(shape)
-        newShapes.append(shape.setParent( dest, s=True, add=True ))
+        newShapes.append( parent(shape,dest, s=True, add=True )[0] )  # Might be a 2017 bug that shape.setParent() doesn't return an object
     
     if source.hasAttr('shapeType') and dest.hasAttr('shapeType'):
         dest.shapeType.set( source.shapeType.get() )

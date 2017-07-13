@@ -514,16 +514,7 @@ def bugleg(start, end):
     pass
 
 
-def makeStretchy(controller, ik, stretchDefault=1):
-    '''
-    Given a control and an ik handle, makes it stretchy via translation.
-    The control is needed because a "stretch" attribute will be added.  Handles
-    spline and non-spline ik.
-    
-    Returns the strech controlling attribute and the joint length multiplier,so
-    other things can also stretch if needed.
-    '''
-    
+def _makeStretchyPrep(controller, ik, stretchDefault=1):
     start = ik.startJoint.listConnections()[0]
     end = ik.endEffector.listConnections()[0].tz.listConnections()[0]
     chain = getChain( start, end )
@@ -539,77 +530,80 @@ def makeStretchy(controller, ik, stretchDefault=1):
     controller.modAmount.set(cb=True)
     chainMeasure(chain) >> controller.modAmount
     
-    isSpline = isinstance( ik.ikSolver.get(), nt.IkSplineSolver)
-    if isSpline:
-        crv = ik.inCurve.listConnections()[0]
-        length = arclen(crv, ch=1).arcLength
-        lengthMax = arclen(crv, ch=1).arcLength.get()
-        # Spline squashes and stretches
-        multiplier = core.math.divide( length, lengthMax )
-        
-        jointLenMultiplier = switcher.output
-        
-    else:
-        dist, grp = core.dagObj.measure(start, ik)
-        grp.setParent( controller )
-        dist.setParent( ik )
-        length = dist.distance
-        #lengthMax = sum( [abs(j.attr('t'+jointAxis).get()) for j in chain[1:] ] )
-        lengthMax = chainLength(chain)
-        # Regular IK only stretches
-        # ratio = (abs distance between start and end) / (length of chain)
-        ratio = core.math.divide( length, lengthMax )
-        # multiplier is either 1 or a number greater than one needed for the chain to reach the end.
-        multiplier = core.math.condition( ratio, '>', 1.0, true=ratio, false=1 )
+    return start, chain, jointAxis, switcher
 
-        controller.addAttr( 'length', at='double', min=-10.0, dv=0.0, max=10.0, k=True )
 
-        '''
-        lengthMod is the below formula:
-
-        if controller.length >= 0:
-            controller.length/10.0 + 1.0 # 1.0 to 2.0 double the length of the limb
-        else:
-            controller.length/20.0  + 1.0 # .5 to 1.0 halve the length of the limb
-        '''
-        lengthMod = core.math.add(
-            core.math.divide(
-                controller.length,
-                core.math.condition(controller.length, '>=', 0, 10.0, 20.0)
-            ),
-            1.0
-        )
-        
-        jointLenMultiplier = core.math.multiply(switcher.output, lengthMod)
-
+def makeStretchySpline(controller, ik, stretchDefault=1):
+    start, chain, jointAxis, switcher = _makeStretchyPrep( controller, ik, stretchDefault )
+    
+    crv = ik.inCurve.listConnections()[0]
+    length = arclen(crv, ch=1).arcLength
+    lengthMax = arclen(crv, ch=1).arcLength.get()
+    # Spline squashes and stretches
+    multiplier = core.math.divide( length, lengthMax )
+    
+    jointLenMultiplier = switcher.output
+    
     multiplier >> switcher.input[1]
     
     for i, j in enumerate(chain[1:], 1):
         util.recordFloat(j, 'restLength', j.attr('t' + jointAxis).get() )
-        
-        if isSpline:
-            core.math.multiply( jointLenMultiplier, j.restLength) >> j.attr('t' + jointAxis)
-        else:
-            
-            attrName = 'segLen' + str(i)
-            
-            # Make an attribute that is -10 to 10 map to multiplying the restLength by 0 to 2
-            controller.addAttr( attrName, at='double', k=True, min=-10, max=10 )
-            normalizedMod = core.math.add(core.math.divide( controller.attr(attrName), 10), 1)
-            
-            core.math.multiply(
-                jointLenMultiplier,
-                core.math.multiply( normalizedMod, j.restLength)
-            ) >> j.attr('t' + jointAxis)
-            
-        '''
-        if isSpline:
-            core.math.multiply(switcher.output, j.restLength) >> j.attr('t' + jointAxis)
-            
-        else:
-            core.math.multiply( jointLenMultiplier, j.restLength) >> j.attr('t' + jointAxis)
-        '''
+        core.math.multiply( jointLenMultiplier, j.restLength) >> j.attr('t' + jointAxis)
+    
+    return controller.attr('stretch'), jointLenMultiplier
+    
+    
+def makeStretchyNonSpline(controller, ik, stretchDefault=1):
+    start, chain, jointAxis, switcher = _makeStretchyPrep( controller, ik, stretchDefault )
 
+    dist, grp = core.dagObj.measure(start, ik)
+    grp.setParent( controller )
+    dist.setParent( ik )
+    length = dist.distance
+    #lengthMax = sum( [abs(j.attr('t'+jointAxis).get()) for j in chain[1:] ] )
+    lengthMax = chainLength(chain)
+    # Regular IK only stretches
+    # ratio = (abs distance between start and end) / (length of chain)
+    ratio = core.math.divide( length, lengthMax )
+    # multiplier is either 1 or a number greater than one needed for the chain to reach the end.
+    multiplier = core.math.condition( ratio, '>', 1.0, true=ratio, false=1 )
+
+    controller.addAttr( 'length', at='double', min=-10.0, dv=0.0, max=10.0, k=True )
+
+    '''
+    lengthMod is the below formula:
+
+    if controller.length >= 0:
+        controller.length/10.0 + 1.0 # 1.0 to 2.0 double the length of the limb
+    else:
+        controller.length/20.0  + 1.0 # .5 to 1.0 halve the length of the limb
+    '''
+    lengthMod = core.math.add(
+        core.math.divide(
+            controller.length,
+            core.math.condition(controller.length, '>=', 0, 10.0, 20.0)
+        ),
+        1.0
+    )
+    
+    jointLenMultiplier = core.math.multiply(switcher.output, lengthMod)
+    
+    multiplier >> switcher.input[1]
+    
+    for i, j in enumerate(chain[1:], 1):
+        util.recordFloat(j, 'restLength', j.attr('t' + jointAxis).get() )
+            
+        attrName = 'segLen' + str(i)
+        
+        # Make an attribute that is -10 to 10 map to multiplying the restLength by 0 to 2
+        controller.addAttr( attrName, at='double', k=True, min=-10, max=10 )
+        normalizedMod = core.math.add(core.math.divide( controller.attr(attrName), 10), 1)
+        
+        core.math.multiply(
+            jointLenMultiplier,
+            core.math.multiply( normalizedMod, j.restLength)
+        ) >> j.attr('t' + jointAxis)
+    
     return controller.attr('stretch'), jointLenMultiplier
 
 
@@ -2009,7 +2003,7 @@ def splineNeck(start, end, name='', matchEndOrient=False, endOrient=EndOrient.TR
     
     # End new endOrient enum code
     
-    makeStretchy( endCtrl, mainIk )
+    makeStretchySpline( endCtrl, mainIk )
     
     # Constraint to endJnt, which has the same orientation as end instead of endCtrl
     endJnt.setParent( endCtrl )
@@ -2247,7 +2241,7 @@ def splineChestFourJoint(start, end, name='Chest', groupName='', controlSpec={})
     aimConstraint(chestBaseAim, orientTarget, aim=[1, 0, 0], u=[0, 1, 0], wut='objectrotation', wuo=chestCtrl, mo=True)
     aimConstraint(shoulderCtrl, controlChain[-2], aim=[1, 0, 0], u=[0, 1, 0], wut='objectrotation', wuo=chestCtrl, mo=True)
     
-    makeStretchy(chestCtrl, mainIk)
+    makeStretchySpline(chestCtrl, mainIk)
     # It's easier to lock and hide to ignore this than not add the length attr at all.
     chestCtrl.length.set(k=False)
     chestCtrl.length.lock()
@@ -2323,7 +2317,7 @@ def splineChestThreeJoint(start, end, name='Chest', groupName='', controlSpec={}
     lockTrans(lockScale(neckCtrl))
     
     
-    makeStretchy(chestCtrl, mainIk)
+    makeStretchySpline(chestCtrl, mainIk)
     # It's easier to lock and hide to ignore this than not add the length attr at all.
     chestCtrl.length.set(k=False)
     chestCtrl.length.lock()
@@ -2389,7 +2383,7 @@ def splineChest(start, end, name='Chest', numChestJoints=3, useTrueZero=True, gr
     # -- Chest control --
     chestCtrl = controller.control.build( name + '_main', controlSpec['main'], controller.control.SPLINE )
     chestCtrl.setParent(container)
-    makeStretchy( chestCtrl, mainIk )
+    makeStretchySpline( chestCtrl, mainIk )
     chestCtrl.stretch.set(1)
     chestCtrl.stretch.lock()
     chestCtrl.stretch.setKeyable(False)
@@ -2707,7 +2701,7 @@ def ikChain(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.TR
     core.math.condition( mainIk.twist, '!=', 0, 0, 1 ) >> mainIk.twistType # Force updating??
     '''
 
-    makeStretchy(ctrl, mainIk, stretchDefault)
+    makeStretchyNonSpline(ctrl, mainIk, stretchDefault)
     
     # Register all the parts of the control for easy identification at other times.
     ctrl = nodeApi.RigController.convert(ctrl)
@@ -2829,7 +2823,7 @@ def ikChain2(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.T
     lockScale(mainIk)
 
 
-    attr, jointLenMultiplier = makeStretchy(ctrl, mainIk, stretchDefault)
+    attr, jointLenMultiplier = makeStretchyNonSpline(ctrl, mainIk, stretchDefault)
     # &&& Need to do the math for all the
     
     # Make the offset joints and setup all the parenting of twists (last joint can't logically have twists)
@@ -3155,7 +3149,7 @@ def dogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=EndOrient.TRU
     core.dagObj.zero(pvCtrl).setParent( container )
     
     # Make stretchy ik, but the secondary chain needs the stretch hooked up too.
-    makeStretchy(footCtrl, mainIk)
+    makeStretchyNonSpline(footCtrl, mainIk)
     #for src, dest in zip( getChain(masterChain, masterEnd)[1:], getChain( hipJoint, getDepth(hipJoint, 4) )[1:] ):
         #src.tx >> dest.tx
         
@@ -3368,7 +3362,7 @@ def splineIk(start, end, controlCountOrCrv=4, twistInfDist=0, simplifyCurve=Fals
     controls[0] = nodeApi.RigController.convert(controls[0])
     controls[0].container = grp
     
-    stretchAttr, jointLenMultiplier = makeStretchy(controls[0], mainIk)
+    stretchAttr, jointLenMultiplier = makeStretchySpline(controls[0], mainIk)
         
     connectingCurve = addConnectingCurve(controls)
     controls[0].visibility >> connectingCurve.visibility

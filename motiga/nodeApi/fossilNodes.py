@@ -1829,19 +1829,33 @@ class Card(nt.Transform):
         self.saveShapes()
 
     def restoreState(self):
+        '''
+        Restores everything listed in `thingsToSave`, returning a list of ones that failed.
+        '''
 
         allData = self.rigState
+        
+        issues = []
 
         for niceName, harvestFunc, restoreFunc, attr in self.thingsToSave:
             if niceName in allData and allData[niceName]:
-                self._restoreData(attr, restoreFunc, allData[niceName])
+                try:
+                    self._restoreData(attr, restoreFunc, allData[niceName])
+                except Exception:
+                    print(traceback.format_exc())
+                    issues.append( 'Issues restoring ' + niceName )
                 
         rigClass = self.rigCommandClass
         
         if rigClass:
-            rigClass.restoreState(self)
+            try:
+                rigClass.restoreState(self)
+            except Exception:
+                issues.append( 'Issues restoring shapes' )
         
         self.restoreShapes()
+        
+        return issues
 
     # -----------------
 

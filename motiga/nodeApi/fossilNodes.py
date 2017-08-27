@@ -692,9 +692,18 @@ class Card(nt.Transform):
             if not repeat:
                 names = [ '{0}{1}{2}'.format(prefix, name, suffix) for name in head + tail ]
             else:
-                sequenceLength = validJointCount - len(head) - len(tail)
-                sequence = [ repeat + '{0:0>2}'.format(i + 1) for i in range(sequenceLength) ]
-                names = [ '{0}{1}{2}'.format(prefix, name, suffix) for name in head + sequence + tail ]
+                repeatCount = validJointCount - len(head) - len(tail)
+                
+                startNumResult = re.search( '\d+$', repeat )
+                if startNumResult:
+                    startNum = int(startNumResult.group())
+                    repeat = repeat[ : -len(startNumResult.group()) ] # Trim off the number since it's used to denote start num
+                else:
+                    startNumResult = 1
+                sequentialNames = [ repeat + '{0:0>2}'.format(i) for i in range(startNum, startNum + repeatCount + 1) ]
+
+                
+                names = [ '{0}{1}{2}'.format(prefix, name, suffix) for name in head + sequentialNames + tail ]
         
         return names
         

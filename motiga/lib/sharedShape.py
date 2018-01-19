@@ -166,22 +166,26 @@ def getVisGroup(obj):
     if zero:
         obj = zero
         
-    visCon = cmds.listConnections(obj.visibility.name(), p=True, s=True, d=False)
+    visCon = listConnections(obj.visibility.name(), p=True, s=True, d=False)
     if visCon:
-        node, attr = visCon[0].rsplit('|')[-1].split('.')
+        node = visCon[0].node()
+        attr = visCon[0].longName()  # This returns the long attr name, not the node at all, where .attrName() returns the short name.
         shape = get(create=False)
         
         level = 1
         
         if nodeType(node) == 'condition' and attr == 'outColorR':
-            con = listConnections(node + '.firstTerm', p=True, s=True, d=False)
+            #con = listConnections(node + '.firstTerm', p=True, s=True, d=False)
+            con = node.firstTerm.listConnections(p=True, s=True, d=False)
+            
             if con:
                 level = int(getAttr(node + '.secondTerm'))
-                node = shortName(con[0].node())
-                attr = con[0].attrName()
-                print(node, 'NODE')
+                #node = shortName(con[0].node())
+                attr = con[0].longName()  # longName() returns the long attribute name, not the node (technically they are the same here).
+                return attr, level
         
-        if shape and shape.endswith('|' + node):
+        # Verify the shape is sharedShape via uuid (as of 2017, pymel tosses an error)
+        if mel.ls(node, uuid=True)[0] == mel.ls(shape, uuid=True)[0]:
             return attr, level
         
     return ()

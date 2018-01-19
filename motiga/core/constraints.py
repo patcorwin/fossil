@@ -2,20 +2,25 @@ from __future__ import print_function, absolute_import
 
 import copy
 
+try:
+    from typing import Any, Dict, List, Tuple, Union # noqa
+except ImportError:
+    pass
+
 from pymel.core import aimConstraint, parentConstraint, pointConstraint, orientConstraint
 from pymel.core import PyNode, dt
 import maya.cmds as cmds
 
 from .. import add
 
-
+# Dynamically accessed in `_constraintSerialize` on what flags to query.
 AIMCONSTRAINT_FLAGS = ['aim', 'u', 'wut', 'wu', 'wuo', 'o']
-POINTCONSTRAINT_FLAGS = []
-PARENTCONSTRAINT_FLAGS = []
-ORIENTCONSTRAINT_FLAGS = []
+POINTCONSTRAINT_FLAGS = [] # type: List[str]
+PARENTCONSTRAINT_FLAGS = [] # type: List[str]
+ORIENTCONSTRAINT_FLAGS = [] # type: List[str]
 
 
-def makeJsonSerializable(val):
+def makeJsonSerializable(val): # type: (Union[PyNode, dt.Vector]) -> Union[Dict, List]
     '''
     Converts pymel vectors to lists and pynodes to dicts (in core.dagObj id format).
     '''
@@ -28,7 +33,11 @@ def makeJsonSerializable(val):
     return val
 
 
-def _constraintSerialize(constType, obj):
+def _constraintSerialize(constType, obj): # type: (str, PyNode) -> Dict[str, Dict]
+    '''
+    Given a str for the constraint type, ex `pointConstraint` and a PyNode, returns
+    a json-valid dict that can be used to reconstruct the contstraint.
+    '''
     cmds_constraint = getattr(cmds, constType)
     pymel_constraint = globals()[constType]
     flags = globals()[constType.upper() + '_FLAGS']
@@ -49,7 +58,10 @@ def _constraintSerialize(constType, obj):
     return data
 
 
-def _constraintDeserialize(obj, kwargs):
+def _constraintDeserialize(obj, kwargs): # type: (PyNode, Dict) -> Tuple[List[PyNode], Dict]
+    '''
+    Helper, return a <list of targets> and **kwargs for use in reconstructing a constraint, from `_constraintSerialize`.
+    '''
     #kwargs = copy.deepcopy(data)
     kwargExtraData = kwargs['#']
     del kwargs['#']
@@ -70,11 +82,11 @@ def _constraintDeserialize(obj, kwargs):
     return targets, nonUnicode
 
 
-def aimSerialize(obj):
+def aimSerialize(obj): # type: (PyNode) -> Dict
     return _constraintSerialize('aimConstraint', obj)
     
     
-def aimDeserialize(obj, data):
+def aimDeserialize(obj, data): # type: (PyNode, Dict) -> None
     # If the world up object is absent, remove it entirely.
     kwargs = copy.deepcopy(data)
     if not kwargs['wuo']:
@@ -86,37 +98,37 @@ def aimDeserialize(obj, data):
     aimConstraint(targets, obj, mo=True, **reformattedKwargs)
     
     
-def pointSerialize(obj):
+def pointSerialize(obj): # type: (PyNode) -> Dict
     return _constraintSerialize('pointConstraint', obj)
     
 
-def pointDeserialize(obj, data):
+def pointDeserialize(obj, data): # type: (PyNode, Dict) -> None
     kwargs = copy.deepcopy(data)
     targets, reformattedKwargs = _constraintDeserialize(obj, kwargs)
     pointConstraint(targets, obj, mo=True, **reformattedKwargs)
     
     
-def orientSerialize(obj):
+def orientSerialize(obj): # type: (PyNode) -> Dict
     return _constraintSerialize('orientConstraint', obj)
     
     
-def orientDeserialize(obj, data):
+def orientDeserialize(obj, data): # type: (PyNode, Dict) -> None
     kwargs = copy.deepcopy(data)
     targets, reformattedKwargs = _constraintDeserialize(obj, kwargs)
     orientConstraint(targets, obj, mo=True, **reformattedKwargs)
     
     
-def parentSerialize(obj):
+def parentSerialize(obj): # type: (PyNode) -> Dict
     return _constraintSerialize('parentConstraint', obj)
     
     
-def parentDeserialize(obj, data):
+def parentDeserialize(obj, data):  # type: (PyNode, Dict) -> None
     kwargs = copy.deepcopy(data)
     targets, reformattedKwargs = _constraintDeserialize(obj, kwargs)
     parentConstraint(targets, obj, mo=True, **reformattedKwargs)
     
     
-def getOrientConstrainee(target):
+def getOrientConstrainee(target): # type: (PyNode) -> PyNode
     '''
     Given a target used in an orientConstraint, find the object that is orient
     constrained to it.
@@ -136,7 +148,7 @@ def getOrientConstrainee(target):
         return None
         
         
-def getParentConstrainee(target):
+def getParentConstrainee(target): # type: (PyNode) -> PyNode
     '''
     Given a target used in an orientConstraint, find the object that is orient
     constrained to it.
@@ -156,11 +168,11 @@ def getParentConstrainee(target):
         return None
         
         
-def pointConst(*args, **kwargs):
-    # pointConstraint wrapper that returns the controlling plug
+def pointConst(*args, **kwargs): # type: (*Any, **Any) -> PyNode
+    ''' pointConstraint wrapper that returns the controlling plug '''
     return pointConstraint(*args, **kwargs).getWeightAliasList()[-1]
 
 
 def orientConst(*args, **kwargs):
-    # orientConstraint wrapper that returns the controlling plug
+    ''' orientConstraint wrapper that returns the controlling plug '''
     return orientConstraint(*args, **kwargs).getWeightAliasList()[-1]

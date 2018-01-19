@@ -3,6 +3,11 @@ from __future__ import print_function, absolute_import
 import os
 
 try:
+    from typing import List, Union # noqa
+except ImportError:
+    pass
+
+try:
     # Only needed for `localizeFile` and `useSourceRoot`
     import motigaconfig
 except ImportError:
@@ -12,20 +17,20 @@ except ImportError:
 SOURCE_ROOT = "RxSourceAssetRoot"
 
 
-def normalize(p):
+def normalize(p): # type: (str) -> str
     return os.path.normpath( os.path.abspath(os.path.expandvars(p) )).replace( '\\', '/' )
 
     
-def compare(a, b):
+def compare(a, b): # type: (str, str) -> bool
     return normalize(a) == normalize(b)
 
 
-def nicePath(path):
+def nicePath(path): # type: (str) -> str
     # Returns a cased and normalized path
     return os.path.normcase( os.path.normpath( path ) )
 
 
-def cleanFilepath(filepath):
+def cleanFilepath(filepath): # type: (str) -> str
     '''
     Removes whitespace and wrapping quotes from the given string.
     '''
@@ -40,7 +45,7 @@ def cleanFilepath(filepath):
     return filepath
 
 
-def localizeFile(filepath):
+def localizeFile(filepath): # type: (str) -> str
     '''
     Given what might be depot path, or something from another user, convert it
     to what it would be on your machine.
@@ -56,7 +61,7 @@ def localizeFile(filepath):
     return filepath
 
 
-def findRig(path):
+def findRig(path): # type: (str) -> str
     '''
     Searches for a *_Rig.ma file adjacent, or in a parent directory.
     
@@ -73,9 +78,11 @@ def findRig(path):
             return findRig( os.path.dirname(path) )
 
 
-def useSourceRoot(srcPath):
+def useSourceRoot(srcPath): # type: (str) -> str
     '''
     Given a path, return a version using the env var RxSourceAssetRoot if possible.
+    
+    ..todo: Probably rename to something like `formatFromSourceRoot`
     '''
     
     if nicePath(srcPath).startswith( nicePath(motigaconfig.sourceAssetDir()) ):
@@ -86,7 +93,7 @@ def useSourceRoot(srcPath):
     return path
 
 
-def findLocalFile(path):
+def findLocalFile(path): # type: (str) -> Union[str, bool, None]
     '''
     Give a path, see if a local version exists.
     
@@ -119,7 +126,7 @@ def findLocalFile(path):
     return False
 
 
-def getMayaFiles(folder):
+def getMayaFiles(folder): # type: (str) -> List[str]
     '''
     Gets all the maya files recursively from the directory, excluding backups
     '''

@@ -699,8 +699,8 @@ class Card(nt.Transform):
                     startNum = int(startNumResult.group())
                     repeat = repeat[ : -len(startNumResult.group()) ] # Trim off the number since it's used to denote start num
                 else:
-                    startNumResult = 1
-                sequentialNames = [ repeat + '{0:0>2}'.format(i) for i in range(startNum, startNum + repeatCount + 1) ]
+                    startNum = 1
+                sequentialNames = [ repeat + '{0:0>2}'.format(i) for i in range(startNum, startNum + repeatCount) ]
 
                 
                 names = [ '{0}{1}{2}'.format(prefix, name, suffix) for name in head + sequentialNames + tail ]

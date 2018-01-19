@@ -599,6 +599,9 @@ def makeStretchyNonSpline(controller, ik, stretchDefault=1):
         controller.addAttr( attrName, at='double', k=True, min=-10, max=10 )
         normalizedMod = core.math.add(core.math.divide( controller.attr(attrName), 10), 1)
         
+        
+        "j.attr('t' + jointAxis) = jointLenMultiplier * normalizedMod * j.restLength"
+        
         core.math.multiply(
             jointLenMultiplier,
             core.math.multiply( normalizedMod, j.restLength)
@@ -1348,7 +1351,7 @@ def squashLinker(name, ctrlA, ctrlB):
           '{parent}.size = 1.0 * ((1.0/ ({length}/{total}) )-1.0) - 1.0*{ctrl}.tx;') \
            .format( child=childCtrl, parent=parentCtrl, ctrl=ctrl, length=lengthCalc, total=total )
         
-    print exp
+    print( exp )
         
     expression(s=exp)
 
@@ -1461,7 +1464,7 @@ def midAimer(start, end, midCtrl, name='aimer', upVector=None):
         midCtrlYUp = dt.Vector( temp[4:7] )
     
     """
-    # Generally the X axist is a good default up since things are normally  on that plane
+    # Generally the X axis is a good default up since things are normally  on that plane
     if abs(aimV[0]) < 0.0001 or min([abs(v) for v in aimV]) == abs(aimV[0]):
         upV = dt.Vector([-1, 0, 0])
         forwardV = aimV.cross(upV)
@@ -1472,7 +1475,7 @@ def midAimer(start, end, midCtrl, name='aimer', upVector=None):
         #yrow = recalcUp
         #zrow = forwardV
         midCtrlYUp = recalcUp
-        print 'midCtrlYUp', midCtrlYUp
+        print( 'midCtrlYUp', midCtrlYUp )
     else:
         # Choose Y up as the up (hopefully this works)
         if abs(aimV[1]) < abs(aimV[0]) and abs(aimV[1]) < abs(aimV[2]):

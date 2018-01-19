@@ -1241,7 +1241,7 @@ class Freeform(MetaControl):
         # I think kwargs[name] is totally ignored anyway
         '''
         if side == 'L':
-            print "kwargs['name']", kwargs['name']
+            print( "kwargs['name']", kwargs['name'] )
             kwargs['name'] += '_L'
         elif side == 'R':
             kwargs['name'] += '_R'

@@ -59,12 +59,12 @@ def controllers(main=None):
     ''' Timing experiments: Results, cmds + sets is WAY faster!
         s = time.time()
         controls = [c for c in listRelatives(main, ad=True, type='transform') if c.hasAttr('motigaCtrlType')]
-        print time.time() - s, 'ls(*.motigaCtrlType) ORIGINAL'
+        print( time.time() - s, 'ls(*.motigaCtrlType) ORIGINAL' )
 
 
         s = time.time()
         controls = [PyNode(c) for c in cmds.listRelatives(main.name(), ad=True, type='transform', f=1) if cmds.attributeQuery('motigaCtrlType', node=c, ex=True)]
-        print time.time() - s, 'cmds.listRelatives() list comp'
+        print( time.time() - s, 'cmds.listRelatives() list comp' )
 
 
         s = time.time()
@@ -72,7 +72,7 @@ def controllers(main=None):
         allControls = set(cmds.ls('*.motigaCtrlType', type='transform', r=True, o=True))
         allControls.intersection_update( cmds.listRelatives(main.name(), ad=True, type='transform') )
         controls = [PyNode(o) for o in allControls]
-        print time.time() - s, 'cmds and set filtering'
+        print( time.time() - s, 'cmds and set filtering' )
         
         Swift Cat as main:
         0.611000061035 ls(*.motigaCtrlType) ORIGINAL
@@ -178,24 +178,24 @@ def rootMotion(main=None):
             if lib.dagObj.simpleName( child ) == 'rootMotion':
                 break
                 #return child
-        print time.time() - s, 'orig'
+        print( time.time() - s, 'orig')
 
         s = time.time()
         for child in cmds.listRelatives(main.name(), ad=True, type='transform'):
         #for child in cmds.ls(type='transform'):
             if child.rsplit('|',1)[-1].rsplit(':', 1)[-1] == 'rootMotion':
-                #print child
+                #print( child)
                 break
-        print time.time() - s, 'split'
+        print( time.time() - s, 'split')
 
         s = time.time()
         simpleName = re.compile( '\w+$' )
         for child in cmds.listRelatives(main.name(), ad=True, type='transform'):
         #for child in cmds.ls(type='transform'):
             if simpleName.search(child).group(0) == 'rootMotion':
-                #print child
+                #print( child)
                 break
-        print time.time() - s, 're'
+        print( time.time() - s, 're')
     '''
     
     if main:

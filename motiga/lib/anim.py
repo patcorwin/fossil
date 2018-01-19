@@ -351,11 +351,11 @@ def load(filename, insertTime=None, alterPlug=None, bufferKeys=True, targetPool=
                     missingObj.add( obj )
                     
     if missingObj:
-        print core.text.writeInBox( "These objects don't exist:\n\n" + '\n'.join(missingObj) )
+        print( core.text.writeInBox( "These objects don't exist:\n\n" + '\n'.join(missingObj) ) )
     if missingAttr:
-        print core.text.writeInBox( "These attribute couldn't be found:\n\n" + '\n'.join(missingAttr) )
+        print( core.text.writeInBox( "These attribute couldn't be found:\n\n" + '\n'.join(missingAttr) ) )
     if pasteError:
-        print core.text.writeInBox( "Errors occurred when pasting animation onto:\n\n" + '\n'.join(pasteError) )
+        print( core.text.writeInBox( "Errors occurred when pasting animation onto:\n\n" + '\n'.join(pasteError) ) )
         
     if missingObj or missingAttr or pasteError:
         warning( 'Completed but with errors. See script editor for details.' )

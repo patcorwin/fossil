@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from pymel.core import hide, showHidden, selected, select
 
 from .. import core
@@ -43,7 +45,7 @@ class QuickHideControls(object):
         if cls.hideMain:
             cls.mainShapes = core.shape.getShapes(main)
             hide(cls.mainShapes)
-            print 'hide main', cls.mainShapes[0].isVisible()
+            print( 'hide main', cls.mainShapes[0].isVisible() )
             if cls.mainShapes[0].isVisible():
                 plug = cls.mainShapes[0].visibility.listConnections(s=True, p=True)
                 if plug:

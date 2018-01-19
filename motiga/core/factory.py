@@ -32,25 +32,25 @@ ex:
     j = PyNode(j)  # Must recast to get identified as a MySpecialJoint
     
     someOtherJoint = joint()
-    print j.mirror
+    print( j.mirror )
     # Result: None
     
     j.mirror = someOtherJoint
-    print j.mirror
+    print( j.mirror )
     # Result: joint2
     
     j.mirror = None
-    print j.mirror
+    print( j.mirror )
     # Result: None
     
-    print j.data
+    print( j.data )
     # Result: {}
     
     j.data = {'canned': 'goods' }
-    print j.data, type(j.data)
+    print( j.data, type(j.data) )
     # Result: {'canned': 'goods' } <type 'dict'>
     
-    print j.motigaData.get(), type(j.motigaData.get())
+    print( j.motigaData.get(), type(j.motigaData.get()) )
     # Result: {"canned": "goods"} <type 'unicode'>
 
 '''

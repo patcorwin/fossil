@@ -1146,7 +1146,7 @@ def serializeSpaces(control):
     for spaceInfo in getTargetInfo(control):
         if not spaceInfo.target:
             raise Exception("{0}'s space {1} doesn't have a target".format(control, spaceInfo.name))
-        print spaceInfo.target
+        print( spaceInfo.target )
         if isinstance(spaceInfo.target, tuple):
             targets.append( [spaceInfo.name, ' '.join([t.name() for t in spaceInfo.target]), spaceInfo.type] )
         else:

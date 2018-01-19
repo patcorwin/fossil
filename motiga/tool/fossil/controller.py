@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import itertools
 import json
 import os
@@ -874,6 +876,6 @@ def updateVisGroupConnections():
                     if relock:
                         ctrl.visibility.lock()
                     
-                    print 'fixed', ctrl
+                    print( 'fixed', ctrl )
                 else:
-                    print 'FAIL', ctrl
+                    print( 'FAIL', ctrl )

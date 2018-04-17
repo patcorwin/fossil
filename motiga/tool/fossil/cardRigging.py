@@ -52,6 +52,7 @@ class ParamInfo(object):
     STR = -3
     BOOL = -4
     ENUM = -5
+    CURVE = -6 # Not sure if this is a good idea
 
     numericTypes = (INT, FLOAT, BOOL)
 

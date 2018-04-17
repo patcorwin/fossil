@@ -168,7 +168,7 @@ def createShader(color, name=''):
 
     shader.outColor >> sg.surfaceShader
     
-    shader.addAttr( 'MotigaControlShader', at='bool' )
+    shader.addAttr( 'FossilControlShader', at='bool' )
     
     if not name:
         name = 'zz_ctrlShader'
@@ -185,7 +185,7 @@ def listControlShaders():
     '''
     Return all the special control shaders in the scene.
     '''
-    return ls( '*.MotigaControlShader', o=True )
+    return ls( '*.FossilControlShader', o=True )
 
 
 def similar(aSrc, bSrc):

@@ -9,7 +9,7 @@ except ImportError:
 
 try:
     # Only needed for `localizeFile` and `useSourceRoot`
-    import motigaconfig
+    import pdilconfig
 except ImportError:
     pass
 
@@ -56,7 +56,7 @@ def localizeFile(filepath): # type: (str) -> str
     key = '/sourceassets/'
     index = filepath.lower().find(key)
     if key != -1:
-        return motigaconfig.sourceAssetDir() + '/' + filepath[index + len(key):]
+        return pdilconfig.sourceAssetDir() + '/' + filepath[index + len(key):]
 
     return filepath
 
@@ -85,8 +85,8 @@ def useSourceRoot(srcPath): # type: (str) -> str
     ..todo: Probably rename to something like `formatFromSourceRoot`
     '''
     
-    if nicePath(srcPath).startswith( nicePath(motigaconfig.sourceAssetDir()) ):
-        path = '%{0}%'.format(SOURCE_ROOT) + os.path.normpath( srcPath )[len(nicePath(motigaconfig.sourceAssetDir())):]
+    if nicePath(srcPath).startswith( nicePath(pdilconfig.sourceAssetDir()) ):
+        path = '%{0}%'.format(SOURCE_ROOT) + os.path.normpath( srcPath )[len(nicePath(pdilconfig.sourceAssetDir())):]
     else:
         path = srcPath
         

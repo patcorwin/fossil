@@ -333,11 +333,11 @@ def getDepth(jnt, depth):
 
 def adds(*attributes):
     '''
-    Marks a function with motigaDynamicAttrs to track the attributes made so
+    Marks a function with fossilDynamicAttrs to track the attributes made so
     special sauce can be identified.
     '''
     def realDecorator(func):
-        setattr(func, 'motigaDynamicAttrs', attributes)
+        setattr(func, 'fossilDynamicAttrs', attributes)
         return func
     
     return realDecorator
@@ -1372,8 +1372,8 @@ def createMatcher(ctrl, target):
 
     matcher.message >> ctrl.matcher
     
-    if matcher.hasAttr('motigaCtrlType'):
-        matcher.deleteAttr( 'motigaCtrlType' )
+    if matcher.hasAttr('fossilCtrlType'):
+        matcher.deleteAttr( 'fossilCtrlType' )
     
     return matcher
 

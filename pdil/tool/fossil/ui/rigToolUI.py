@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'C:\MAYA_APP_DIR\fossil\motiga\tool\fossil/ui/rigToolUI.ui'
+# Form implementation generated from reading ui file 'C:\MAYA_APP_DIR\fossil\pdil\tool\fossil/ui/rigToolUI.ui'
 #
 # Created: Mon Jul 03 22:32:56 2017
 #      by: pyside2-uic  running on PySide2 2.0.0~alpha0
@@ -359,6 +359,6 @@ class Ui_MainWindow(object):
         self.actionHandles.setText(QtWidgets.QApplication.translate("MainWindow", "Handles", None, -1))
         self.actionMatch_Selected_Orients.setText(QtWidgets.QApplication.translate("MainWindow", "Match Selected Orients", None, -1))
 
-from motiga.tool.fossil.cardlister import CardLister
-from motiga.tool.fossil.jointlister import JointLister
-from motiga.tool.fossil.cardparams import CardParams
+from pdil.tool.fossil.cardlister import CardLister
+from pdil.tool.fossil.jointlister import JointLister
+from pdil.tool.fossil.cardparams import CardParams

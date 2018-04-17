@@ -78,7 +78,7 @@ def angleBetween( a, mid, c ):
 
 
 def ikFkRange(control, start=None, end=None):
-    action = activateIk if control.motigaCtrlType.get() in ['ik'] else activateFk
+    action = activateIk if control.fossilCtrlType.get() in ['ik'] else activateFk
 
     otherObj = control.getOtherMotionType()
     
@@ -86,7 +86,7 @@ def ikFkRange(control, start=None, end=None):
     if drivePlug:
         driver = lambda: setAttr(drivePlug, 1)  # noqa E731
     else:
-        if control.motigaCtrlType.get() in ['ik']:
+        if control.fossilCtrlType.get() in ['ik']:
             switch = _getSwitchPlug(otherObj)[0].node()
             plug = switch.input1D.listConnections(p=True)[0]
             driver = lambda: plug.set(1)  # noqa E731
@@ -162,7 +162,7 @@ def ikFkSwitch(obj, start, end):
     otherCtrl = mainCtrl.getOtherMotionType()
         
     # If we are changing to fk...
-    if otherCtrl.motigaCtrlType.get() in ['translate', 'rotate']:
+    if otherCtrl.fossilCtrlType.get() in ['translate', 'rotate']:
         
         if start == end and start is not None:  # Might want ikFkRange to handle this distinction
             activateFk(otherCtrl)

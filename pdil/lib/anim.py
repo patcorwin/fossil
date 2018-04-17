@@ -9,7 +9,7 @@ from ..add import findFromIds, getIds
 from .. import core
 
 
-TAGGING_ATTR = 'motigaAnimSource'
+TAGGING_ATTR = 'fossilAnimSource'
 
 if '_loadAlterPlug' not in globals():
     _loadAlterPlug = None
@@ -32,7 +32,7 @@ def export(filepath, objs, start, end):
     mel.FBXResetExport()
     
     if version() >= 2016:
-        fbxPreset = os.path.expandvars('%RxArtToolRoot%/Maya/FBXPresets/Motiga_Anim.fbxexportpreset').replace('\\', '/')
+        fbxPreset = os.path.expandvars('%RxArtToolRoot%/Maya/FBXPresets/Fossil_Anim.fbxexportpreset').replace('\\', '/')
         mel.FBXPushSettings()
         mel.FBXResetExport()
         

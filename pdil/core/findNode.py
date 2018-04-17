@@ -58,36 +58,36 @@ def controllers(main=None):
     
     ''' Timing experiments: Results, cmds + sets is WAY faster!
         s = time.time()
-        controls = [c for c in listRelatives(main, ad=True, type='transform') if c.hasAttr('motigaCtrlType')]
-        print( time.time() - s, 'ls(*.motigaCtrlType) ORIGINAL' )
+        controls = [c for c in listRelatives(main, ad=True, type='transform') if c.hasAttr('fossilCtrlType')]
+        print( time.time() - s, 'ls(*.fossilCtrlType) ORIGINAL' )
 
 
         s = time.time()
-        controls = [PyNode(c) for c in cmds.listRelatives(main.name(), ad=True, type='transform', f=1) if cmds.attributeQuery('motigaCtrlType', node=c, ex=True)]
+        controls = [PyNode(c) for c in cmds.listRelatives(main.name(), ad=True, type='transform', f=1) if cmds.attributeQuery('fossilCtrlType', node=c, ex=True)]
         print( time.time() - s, 'cmds.listRelatives() list comp' )
 
 
         s = time.time()
-        #controls = [c for c in listRelatives(main, ad=True, type='transform') if c.hasAttr('motigaCtrlType')]
-        allControls = set(cmds.ls('*.motigaCtrlType', type='transform', r=True, o=True))
+        #controls = [c for c in listRelatives(main, ad=True, type='transform') if c.hasAttr('fossilCtrlType')]
+        allControls = set(cmds.ls('*.fossilCtrlType', type='transform', r=True, o=True))
         allControls.intersection_update( cmds.listRelatives(main.name(), ad=True, type='transform') )
         controls = [PyNode(o) for o in allControls]
         print( time.time() - s, 'cmds and set filtering' )
         
         Swift Cat as main:
-        0.611000061035 ls(*.motigaCtrlType) ORIGINAL
+        0.611000061035 ls(*.fossilCtrlType) ORIGINAL
         0.123000144958 cmds.listRelatives() list comp
         0.0439999103546 cmds and set filtering
 
         Swift as Main:
 
-        2.1210000515 ls(*.motigaCtrlType) ORIGINAL
+        2.1210000515 ls(*.fossilCtrlType) ORIGINAL
         0.398999929428 cmds.listRelatives() list comp
         0.0769999027252 cmds and set filtering
 
     '''
     
-    allControls = set( cmds.ls( '*.motigaCtrlType', o=True, r=True ) )
+    allControls = set( cmds.ls( '*.fossilCtrlType', o=True, r=True ) )
     
     if main:
         mainTransforms = cmds.listRelatives(main.name(), ad=True, type='transform')

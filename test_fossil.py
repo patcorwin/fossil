@@ -5,10 +5,10 @@ Not elaborate tests, but having some is better than nothing.
 
 from pymel.core import select, objExists, listRelatives, PyNode
 
-from motiga import core
+from pdil import core
 
-from motiga.tool.fossil import card
-from motiga.tool.fossil import main
+from pdil.tool.fossil import card
+from pdil.tool.fossil import main
 
 
 

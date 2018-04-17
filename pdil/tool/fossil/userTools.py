@@ -5,7 +5,7 @@ from ... import core
 
 @core.alt.name('Zero Controllers')
 def zeroPose(useTrueZero=True):
-    controllers = ls( selected(), '*.motigaCtrlType', o=True, r=True, sl=True )
+    controllers = ls( selected(), '*.fossilCtrlType', o=True, r=True, sl=True )
     if not controllers:
         controllers = core.findNode.controllers()
         

@@ -19,7 +19,7 @@ Usage:
 In either of the above cases, if an error occurs, it is automatically logged.
     
 ..  todo::
-    Exclude patc from logging errors via motiga.NO_ERROR_LIST
+    Exclude specific users from logging errors via pdil.NO_ERROR_LIST
     
 '''
 from __future__ import print_function
@@ -32,7 +32,7 @@ import traceback
 import traceback as TB
 
 try:
-    import motigaconfig
+    import pdilconfig
 except ImportError:
     pass
 
@@ -56,8 +56,8 @@ def connectToErrorDB():
     global _dbClient
     global _errorDB
     try:
-        _dbClient = pymongo.MongoClient( motigaconfig.TECH_ART_DB, motigaconfig.DBPORT )
-        _errorDB = _dbClient[motigaconfig.MAYA_DB_NAME][motigaconfig.MAYA_ERROR_COLLECTION_NAME]
+        _dbClient = pymongo.MongoClient( pdilconfig.TECH_ART_DB, pdilconfig.DBPORT )
+        _errorDB = _dbClient[pdilconfig.MAYA_DB_NAME][pdilconfig.MAYA_ERROR_COLLECTION_NAME]
     except Exception:
         print( traceback.format_exc() )
 

@@ -35,7 +35,7 @@ from .ui import controllerEdit
 from .ui import _visGroup
 
 
-RigToolUI = core.ui.getQtUIClass( os.path.dirname(__file__) + '/ui/rigToolUI.ui', 'motiga.tool.fossil.ui.rigToolUI')
+RigToolUI = core.ui.getQtUIClass( os.path.dirname(__file__) + '/ui/rigToolUI.ui', 'pdil.tool.fossil.ui.rigToolUI')
 
 
 class RigTool(Qt.QtWidgets.QMainWindow):
@@ -663,7 +663,7 @@ class SpaceLayout( object ):
             space.addExternalWorld( sel[0] )
         elif mode == '#PARENT':
             
-            if sel[0].motigaCtrlType.get() in ['translate', 'rotate']:
+            if sel[0].fossilCtrlType.get() in ['translate', 'rotate']:
 
                 bindBone = core.constraints.getOrientConstrainee(sel[0])
                 parent = bindBone.getParent()

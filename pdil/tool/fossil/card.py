@@ -8,8 +8,8 @@ import math
 from maya.api import OpenMaya
 from pymel.core import PyNode, xform, rotate, nurbsPlane, polyCylinder, scale, delete, makeIdentity, joint, hide, pointConstraint, group, parentConstraint, aimConstraint, warning, dt, confirmDialog, duplicate, ls, importFile, mel, spaceLocator, distanceDimension, select
 
-from motiga.add import simpleName, meters
-from motiga import core
+from pdil.add import simpleName, meters
+from pdil import core
 
 from . import proxy
 from . import moveCard

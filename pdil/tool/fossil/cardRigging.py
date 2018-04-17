@@ -459,7 +459,7 @@ class MetaControl(object):
     # ik and fk must take the start and end joint, ikArgs/fkArgs will then be
     # added along with the control spec.
     ik_ = ''
-    fk_ = 'motiga.tool.fossil.rig.fkChain'
+    fk_ = 'pdil.tool.fossil.rig.fkChain'
     
     ikInput = {}
     fkInput = {}
@@ -735,7 +735,7 @@ class TranslateChain(MetaControl):
 """
 class IkChain(MetaControl):
     ''' Basic 3 joint ik chain. '''
-    ik_ = 'motiga.tool.fossil.rig.ikChain'
+    ik_ = 'pdil.tool.fossil.rig.ikChain'
     ikInput = OrderedDict( [
         ('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, '')),
         ('pvLen', ParamInfo('PV Length', 'How far the pole vector should be from the chain', ParamInfo.FLOAT, default=0) ),
@@ -750,7 +750,7 @@ class IkChain(MetaControl):
 
 class IkChain(MetaControl):
     ''' Basic 3 joint ik chain. '''
-    ik_ = 'motiga.tool.fossil.rig.ikChain2'
+    ik_ = 'pdil.tool.fossil.rig.ikChain2'
     ikInput = OrderedDict( [
         ('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, '')),
         ('pvLen', ParamInfo('PV Length', 'How far the pole vector should be from the chain', ParamInfo.FLOAT, default=0) ),
@@ -796,7 +796,7 @@ class IkChain(MetaControl):
 
 class SplineChest(MetaControl):
     ''' Spline control for the chest mass.  Currently assumes 5 joints. '''
-    ik_ = 'motiga.tool.fossil.rig.splineChest'
+    ik_ = 'pdil.tool.fossil.rig.splineChest'
     ikInput = OrderedDict( [('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, 'Chest')),
                             ('useTrueZero', ParamInfo( 'Use True Zero', 'Use True Zero', ParamInfo.BOOL, True)),
                             ('numChestJoints', ParamInfo( '# Chest Joints', 'How many joints are part of the chest mass', ParamInfo.INT, 3)),
@@ -807,7 +807,7 @@ class SplineChest(MetaControl):
 
 class SplineChest3Joint(MetaControl):
     ''' Spline control for the chest mass for just 3 joints. '''
-    ik_ = 'motiga.tool.fossil.rig.splineChestThreeJoint'
+    ik_ = 'pdil.tool.fossil.rig.splineChestThreeJoint'
     ikInput = OrderedDict( [('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, 'Chest'))] )
     
     fkArgs = {'translatable': True}
@@ -815,7 +815,7 @@ class SplineChest3Joint(MetaControl):
 
 class SplineChest4Joint(MetaControl):
     ''' Spline control for the chest mass for just 4 joints. '''
-    ik_ = 'motiga.tool.fossil.rig.splineChestFourJoint'
+    ik_ = 'pdil.tool.fossil.rig.splineChestFourJoint'
     ikInput = OrderedDict( [('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, 'Chest'))] )
     
     fkArgs = {'translatable': True}
@@ -823,7 +823,7 @@ class SplineChest4Joint(MetaControl):
 
 class SplineTwist(MetaControl):
     ''' Spline IK that provides control to twist individual sections. '''
-    ik_ = 'motiga.tool.fossil.rig.splineIk'
+    ik_ = 'pdil.tool.fossil.rig.splineIk'
     ikInput = OrderedDict( [
         ('controlCountOrCrv', [
             ParamInfo( 'CV count', 'How many cvs to use in auto generated curve', ParamInfo.INT, default=4, min=4 ),
@@ -876,7 +876,7 @@ class SplineTwist(MetaControl):
 
 class DogHindleg(MetaControl):
     ''' 4 joint dog hindleg. '''
-    ik_ = 'motiga.tool.fossil.rig.dogleg'
+    ik_ = 'pdil.tool.fossil.rig.dogleg'
 
     ikInput = OrderedDict( [
         ('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, 'Leg')),
@@ -888,7 +888,7 @@ class DogHindleg(MetaControl):
 """  Eventually a space and params presets system will replace these, but it's too much to deal with for now.
 class Arm(MetaControl):
     ''' Same as IkChain but tries to add spaces for clavicle and chest. '''
-    ik_ = 'motiga.tool.fossil.rig.ikChain'
+    ik_ = 'pdil.tool.fossil.rig.ikChain'
     ikInput = OrderedDict( [
         ('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, 'Arm')),
         ('pvLen', ParamInfo('PV Length', 'How far the pole vector should be from the chain', ParamInfo.FLOAT, default=0) ),
@@ -929,7 +929,7 @@ class Arm(MetaControl):
 
 class Leg(MetaControl):
     ''' Same as IkChain but adds world and parent spaces. '''
-    ik_ = 'motiga.tool.fossil.rig.ikChain'
+    ik_ = 'pdil.tool.fossil.rig.ikChain'
     ikInput = OrderedDict( [
         ('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, 'Leg')),
         ('pvLen', ParamInfo('PV Length', 'How far the pole vector should be from the chain', ParamInfo.FLOAT, default=0) ),
@@ -964,7 +964,7 @@ class Leg(MetaControl):
 
 class SplineNeck(MetaControl):
     ''' Spline controller with a center control to provide arcing. '''
-    ik_ = 'motiga.tool.fossil.rig.splineNeck'
+    ik_ = 'pdil.tool.fossil.rig.splineNeck'
     ikInput = OrderedDict( [
         ('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, '')),
         ('matchEndOrient', ParamInfo( 'DEP-Match Orient', 'Ik Control will match the orientation of the joint last joint', ParamInfo.BOOL, default=False)),
@@ -1001,7 +1001,7 @@ class TwistHelper(MetaControl):
     ''' Special controller to automate distributed twisting, like on the forearm. '''
     #displayInUI = False
 
-    fk_ = 'motiga.tool.fossil.rig.twist'
+    fk_ = 'pdil.tool.fossil.rig.twist'
 
     fkInput = OrderedDict( [
         ('defaultPower', ParamInfo( 'Default Power', 'Default automatic twist power', ParamInfo.FLOAT, 0.5)),
@@ -1040,7 +1040,7 @@ class SquashStretch(MetaControl):
     ''' Special controller providing translating bones simulating squash and stretch. '''
     displayInUI = False
 
-    ik_ = 'motiga.tool.fossil.rig.squashAndStretch'
+    ik_ = 'pdil.tool.fossil.rig.squashAndStretch'
     ikInput = OrderedDict( [
         ('rangeMin', ParamInfo( 'Min Range', 'Lower bounds of the keyable attr.', ParamInfo.FLOAT, -5.0)),
         ('rangeMax', ParamInfo( 'Max Range', 'Upper bounds of the keyable attr.', ParamInfo.FLOAT, 5.0)),
@@ -1277,7 +1277,7 @@ class SplineProxy(MetaControl):
     # Even though the chainIk is the real function, this is the one we want the
     # options for --though there must be a better way to recognize this as they
     # are already specified in ikInput--
-    ik_ = 'motiga.tool.fossil.rig.splineIk'
+    ik_ = 'pdil.tool.fossil.rig.splineIk'
     
     fkArgs = {'translatable': True}
     
@@ -1372,7 +1372,7 @@ class SplineProxy(MetaControl):
 
 class Foot(MetaControl):
     
-    ik_ = 'motiga.tool.fossil.rig.foot'
+    ik_ = 'pdil.tool.fossil.rig.foot'
     
     @classmethod
     def build(cls, card):

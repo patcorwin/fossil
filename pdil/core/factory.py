@@ -15,20 +15,20 @@ ex:
         def _isVirtual(cls, obj, name):
             fn = pymel.api.MFnDependencyNode(obj)
             try:
-                if fn.hasAttribute('motigaMirror'):
+                if fn.hasAttribute('fossilMirror'):
                     return True
             except:  # .hasAttribute doesn't actually return False but errors, lame.
                 pass
             return False
 
-        mirror  = SingleConnectionAccess('motigaMirror')
-        data    = JsonAccess('motigaData')
+        mirror  = SingleConnectionAccess('fossilMirror')
+        data    = JsonAccess('fossilData')
         
     pymel.internal.factories.registerVirtualClass( MySpecialJoint )
     
     j = joint()
-    j.addAttr('motigaMirror', at='message')
-    j.addAttr('motigaData', dt='string')
+    j.addAttr('fossilMirror', at='message')
+    j.addAttr('fossilData', dt='string')
     j = PyNode(j)  # Must recast to get identified as a MySpecialJoint
     
     someOtherJoint = joint()
@@ -50,7 +50,7 @@ ex:
     print( j.data, type(j.data) )
     # Result: {'canned': 'goods' } <type 'dict'>
     
-    print( j.motigaData.get(), type(j.motigaData.get()) )
+    print( j.fossilData.get(), type(j.fossilData.get()) )
     # Result: {"canned": "goods"} <type 'unicode'>
 
 '''

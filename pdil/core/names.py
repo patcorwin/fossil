@@ -12,7 +12,7 @@ import pymel.core
 from pymel.core import objExists, listReferences, ls, cmds
 
 
-import motiga.add
+import pdil.add
 
 
 def _formatResults(newJoints):
@@ -111,12 +111,12 @@ def findAlternates(joints, available=None):
                     # See if only one obj exists in the scene with the
                     # simple name and try adding that namespace
                     if available:
-                        others = [obj for obj in available if motiga.add.simpleName(obj) == simpleName]
+                        others = [obj for obj in available if pdil.add.simpleName(obj) == simpleName]
                     else:
                         others = ls(simpleName, r=1)
                     
                     for other in others:
-                        newNamespace = motiga.add.shortName(other).rsplit( ':', 1 )[0]
+                        newNamespace = pdil.add.shortName(other).rsplit( ':', 1 )[0]
                         
                         newJoints, failedCount = _changeNS(joints, namespace, newNamespace)
                         

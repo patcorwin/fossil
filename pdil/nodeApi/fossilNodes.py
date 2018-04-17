@@ -1963,7 +1963,7 @@ class BPJoint(nt.Joint):
     customOrient    = core.factory.SingleConnectionAccess('moCustomOrient')
     proxy           = core.factory.SingleConnectionAccess('proxy')
     orientTarget    = core.factory.SingleStringConnectionAccess('orientTargetJnt')
-    info            = core.factory.JsonAccess('motigaInfo')
+    info            = core.factory.JsonAccess('fossilInfo')
 
     @classmethod
     def _isVirtual(cls, obj, name):

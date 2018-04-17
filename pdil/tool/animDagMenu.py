@@ -15,7 +15,7 @@ from .fossil import kinematicSwitch
 from .fossil import space
 
 
-animToolSettings = core.ui.Settings( 'MotigaAnimTool',
+animToolSettings = core.ui.Settings( 'PDILAnimTool',
     {
         'switchMode': 'current', # Options are current, range and all
         'selectControlsIncludesSwitches': False,
@@ -73,7 +73,7 @@ def animationSwitchMenu(objName):
         # Ik/Fk
         #-------
         if plug:
-            if cmds.getAttr(obj + '.motigaCtrlType') in ['translate', 'rotate']:
+            if cmds.getAttr(obj + '.fossilCtrlType') in ['translate', 'rotate']:
                 destType = 'Ik'
             else:
                 destType = 'Fk'

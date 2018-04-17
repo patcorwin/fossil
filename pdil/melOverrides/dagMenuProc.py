@@ -32,7 +32,7 @@ def override_dagMenuProc():
             
             for i, line in enumerate(lines):
                 if '"m_dagMenuProc.kSelect"' in line:
-                    lines[i:i] = ['''            python("try:motiga.melOverrides.dagMenuProc.customMenu('" + $object + "')\\nexcept:pass");''' + newline]
+                    lines[i:i] = ['''            python("try:pdil.melOverrides.dagMenuProc.customMenu('" + $object + "')\\nexcept:pass");''' + newline]
                     break
             
             with open(overrideFilename, 'w') as fid:

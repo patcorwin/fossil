@@ -117,7 +117,7 @@ class control(object):
         Probably wrap adding the control type into a decorator or something like that.
     '''
 
-    CONTROL_TYPE_NAME = 'motigaCtrlType'
+    CONTROL_TYPE_NAME = 'fossilCtrlType'
 
     # Control types
     IK = 'ik'
@@ -807,7 +807,7 @@ def identifyCustomAttrs(control):
     
     attrInfo = {}
     
-    createAttrs = list(itertools.chain(func.motigaDynamicAttrs, ['space']))
+    createAttrs = list(itertools.chain(func.fossilDynamicAttrs, ['space']))
     
     for attr in userKeyable:
 

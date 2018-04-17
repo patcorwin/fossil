@@ -129,7 +129,7 @@ class Gui(object):
         sel = selected()
         if sel:
             for obj in sel:
-                if obj.hasAttr( 'motigaCtrlType' ):
+                if obj.hasAttr( 'fossilCtrlType' ):
                     controller.control.setShape(obj, newShape)
             select(sel)
                 

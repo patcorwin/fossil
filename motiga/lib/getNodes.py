@@ -82,7 +82,7 @@ def animInfoNode(create=True):
         else:
             return None
     else:
-        print("Multiple anim nodes found, ask Pat to help figure out which one is the correct one.")
+        print("Multiple anim nodes found")
         for obj in animNodes:
             if simpleName(obj) == 'MT_AnimationInfoNode':
                 return obj

@@ -6,11 +6,11 @@ Tested in Maya 2016 and 2017
 ## Requirements
 
 Get Qt.py from here https://github.com/mottosso/Qt.py/blob/master/Qt.py
-Place it in a scripts folder (adjacent to the motiga folder is fine).
+Place it in a scripts folder (adjacent to the pdil folder is fine).
 This beautiful file makes supporting Maya's change to PySide2 in 2017 painless.
 
 ## Installation
-Download, unzip and put the "motiga" folder in one of your Maya script folders.
+Download, unzip and put the "pdil" folder in one of your Maya script folders.
 
 ## Philosophy
 Making rigs manually is cumbersome and tedious because it takes many actions to follow through on a single decision.  When you have 3 joints: Shoulder, Elbow and Wrist, you probably are making an arm, and you probably want IK and FK controls for it.  But when creating rigs by hand, you name these joints, then name similar chains to control these joints, then name the controllers to match.
@@ -24,16 +24,16 @@ Most importantly, every decision should be easily changed.  There is still lots 
 In the script editor, in a Python tab, run:
 
 ```python
-import motiga.tool.fossil.main
-motiga.tool.fossil.main.RigTool()
+import pdil.tool.fossil.main
+pdil.tool.fossil.main.RigTool()
 ```
 
 ## Utilities
 ```python
-import motiga.tool.rigTools
+import pdil.tool.rigTools
 
 # This toggles isolating the selected controls.  Note - parents of selected controls will remain visible.
-motiga.core.alt.call('Quick Hide Controls')()
+pdil.core.alt.call('Quick Hide Controls')()
 ```
 
 ### Simple Walkthrough

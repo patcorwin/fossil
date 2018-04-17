@@ -1,6 +1,7 @@
 import functools
 import json
 import re
+import traceback
 
 from pymel.core import *
 
@@ -288,9 +289,9 @@ class GetNextSelected(object):
         #sel = selectedJoints()
         sel = selected()
         if sel:
-            print 'Passing', sel[0]
+            print( 'Passing', sel[0] )
             if self.set( sel[0] ):
-                print 'GOODS'
+                print( 'GOODS' )
             evalDeferred( core.alt.Callback(select, self.current) )
 
 
@@ -327,7 +328,7 @@ def loadCardStates():
     try:
         cardStateInfo = json.loads( core.text.clipboard.get() )
     except Exception:
-        print 'Valid json was not found in the clipboard'
+        print( 'Valid json was not found in the clipboard' )
         return
     
     selectedCards = getSelectedCards()
@@ -395,10 +396,26 @@ def selectedJoints():
         return []
 
 
-def runOnEach(func):
+def runOnEach(func, completedMessage=''):
+    
     sel = selectedCards()
     if not sel:
         confirmDialog( m='No cards selected' )
         return
-    for card in sel:
-        func( card )
+    
+    errors = {}
+    for i, card in enumerate(sel):
+        try:
+            func( card )
+        except Exception:
+            #print( traceback.format_exc() )
+            errors[card] = traceback.format_exc()
+    
+    if not errors:
+        print( completedMessage )
+    else:
+        for card, text in errors.values():
+            print(card, + '-' * 80)
+            print( text )
+        
+        warning( 'An error occured on {}, see above for the errors'.format(len(errors)) )

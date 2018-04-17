@@ -3,7 +3,6 @@ from __future__ import print_function, absolute_import
 from functools import partial
 import operator
 import os
-import re
 import traceback
 
 import maya.OpenMayaUI
@@ -20,9 +19,7 @@ from pymel.core import select, setParent, scriptJob, confirmDialog, getAttr, obj
 
 from pymel.core import frameLayout, columnLayout, button, text, textScrollList, textFieldButtonGrp, rowColumnLayout, optionMenu, menuItem, intFieldGrp, checkBox, rowLayout, floatField, connectControl, layout, deleteUI
 
-
 from ... import core
-from ... import lib
 
 from . import card as fossil_card  # Hack to not deal with the fact that "card" is a var used all over, thusly shadowing this import
 from . import cardlister
@@ -85,11 +82,11 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         self.ui.makeCardBtn.clicked.connect(self.makeCard)
         self.ui.selectAllBtn.clicked.connect(self.selectAll)
         self.ui.buildBonesBtn.clicked.connect(self.buildBones)
-        self.ui.deleteBonesBtn.clicked.connect( partial(util.runOnEach, operator.methodcaller('removeBones')) )
+        self.ui.deleteBonesBtn.clicked.connect( partial(util.runOnEach, operator.methodcaller('removeBones'), 'Bones deleted') )
         self.ui.buildRigBtn.clicked.connect( self.buildRig )
-        self.ui.deleteRigBtn.clicked.connect( partial(util.runOnEach, operator.methodcaller('removeRig')) )
-        self.ui.saveModsBtn.clicked.connect( partial(util.runOnEach, operator.methodcaller('saveState')) )
-        self.ui.restoreModsBtn.clicked.connect( partial(util.runOnEach, operator.methodcaller('restoreState')) )
+        self.ui.deleteRigBtn.clicked.connect( partial(util.runOnEach, operator.methodcaller('removeRig'), 'Rig deleted') )
+        self.ui.saveModsBtn.clicked.connect( partial(util.runOnEach, operator.methodcaller('saveState'), 'State saved') )
+        self.ui.restoreModsBtn.clicked.connect( partial(util.runOnEach, operator.methodcaller('restoreState'), 'State restored') )
         
         
         self.ui.duplicateCardBtn.clicked.connect(self.duplicateCard)

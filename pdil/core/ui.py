@@ -22,7 +22,7 @@ except ImportError:
     try:
         import pyside2uic as pysideuic
     except ImportError:
-        pass
+        pysideuic = None
 
 # Load up the correct shiboken*.wrapInstance
 try:
@@ -77,7 +77,7 @@ def getQtUIClass(uiFile, moduleName=None):
     if os.path.dirname(uiFile) not in sys.path:
         sys.path.append(os.path.dirname(uiFile))
 
-    if overwrite:
+    if overwrite and pysideuic:  # pysideuic might be None so skip if it doesn't even exist.
         with open(outpath, 'w') as fid:
             pysideuic.compileUi(uiFile, fid, False, 4, False)
         m = importlib.import_module(moduleName)

@@ -7,7 +7,7 @@ import traceback
 
 import maya.OpenMayaUI
 
-import Qt
+from ...vendor import Qt
 
 try:
     import shiboken

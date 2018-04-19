@@ -1,7 +1,7 @@
 import base64
 import zlib
 
-import Qt.QtGui
+from ..vendor.Qt import QtGui
 
 
 def writeInBox(msg):
@@ -51,8 +51,8 @@ class clipboard(object):
     
     @classmethod
     def get(cls):
-        return Qt.QtGui.QClipboard().text()
+        return QtGui.QClipboard().text()
 
     @classmethod
     def set(cls, data ):
-        Qt.QtGui.QClipboard().setText(data)
+        QtGui.QClipboard().setText(data)

@@ -2,8 +2,8 @@ from __future__ import print_function
 
 import contextlib
 
-from Qt import QtWidgets
-from Qt.QtCore import Qt, Signal
+from ...vendor.Qt import QtWidgets
+from ...vendor.Qt.QtCore import Qt, Signal
 
 from ...add import simpleName
 from ... import core

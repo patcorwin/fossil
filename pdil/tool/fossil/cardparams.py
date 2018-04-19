@@ -4,8 +4,8 @@ import contextlib
 from functools import partial
 import itertools
 
-from Qt import QtWidgets
-from Qt.QtCore import Qt
+from ...vendor.Qt import QtWidgets
+from ...vendor.Qt.QtCore import Qt
 
 from pymel.core import cmds
 
@@ -153,7 +153,7 @@ class CardParams(QtWidgets.QTableWidget):
             # Get all the curve transforms under the skeletonBlueprint
             curves = cmds.listRelatives( cmds.listRelatives('skeletonBlueprint', type='nurbsCurve', f=True, ad=True), p=True, f=True)
             self.paramSceneOptions[param] = curves
-            dropdown.addItems( curves )
+            dropdown.addItems( curves )  # ERROR?
             
             self.setCellWidget(row, 1, dropdown)
     

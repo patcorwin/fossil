@@ -2,8 +2,8 @@ from __future__ import print_function, absolute_import
 from functools import partial
 import itertools
 
-from Qt import QtWidgets, QtCore
-from Qt.QtCore import Qt
+from ...vendor.Qt import QtWidgets, QtCore
+from ...vendor.Qt.QtCore import Qt
 
 from pymel.core import delete, select, selected
 

@@ -10,8 +10,8 @@ import xml.etree.ElementTree as xml
 from maya import OpenMayaUI
 
 # I think the * imports are for the compiling in loadUiType
-from Qt.QtGui import *
-from Qt.QtCore import *
+from ..vendor.Qt.QtGui import *
+from ..vendor.Qt.QtCore import *
 
 from Qt import QtWidgets
 

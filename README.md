@@ -5,9 +5,7 @@ Tested in Maya 2016 and 2017
 
 ## Requirements
 
-Get Qt.py from here https://github.com/mottosso/Qt.py/blob/master/Qt.py
-Place it in a scripts folder (adjacent to the pdil folder is fine).
-This beautiful file makes supporting Maya's change to PySide2 in 2017 painless.
+None.  Previously it required https://github.com/mottosso/Qt.py/blob/master/Qt.py but it is now integrated.
 
 ## Installation
 Download, unzip and put the "pdil" folder in one of your Maya script folders.

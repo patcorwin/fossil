@@ -831,17 +831,17 @@
   <customwidget>
    <class>JointLister</class>
    <extends>QTableWidget</extends>
-   <header>motiga.tool.fossil.jointlister.h</header>
+   <header>pdil.tool.fossil.jointlister.h</header>
   </customwidget>
   <customwidget>
    <class>CardLister</class>
    <extends>QTreeWidget</extends>
-   <header>motiga.tool.fossil.cardlister.h</header>
+   <header>pdil.tool.fossil.cardlister.h</header>
   </customwidget>
   <customwidget>
    <class>CardParams</class>
    <extends>QTableWidget</extends>
-   <header>motiga.tool.fossil.cardparams.h</header>
+   <header>pdil.tool.fossil.cardparams.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

@@ -13,7 +13,7 @@ from maya import OpenMayaUI
 from ..vendor.Qt.QtGui import *
 from ..vendor.Qt.QtCore import *
 
-from Qt import QtWidgets
+from ..vendor.Qt import QtWidgets
 
 # Load up the correct ui compiler
 try:

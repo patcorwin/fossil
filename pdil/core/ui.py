@@ -12,17 +12,19 @@ from maya import OpenMayaUI
 # I think the * imports are for the compiling in loadUiType
 from ..vendor.Qt.QtGui import *
 from ..vendor.Qt.QtCore import *
-
 from ..vendor.Qt import QtWidgets
 
 # Load up the correct ui compiler
 try:
     import pysideuic
+    PYSIDE_VERSION = 1
 except ImportError:
     try:
         import pyside2uic as pysideuic
+        PYSIDE_VERSION = 2
     except ImportError:
         pysideuic = None
+        PYSIDE_VERSION = NONE
 
 # Load up the correct shiboken*.wrapInstance
 try:
@@ -32,6 +34,11 @@ except ImportError:
 
 from pymel.core import *
 #from pymel.core import optionVar, Callback, checkBox, frameLayout, menuItem
+
+# Make a top level so ui files can refer to it easily
+VENDORIMPORT = 'QT_PDIL_vendored'
+if VENDORIMPORT not in sys.modules:
+    sys.modules[VENDORIMPORT] = sys.modules['pdil.vendor.Qt']
 
 
 def mayaMainWindow():
@@ -51,7 +58,27 @@ def deleteByName(name):
             child.setParent(None)
             child.close()
 
-      
+
+def convertToQt(lines):
+    '''
+    Takes the lines from a .ui file converted to a .py file, from PySide2, and
+    replaces the imports to use the vendored location of Qt.py.
+    '''
+    subs = [
+        ('from PySide2 import', 'from %s import QtCompat,' % VENDORIMPORT),
+        ('QtWidgets.QApplication.translate', 'QtCompat.translate')
+    ]
+    
+    def parse(line):
+        for older, newer in subs:
+            line = line.replace(older, newer)
+        
+        return line
+
+    parsedLines = [parse(line) for line in lines]
+    return parsedLines
+
+
 # originally named getClass
 def getQtUIClass(uiFile, moduleName=None):
     '''
@@ -77,9 +104,19 @@ def getQtUIClass(uiFile, moduleName=None):
     if os.path.dirname(uiFile) not in sys.path:
         sys.path.append(os.path.dirname(uiFile))
 
-    if overwrite and pysideuic:  # pysideuic might be None so skip if it doesn't even exist.
+    # pysideuic might be None so skip if it doesn't even exist.
+    # Also, since convertToQt only works for pyside2, only update if that's what is available
+    if overwrite and pysideuic and PYSIDE_VERSION == 2:
         with open(outpath, 'w') as fid:
             pysideuic.compileUi(uiFile, fid, False, 4, False)
+        
+        if PYSIDE_VERSION == 2:
+            with open(outpath, 'r') as fid:
+                lines = convertToQt(fid.readlines())
+            
+            with open(outpath, 'w') as fid:
+                fid.write(''.join(lines))
+            
         m = importlib.import_module(moduleName)
         reload(m)
 

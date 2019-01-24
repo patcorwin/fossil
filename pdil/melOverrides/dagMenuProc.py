@@ -8,12 +8,15 @@ import re
 
 from pymel.core import mel, warning
 
-from ..core import pubsub
+from ..core import pubsub, version
 
 
 def override_dagMenuProc():
+    '''
+    Builds `dagMenuProc.<maya version#>.mel` in this folder if it doesn't exist.
     
-    overrideFilename = os.path.dirname(__file__).replace('\\', '/') + '/dagMenuProc.mel'
+    '''
+    overrideFilename = os.path.dirname(__file__).replace('\\', '/') + '/dagMenuProc.' + str(version()) + '.mel'
     
     if not os.path.exists(overrideFilename):
 

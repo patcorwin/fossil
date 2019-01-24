@@ -3,7 +3,7 @@ from itertools import chain
 import json
 import os
 
-from pymel.core import cmds, about, keyframe, selected, currentTime, PyNode, setAttr, hasAttr, setKeyframe, copyKey, pasteKey, warning, delete, exportSelected, playbackOptions, createNode, listAttr, select, objExists, cutKey, setDrivenKeyframe, keyTangent, dt, mel
+from pymel.core import cmds, keyframe, selected, currentTime, PyNode, setAttr, hasAttr, setKeyframe, copyKey, pasteKey, warning, delete, exportSelected, playbackOptions, createNode, listAttr, select, objExists, cutKey, setDrivenKeyframe, keyTangent, dt, mel
 
 from ..add import findFromIds, getIds
 from .. import core
@@ -14,62 +14,6 @@ TAGGING_ATTR = 'fossilAnimSource'
 if '_loadAlterPlug' not in globals():
     _loadAlterPlug = None
 
-
-def export(filepath, objs, start, end):
-    '''
-    :param node/list objs: An object, or list, to export.  Most likely Rig:b_root.
-    :param int start: The beginning of the range to export.
-    :param int end: The end of the range to export.
-    :param string filepath: The full name to export.
-    '''
-    filepath = filepath.replace('\\', '/')
-    if not os.path.exists( os.path.dirname(filepath) ):
-        os.makedirs( os.path.dirname(filepath) )
-    
-    select(objs)
-    
-    mel.FBXPushSettings()
-    mel.FBXResetExport()
-    
-    if version() >= 2016:
-        fbxPreset = os.path.expandvars('%RxArtToolRoot%/Maya/FBXPresets/Fossil_Anim.fbxexportpreset').replace('\\', '/')
-        mel.FBXPushSettings()
-        mel.FBXResetExport()
-        
-        mel.eval('FBXLoadExportPresetFile -f "{0}"'.format(fbxPreset) )
-        mel.eval('FBXExportBakeComplexStart -v {0}'.format(start) )
-        mel.eval('FBXExportBakeComplexEnd -v {0}'.format(end) )
-    else:
-        
-        mel.eval('FBXExportConvertUnitString cm')
-        mel.eval('FBXExportAnimationOnly -v 0')
-        mel.eval('FBXExportBakeComplexAnimation -v 1')
-        mel.eval('FBXExportBakeComplexStep -v 1')
-        mel.eval('FBXExportBakeResampleAnimation -v 1')
-
-        mel.eval('FBXExportBakeComplexStart -v {0}'.format(start) )
-        mel.eval('FBXExportBakeComplexEnd -v {0}'.format(end) )
-        mel.eval('FBXExportUpAxis z')
-        
-        # Turning off input connections prevents the controllers from coming in.
-        mel.FBXExportInputConnections(v=0)
-        
-    try:
-        mel.eval('FBXExport -f "%s" -s' % filepath)
-    finally:
-        mel.FBXPopSettings()
-
-def version(includeBitVersion=False):
-    '''
-    Returns the year, and optionally a tuple of (year, bit)
-    '''
-    
-    year = about(v=True)[:4]
-    
-    if includeBitVersion:
-        return (int(year), 64 if about(v=True).count('x64') else 32  )
-    else:
-        return int(year)
 
 class AttrFlags:
     NONE  = 0
@@ -614,3 +558,54 @@ def _forwardCross(a, b):
 
 def _reverseCross(a, b):
     return b.cross(a)
+    
+
+if 'FBX_ANIM_PRESETS_FILE' not in globals():
+    FBX_ANIM_PRESETS_FILE = ''
+    # Path to an fbx presents file used by `fbxExport`, protected against development reset.
+
+
+def preFbxExport(*args):
+    # Replace this with a function taking the same args as fbxExport to do anything
+    # special, like check out the file.
+    pass
+
+
+def postFbxExport(*args):
+    # Replace this with a function taking the same args as fbxExport to do anything
+    # special, like check in the file.
+    pass
+
+
+def fbxExport(objs, start, end, filepath):
+    '''
+    Convenience function to export fbx animations.
+    
+    :param node/list objs: An object, or list, to export.  Most likely Rig:b_root.
+    :param int start: The beginning of the range to export.
+    :param int end: The end of the range to export.
+    :param string filepath: The full name to export.
+    '''
+    assert os.path.exists(FBX_ANIM_PRESETS_FILE), 'FBX presets file "%s" does not exist' % FBX_ANIM_PRESETS_FILE
+    
+    # Ensure directories exist
+    filepath = filepath.replace('\\', '/')
+    if not os.path.exists( os.path.dirname(filepath) ):
+        os.makedirs( os.path.dirname(filepath) )
+    
+    select(objs)
+    
+    mel.FBXPushSettings()
+    mel.FBXResetExport()
+    
+    # Preset path MUST use forward slashes.
+    mel.eval('FBXLoadExportPresetFile -f "{0}"'.format(FBX_ANIM_PRESETS_FILE.replace('\\', '/')) )
+    mel.eval('FBXExportBakeComplexStart -v {0}'.format(start) )
+    mel.eval('FBXExportBakeComplexEnd -v {0}'.format(end) )
+
+    try:
+        preFbxExport(objs, start, end, filepath)
+        mel.eval('FBXExport -f "%s" -s' % filepath)
+        postFbxExport(objs, start, end, filepath)
+    finally:
+        mel.FBXPopSettings()

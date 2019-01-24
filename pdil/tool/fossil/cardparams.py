@@ -153,7 +153,8 @@ class CardParams(QtWidgets.QTableWidget):
             # Get all the curve transforms under the skeletonBlueprint
             curves = cmds.listRelatives( cmds.listRelatives('skeletonBlueprint', type='nurbsCurve', f=True, ad=True), p=True, f=True)
             self.paramSceneOptions[param] = curves
-            dropdown.addItems( curves )  # ERROR?
+            if curves:  # &&& This can sometimes be empty, which causes the gui to choke on the error (in 2019, but not 2016)
+                dropdown.addItems( curves )  # ERROR?
             
             self.setCellWidget(row, 1, dropdown)
     

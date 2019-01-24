@@ -2248,7 +2248,6 @@ class BPJoint(nt.Joint):
                     break
     
     def setBPParent(self, parent):
-        
         # Freeform and Squash allows non-linear parenting, but everything else must be kept linear.
         if self.card.rigCommand not in ('Freeform', 'SquashStretch'):
             if parent is None:
@@ -2275,8 +2274,14 @@ class BPJoint(nt.Joint):
                 # Make sure it's not a cycle
                 pass
         else:
-            if self.card.parentCardLink != parent.card:
-                self.card.parentCardLink = parent.card
+            if parent:
+                if self.card != parent.card:
+                    if self.card.parentCardLink != parent.card:
+                        self.card.parentCardLink = parent.card
+            else:
+                # Don't know why someone would need this, but they could freeform mutliple top level joints.
+                self.parent = None
+                proxy.unpoint(self.parent)
             
         # point them
         proxy.pointer(parent, self)

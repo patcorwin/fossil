@@ -68,6 +68,7 @@ class Mode(object):
     MULTI_ORIENT = 8        # Only has an orient constraint
 
     FREEFORM = 10           # Allows several targets in different configurations, I do what I want!
+    USER = 11               # User constrains this object as needed
 
     values = {}
     _classmap = {}
@@ -98,6 +99,25 @@ class ROTATE_TRANSLATE(object):
     @staticmethod
     def getTargets(target):
         extra = None
+        constraint = None
+        return target, extra, constraint
+
+
+class USER(object):
+
+    @staticmethod
+    def build(target, spaceName, spaceContainer, rotateTarget, control, space):
+        #trueTarget = group(em=True, name=simpleName(control) + '_' + spaceName)
+        #trueTarget.setParent( getGroup('USER_TARGET') )
+        return target, spaceName
+
+    @staticmethod
+    def getTargets(target):
+        mainData = core.constraints.fullSerialize(target)
+        alignData = core.constraints.fullSerialize(target.getParent())
+        extra = {'main': mainData if mainData else {},
+                'align': alignData if alignData else {} }
+        #extra = None
         constraint = None
         return target, extra, constraint
 
@@ -376,7 +396,7 @@ class FREEFORM(object):
         if main:
             if main.getMotionType().endswith('.ik'):
 
-                if main.getSide() == 'Center' or (settings.toWord(main.card.rigData.get('mirrorCode')) == main.getSide()):
+                if main.getSide() == 'Center' or (main.card.rigData.get('mirrorCode', '').title() == main.getSide()):
                     parentProxy = main.card.start().real.getParent()
 
                 else:
@@ -558,7 +578,9 @@ def toCamel(s):
     return s.title().replace('_', '')
 
 
-modeMap = {}
+USER_TARGET = 'USER_TARGET'
+
+modeMap = {USER_TARGET: 'User_Target'} # Hack to make a special group to add user targets to.
 
 
 for var, val in Mode.__dict__.items():
@@ -904,6 +926,18 @@ def addParent(control, **kwargs):
     add( control, parent, **kwargs )
 
 
+def addWorldToTranslateable(control, **kwargs):
+    '''
+    Convenience function to split pos/target to parent and world to easily add 'world'
+    to translating fk controls.
+    '''
+    
+    bindBone = core.constraints.getOrientConstrainee(control)
+    parent = bindBone.getParent()
+    
+    add(control, parent, 'world', mode=Mode.ALT_ROTATE, rotateTarget=getMainGroup())
+
+
 def addWorld(control, *args, **kwargs):
     '''
     Convenience func for adding world space, has same args as `add()`
@@ -929,6 +963,24 @@ def addTrueWorld(control, *args, **kwargs):
     add( control, getTrueWorld(), 'trueWorld', *args, **kwargs )
 
 
+def addUserDriven(control, spaceName):
+    targetName = simpleName(control) + '_' + spaceName
+    userGroup = getGroup(USER_TARGET)
+    
+    if targetName in userGroup.listRelatives(type='transform'):
+        warning('This space/target already exists')
+        return
+    
+    trueTarget = group(em=True, name=targetName)
+    trueTarget.setParent( userGroup )
+    core.dagObj.matchTo(trueTarget, control)
+    core.dagObj.align(trueTarget, make=True)
+    
+    add(control, trueTarget, spaceName, mode=Mode.USER)
+    
+    return trueTarget
+
+
 def add(control, target, spaceName='', mode=Mode.ROTATE_TRANSLATE, enum=True, rotateTarget=None, external=None):
     '''
     Concerns::
@@ -950,7 +1002,7 @@ def add(control, target, spaceName='', mode=Mode.ROTATE_TRANSLATE, enum=True, ro
     if not target:
         print( "No target specified")
         return
-
+    
     for targetInfo in getTargetInfo(control):
         if targetInfo.type == mode and targetInfo.target == target:
             print( "Target already exists", mode, target)
@@ -1198,7 +1250,23 @@ def deserializeSpaces(control, data):
             name = spaceInfo['name']
             type = spaceInfo['type']
 
-            if 'target' in spaceInfo:
+            if type == Mode.USER:
+                # Delete the existing object if it exists.
+                userGroup = getGroup(USER_TARGET)
+                if target in userGroup.listRelatives():
+                    delete(target.getParent())
+                    
+                target = addUserDriven(control, name)
+                
+                # Rebuild the constraints on it.
+                for constraintType, data in spaceInfo['extra']['main']:
+                    getattr(core.constraints, constraintType + 'Deserialize')(target, data)
+
+                align = target.getParent()
+                for constraintType, data in spaceInfo['extra']['align']:
+                    getattr(core.constraints, constraintType + 'Deserialize')(align, data)
+
+            elif 'target' in spaceInfo:
                 external = None
                 if 'extra' in spaceInfo and spaceInfo['extra'] == 'external':
                     target = getExternalProxy(spaceInfo['target'][0])

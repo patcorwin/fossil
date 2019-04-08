@@ -1,6 +1,7 @@
 from __future__ import print_function, absolute_import
 
 import inspect
+import os
 
 
 def deprecatedStub(funcOrClass, error=False):
@@ -26,3 +27,15 @@ def deprecatedStub(funcOrClass, error=False):
             return funcOrClass(*args, **kwargs)
     
     return newThing
+    
+    
+    
+def addIconPath():
+    pdilIcons = os.path.normpath( os.path.normcase( os.path.dirname(__file__) + '/icons' ) )
+    iconPaths = os.path.normpath( os.path.normcase( os.environ['XBMLANGPATH'] ) )
+    
+    if pdilIcons not in iconPaths:
+        os.environ['XBMLANGPATH'] += ';' + pdilIcons
+
+
+addIconPath()

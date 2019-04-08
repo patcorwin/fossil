@@ -2,8 +2,9 @@ from __future__ import print_function, absolute_import
 
 import re
 
-from pymel.core import Callback, select, selected, warning
+from pymel.core import Callback, confirmDialog, ls, select, selected, warning
 
+from .... import core
 from .... import lib
 
 
@@ -20,6 +21,8 @@ class VisGroupLayout( object ):
         self.ui.equipVisControl.clicked.connect(Callback(self.equip))
         self.ui.unequipVisControl.clicked.connect(Callback(self.unequip))
         self.ui.pruneVisGroups.clicked.connect(Callback(self.prune))
+        
+        self.ui.tagAsMain.clicked.connect(Callback(self.tagMain))
         
         self.ui.assignVisGroup.clicked.connect(Callback(self.assign))
         
@@ -69,6 +72,26 @@ class VisGroupLayout( object ):
         lib.sharedShape.pruneUnused()
         self.update()
         
-    def update( self ):
+    def update(self):
         self.ui.visGroups.clear()
         self.ui.visGroups.addItems( lib.sharedShape.existingGroups() )
+    
+    def tagMain(self):
+        
+        obj = selected()[0]
+        
+        main = ls('*.' + core.findNode.MAIN_CONTROL_TAG)
+        if main:
+            # Already tagged as main
+            if main[0].node() == obj:
+                return
+
+            if confirmDialog( m='{} is already tagged, are you sure want to make {} the main?'.format(main[0].node(), obj),
+                    b=['Yes', 'No'] ) == 'Yes':
+                main[0].node().deleteAttr(core.findNode.MAIN_CONTROL_TAG)
+            else:
+                return
+        
+        core.findNode.tagAsMain(obj)
+        
+        self.update()

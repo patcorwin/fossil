@@ -66,7 +66,7 @@ def _constraintDeserialize(obj, kwargs): # type: (PyNode, Dict) -> Tuple[List[Py
     kwargExtraData = kwargs['#']
     del kwargs['#']
 
-    # Always maintain offset
+    # Always maintain offset.  Might not want to at some point but a value in o/offset implies -mo was used.
     if 'o' in kwargs:
         del kwargs['o']
         kwargs['mo'] = True
@@ -95,6 +95,8 @@ def aimDeserialize(obj, data): # type: (PyNode, Dict) -> None
         kwargs['wuo'] = add.findFromIds(kwargs['wuo'])
     
     targets, reformattedKwargs = _constraintDeserialize(obj, kwargs)
+    if 'mo' in reformattedKwargs:
+        del reformattedKwargs['mo']
     aimConstraint(targets, obj, mo=True, **reformattedKwargs)
     
     
@@ -105,6 +107,8 @@ def pointSerialize(obj): # type: (PyNode) -> Dict
 def pointDeserialize(obj, data): # type: (PyNode, Dict) -> None
     kwargs = copy.deepcopy(data)
     targets, reformattedKwargs = _constraintDeserialize(obj, kwargs)
+    if 'mo' in reformattedKwargs:
+        del reformattedKwargs['mo']
     pointConstraint(targets, obj, mo=True, **reformattedKwargs)
     
     
@@ -115,6 +119,8 @@ def orientSerialize(obj): # type: (PyNode) -> Dict
 def orientDeserialize(obj, data): # type: (PyNode, Dict) -> None
     kwargs = copy.deepcopy(data)
     targets, reformattedKwargs = _constraintDeserialize(obj, kwargs)
+    if 'mo' in reformattedKwargs:
+        del reformattedKwargs['mo']
     orientConstraint(targets, obj, mo=True, **reformattedKwargs)
     
     
@@ -125,7 +131,29 @@ def parentSerialize(obj): # type: (PyNode) -> Dict
 def parentDeserialize(obj, data):  # type: (PyNode, Dict) -> None
     kwargs = copy.deepcopy(data)
     targets, reformattedKwargs = _constraintDeserialize(obj, kwargs)
+    if 'mo' in reformattedKwargs:
+        del reformattedKwargs['mo']
     parentConstraint(targets, obj, mo=True, **reformattedKwargs)
+    
+    
+def fullSerialize(obj):
+    '''
+    Try serializing all constraint, returning a dictionary of which ones apply.
+    '''
+    constraints = {}
+    for func in [ aimSerialize, pointSerialize, orientSerialize, parentSerialize ]:
+        result = func(obj)
+        if result:
+            constraints[func.__name__.replace('Serialize', '')] = result
+    return constraints
+    
+    
+def fullDeserialize(obj, alldata):
+    alldata = copy.deepcopy(alldata)
+    for ctype, data in alldata.items():
+        if 'mo' in data:
+            del data['mo']
+        globals()[ ctype + 'Deserialize' ](obj, data)
     
     
 def getOrientConstrainee(target): # type: (PyNode) -> PyNode

@@ -119,15 +119,18 @@ def controllers(main=None):
     
     return []
     
+    
+MAIN_CONTROL_TAG = 'fossilMainControl'
+
 
 def mainGroup(nodes=None):
     '''
-    Returns the main group containing the rig.
+    Returns the main group containing the rig, named "main", or an object tagged as the main.
     '''
     
     if nodes:
         for n in nodes:
-            if simpleName(n) == 'main':
+            if simpleName(n) == 'main' or n.hasAttr(MAIN_CONTROL_TAG):
                 return n
     
     if objExists('|main'):
@@ -137,9 +140,18 @@ def mainGroup(nodes=None):
         main = list(set([ obj for obj in ls( 'main', r=True) if not obj.getParent() ]))
         if len(main) == 1:
             return main[0]
-        
-        return None
-        
+    
+    # No "main" ojbect was found, looking for tags
+    plugs = ls('*.' + MAIN_CONTROL_TAG)
+    if plugs:
+        return plugs[0].node()
+    
+    return None
+
+
+def tagAsMain(obj):
+    obj.addAttr(MAIN_CONTROL_TAG, at='message')
+
         
 def leadController(obj):
     '''

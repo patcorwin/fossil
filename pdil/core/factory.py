@@ -257,13 +257,15 @@ class JsonAccess(object):
     you have to reassign the entire dict back if you want to make edits.  It
     might be more streamlined to use `JsonAccessDirect` instead.
     '''
-    def __init__(self, attrname):
+    
+    def __init__(self, attrname, defaults={}):
         self.attr = attrname
+        self.defaults = defaults
     
     def __get__(self, instance, owner):
         res = _getStringAttr(instance, self.attr)
         if not res:
-            return {}
+            return self.defaults.copy()
         return json.loads(res, object_pairs_hook=collections.OrderedDict)
             
     def __set__(self, instance, value):
@@ -290,6 +292,7 @@ class JsonAccessDirect(object):
     Auto tranform json data to/from a string.  Returns a `ProxyDict`, which
     manages updating values when the first level of keys is updated.
     '''
+    
     def __init__(self, attrname, defaults):
         self.attr = attrname
         self.defaults = defaults

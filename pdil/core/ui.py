@@ -2,6 +2,7 @@ from __future__ import print_function, absolute_import
 
 from cStringIO import StringIO
 import importlib
+import logging
 import os
 import sys
 import time
@@ -24,7 +25,7 @@ except ImportError:
         PYSIDE_VERSION = 2
     except ImportError:
         pysideuic = None
-        PYSIDE_VERSION = NONE
+        PYSIDE_VERSION = None
 
 # Load up the correct shiboken*.wrapInstance
 try:
@@ -35,10 +36,15 @@ except ImportError:
 from pymel.core import *
 #from pymel.core import optionVar, Callback, checkBox, frameLayout, menuItem
 
-# Make a top level so ui files can refer to it easily
+# Make a top level 'module' so ui files can refer to it directly, aka the generated py code works.
 VENDORIMPORT = 'QT_PDIL_vendored'
 if VENDORIMPORT not in sys.modules:
     sys.modules[VENDORIMPORT] = sys.modules['pdil.vendor.Qt']
+
+
+if 'qtCompileLog' not in globals():
+    qtCompileLog = logging.getLogger('pdil.qt_compile')
+    qtCompileLog.setLevel(logging.WARN)
 
 
 def mayaMainWindow():
@@ -82,12 +88,12 @@ def convertToQt(lines):
 # originally named getClass
 def getQtUIClass(uiFile, moduleName=None):
     '''
-    Given a .ui file, compbiles it (if it's writable and newer than the .py),
+    Given a .ui file, compiles it (if it's writable and newer than the .py),
     imports it and returns the actual class object
     
     .. todo:: Figure out the import moduleName
     '''
-
+    
     if not moduleName:
         moduleName = os.path.basename( uiFile[:-3] )
     
@@ -95,15 +101,26 @@ def getQtUIClass(uiFile, moduleName=None):
     overwrite = False
     
     if os.path.exists(uiFile):
+        qtCompileLog.debug('uiFile exists: ' + uiFile)
         if os.path.exists(outpath):
-            if os.path.getmtime(uiFile) > os.path.getmtime(outpath) and os.access(uiFile, os.W_OK):
-                overwrite = True
+            qtCompileLog.debug('Compiled exists: ' + outpath)
+            if os.access(uiFile, os.W_OK):
+                if os.path.getmtime(uiFile) > os.path.getmtime(outpath):
+                    overwrite = True
+                    qtCompileLog.debug('uiFile is newer and can overwrite.  ' + uiFile)
+                else:
+                    qtCompileLog.debug('uiFile is older than the compiled file so will not be recompiled.  ' + uiFile)
+            else:
+                qtCompileLog.debug('uiFile is not writable, so will not be recompiled.  ' + uiFile)
         else:
             overwrite = True
+            qtCompileLog.debug('uiFile is uncompiled so will compile.  ' + uiFile)
+    else:
+        qtCompileLog.debug('No ui file exists')
 
     if os.path.dirname(uiFile) not in sys.path:
         sys.path.append(os.path.dirname(uiFile))
-
+    
     # pysideuic might be None so skip if it doesn't even exist.
     # Also, since convertToQt only works for pyside2, only update if that's what is available
     if overwrite and pysideuic and PYSIDE_VERSION == 2:
@@ -116,6 +133,7 @@ def getQtUIClass(uiFile, moduleName=None):
             
             with open(outpath, 'w') as fid:
                 fid.write(''.join(lines))
+            qtCompileLog.debug('Pyside2 compiled and written: ' + uiFile)
             
         m = importlib.import_module(moduleName)
         reload(m)
@@ -166,6 +184,7 @@ class VerticalLabel(QtWidgets.QWidget):
     '''
     Almost works!  'Below the line' letters like 'g' get cut off.
     '''
+    
     def __init__(self, *args, **kwargs):
         super(self.__class__, self).__init__(*args, **kwargs)
         #self.text = ''
@@ -216,6 +235,7 @@ class NoFilePrompt(object):
     '''
     Context manager to disable dialogs during file operations
     '''
+    
     def __enter__(self):
         self.current = cmds.file( q=True, prompt=True )
         cmds.file( prompt=False )

@@ -1,6 +1,7 @@
 from __future__ import print_function, absolute_import
 
 import os
+import tempfile
 
 try:
     from typing import List, Union # noqa
@@ -144,3 +145,17 @@ def getMayaFiles(folder): # type: (str) -> List[str]
                 allfiles.append( path + '/' + f )
                 
     return allfiles
+    
+    
+def getTempPath(filename):
+    '''
+    Returns the full path for a temp file.  Doing this makes debugging easier,
+    plus lets content transfer between maya sessions.
+    '''
+    
+    tempdir = tempfile.gettempdir() + '/maya_pdil'
+    
+    if not os.path.exists(tempdir):
+        os.makedirs(tempdir)
+    
+    return tempdir + '/' + filename

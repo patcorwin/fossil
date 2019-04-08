@@ -143,7 +143,7 @@ def distanceBetween(a, b):
     return dist.length()
 
 
-def measure( start, end ):
+def measure( start, end, name='measureLocs'):
     '''
     Given 2 objects, makes and point constrains locators to them and measures.
     
@@ -164,7 +164,7 @@ def measure( start, end ):
     #b.setParent( dist.getParent() )
     hide( a, b, dist)
         
-    return dist.getParent(), group(a, b, name='measureLocs')
+    return dist.getParent(), group(a, b, name=name)
 
                     
 def matchPosByPivot(a, b):

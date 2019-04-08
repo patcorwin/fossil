@@ -1,6 +1,7 @@
-from pymel.core import ls, selected, attributeQuery, xform
+from pymel.core import ls, selected, attributeQuery, xform, select
 
 from ... import core
+from ... import lib
 
 
 @core.alt.name('Zero Controllers')
@@ -48,3 +49,26 @@ def zeroPose(useTrueZero=True):
             control.s.set(1, 1, 1)
         except Exception:
             pass
+
+
+@core.alt.name('Select All Controllers')
+def selectControlers():
+    '''
+    &&& I think this should recognize if you have a controller and select all the controls on that character,
+    otherwise selected all of them in the scene to make working with multiple characters easier.
+    '''
+    select( core.findNode.controllers() )
+    
+    
+@core.alt.name('Save Curves')
+def saveCurves():
+    
+    filename = core.path.getTempPath('curve_transfer.ma')
+    lib.anim.save(filename, objs=None, forceOverwrite=True, forceKeys=False, start=None, end=None)
+    
+
+@core.alt.name('Load Curves')
+def loadCurves():
+    
+    filename = core.path.getTempPath('curve_transfer.ma')
+    lib.anim.load(filename, insertTime=None, alterPlug=None, bufferKeys=True, targetPool=None)

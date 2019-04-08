@@ -39,6 +39,22 @@ def cardPath(obj):
         return ''
         
 
+def jointPath(obj):
+    '''
+    If this joint is connected to blueprint joint, return the cardPath, otherwise an emtpy string.
+    
+    &&& This needs to return a sensible string, be used in getIds, and consumed by the relevant functions.
+    '''
+    for connection in obj.message.listConnections(p=True):
+        if type(connection.node()).__name__ == 'BPJoint': # Test via string name to prevent import cycles
+            if connection.attrName() == 'realJoint':
+                node = connection.node()
+                return 'real:' + node.card.name() + '.' + str(node.card.joints.index(node)) + '|' + node.name()
+            elif connection.attrName() == 'realJointMirror':
+                return 'mirror:' + node.card.name() + '.' + str(node.card.joints.index(node)) + '|' + node.name()
+    return ''
+    
+
 def getIds(obj):
     '''
     Returns a dict of all the various ways to find the given object.
@@ -50,9 +66,12 @@ def getIds(obj):
     }
     
     path_ = cardPath(obj)
-    
     if path_:
         ids['cardPath'] = path_
+    
+    jpath = jointPath(obj)
+    if jpath:
+        ids['BPJ'] = jpath
     
     return ids
     
@@ -60,6 +79,8 @@ def getIds(obj):
 def findFromIds(ids):
     '''
     Given the dict from `getIds()`, returns an object if possible.
+    
+    ..todo:: Process card path and joint paths, (as defined in `getIds`)
     '''
     
     if len(ls(ids['short'], r=True)) == 1:

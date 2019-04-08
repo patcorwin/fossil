@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import functools
 import json
 import re
@@ -189,6 +191,7 @@ def annotateSelectionHandle(obj, text, pos=None):
 
 # Just in case there are different standard substitutions, have this be a table.
 # NOTE:  All keys are assumed to be a single character.
+# &&& HOW IS THIS USED?  Ugg, past me is lame.
 _suffixSubstTable = {
     'L': ('_L', '_R'),
     'R': ('_R', '_L'),
@@ -414,8 +417,8 @@ def runOnEach(func, completedMessage=''):
     if not errors:
         print( completedMessage )
     else:
-        for card, text in errors.values():
-            print(card, + '-' * 80)
+        for card, text in errors.items():
+            print(card, '-' * 80)
             print( text )
         
         warning( 'An error occured on {}, see above for the errors'.format(len(errors)) )

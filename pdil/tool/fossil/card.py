@@ -162,8 +162,8 @@ def makeCard(jointCount=5, jointNames={'repeat': 'DEFAULT'}, rigInfo=None, size=
     # Make the actual card and tag with attrs
     card = nurbsPlane(w=width, lr=height / float(width), ax=(1, 0, 0), n=cardName, d=1, u=1, v=1 )[0]
     
-    card.addAttr( 'moRigData', dt='string' )
-    card.addAttr( 'moRigState', dt='string' )
+    card.addAttr( 'fossilRigData', dt='string' )
+    card.addAttr( 'fossilRigState', dt='string' )
     
     addOutputControlsAttrs(card)
     addJointArrayAttr(card)
@@ -352,8 +352,11 @@ def getArrows():
     return ls( 'arrow' )
 
 
-#-# I *think* the idea is to toggle the proxy connector display but I'm not certain
 def getConnectors():
+    '''
+    #-# I *think* the idea is to toggle the proxy connector display but I'm not certain
+    I also don't think this is useful.  Maybe it was when I didn't have the connectors autohide with the card.
+    '''
     #cards = ls( '*.skeletonInfo', o=1 )
     for card in core.findNode.allCards():
         for j in card.joints:
@@ -367,7 +370,7 @@ def customUp(jnt, arrow=None):
         arrow = makeArrow()
         arrow.setParent( jnt.getParent() )
         arrow.rename( 'custom_arrow' )
-        util.moveTo( arrow, jnt )
+        core.dagObj.moveTo( arrow, jnt )
     
     PyNode(jnt).customUp = arrow
     return arrow
@@ -420,8 +423,9 @@ def cardIk(card):
     hide(base)
     pointConstraint( card, base )
 
-    util.moveTo( ctrl, card.joints[-1] )
-    util.moveTo( upCtrl, card.vtx[1] )
+    core.dagObj.moveTo( ctrl, card.joints[-1] )
+    #core.dagObj.moveTo( upCtrl, card.vtx[1] )
+    core.dagObj.moveTo( upCtrl, card.cv[1][0] )
 
     aimConstraint( aim, card, wut='object', wuo=up, aim=[0, -1, 0], u=[0, 0, -1])
 
@@ -622,7 +626,7 @@ def handSetup( leftArm, numFingers, makeThumb ):
     mod = 0.15 / (numFingers - 1) if numFingers > 1 else 0
     
     for i, finger in enumerate(['Index', 'Middle', 'Ring', 'Pinky'][:numFingers]):
-        card = makeCard( 4, finger + '*', suffix='L' )
+        card = makeCard( 4, finger + '*', suffix='left' )
         moveCard.to( card, leftArm.end() )
         moveCard.backward( card, meters(i * mod - 0.1) )
         moveCard.down( card, meters(0.20) )
@@ -642,7 +646,7 @@ def handSetup( leftArm, numFingers, makeThumb ):
         card.rigOptions = '-size 2 -visGroup fingers'
     
     if makeThumb:
-        thumb = makeCard( 4, 'Thumb*', suffix='L' )
+        thumb = makeCard( 4, 'Thumb*', suffix='left' )
         moveCard.to(thumb, leftArm.end())
         thumb.ry.set(-90)
         
@@ -665,7 +669,7 @@ def leg( startJoint, dist ):
     dist, pos moves left
     '''
 
-    suffix = 'L' if dist > 0 else 'R'
+    suffix = 'left' if dist > 0 else 'right'
 
     leftLeg = makeCard( 3, ['Hip', 'Knee', 'Ankle'], size=meters(.2, 1), suffix=suffix )
     leftLeg.rigCommand = 'IkChain'
@@ -684,7 +688,7 @@ def leg( startJoint, dist ):
 
 
 def hindleg(startJoint=None, dist=0.20):
-    suffix = 'L' if dist > 0 else 'R'
+    suffix = 'left' if dist > 0 else 'right'
 
     leg = makeCard( 4, ['Hip', 'Knee', 'Ankle', 'Toe'], size=meters(.2, 1), suffix=suffix )
     leg.rigCommand = 'DogHindleg'
@@ -701,7 +705,7 @@ def hindleg(startJoint=None, dist=0.20):
 
 
 def foot(legCard):
-    foot = makeCard( 3, [ 'Ball', 'Toe', 'ToeEnd'], size=meters(.4, 0.2), suffix='L' )
+    foot = makeCard( 3, [ 'Ball', 'Toe', 'ToeEnd'], size=meters(.4, 0.2), suffix='left' )
     placeJoints( foot, [(0.5, -1), (-0.7, -1), (-1, -1)] )
     foot.joints[-1].isHelper = True
         
@@ -862,7 +866,7 @@ def bipedSetup(spineCount=4, neckCount=1, numFingers=4, legType='Human', thumb=T
     spine.end().orientTarget = neck.start()
         
     # Arms
-    clav = makeCard( 1, 'Clavicle', size=meters(.1, .1), suffix='L' )
+    clav = makeCard( 1, 'Clavicle', size=meters(.1, .1), suffix='left' )
     clav.rigCommand = 'RotateChain'
     moveCard.to( clav, spine.end() )
     moveCard.forward( clav, meters(0.10) )
@@ -871,7 +875,7 @@ def bipedSetup(spineCount=4, neckCount=1, numFingers=4, legType='Human', thumb=T
     clav.mirror = ''
     
     clav.start().setBPParent( spine.end() )
-    leftArm = arm( clav, 'L' )
+    leftArm = arm( clav, 'left' )
     handSetup( leftArm, numFingers, thumb )
 
     # Legs

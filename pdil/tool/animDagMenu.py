@@ -10,7 +10,7 @@ from .. import core
 from .. import lib
 from ..melOverrides import dagMenuProc
 
-from .fossil import controller
+from .fossil import controllerShape
 from .fossil import kinematicSwitch
 from .fossil import space
 
@@ -53,7 +53,7 @@ def animationSwitchMenu(objName):
     try:
         obj = PyNode(objName)
         
-        plug = controller.getSwitcherPlug(obj)
+        plug = controllerShape.getSwitcherPlug(obj)
         
         spaces = space.getNames(obj)
         
@@ -86,8 +86,33 @@ def animationSwitchMenu(objName):
                 s, e = core.time.playbackRange()
             elif animToolSettings.switchMode == 'all':
                 s, e = None, None
+            
+            '''
+            The dag menu can be triggered:
+            * Object is selected but right click is on nothing
+            * Object is selected but right click is on another object
+            * Nothing is selected right clicking over an object
+            
+            Therefore it's a bunch of work to figure out if several things should be considered or not.
+            '''
+            sel = selected()
+            if len(sel) <= 1 and (sel[0] == obj if sel else True):
+                menuItem(l='Switch to ' + destType, c=core.alt.Callback(kinematicSwitch.ikFkSwitch, obj, s, e))
                 
-            menuItem(l='Switch to ' + destType, c=core.alt.Callback(kinematicSwitch.ikFkSwitch, obj, s, e))
+            else:
+                sel = set(sel)
+                sel.add(obj)
+                
+                switches = {}
+                
+                for o in sel:
+                    switchPlug = controllerShape.getSwitcherPlug(o)
+                    switches[ switchPlug.rsplit('|')[-1] ] = o
+                
+                if len(switches) == 1:
+                    menuItem(l='Switch to ' + destType, c=core.alt.Callback(kinematicSwitch.ikFkSwitch, obj, s, e))
+                else:
+                    menuItem(l='Switch mutliple', c=core.alt.Callback(kinematicSwitch.multiSwitch, switches.values(), s, e))
             
         #-------
         # Spaces
@@ -145,13 +170,15 @@ def animationSwitchMenu(objName):
             isMain = False
         
         # Divider, if needed
-        if plug or len(spaces) > 1 or isMain:
-            menuItem(d=True)
         """
+        if plug or spaces:
+            menuItem(d=True)
+            
     except Exception:
         print( traceback.format_exc() )
 
-print('About to run overrides')
+
+#print('-' * 5, 'About to run dag menu overrides')
 dagMenuProc.override_dagMenuProc()
 dagMenuProc.registerMenu(animationSwitchMenu)
-print('Overrides complete')
+#print('-' * 5, 'Overrides complete')

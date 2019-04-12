@@ -5,27 +5,31 @@ from __future__ import print_function, absolute_import
 
 import collections
 from functools import partial
-import inspect
+#import inspect
 import re
-import shlex
 import sys
 import traceback
 
 from collections import OrderedDict
 
-from pymel.core import textField, optionMenu, warning, checkBox, intField, floatField, duplicate, move, xform, listRelatives, confirmDialog, selected
+from pymel.core import textField, optionMenu, warning, checkBox, intField, floatField, duplicate, move, confirmDialog, selected
 #from pymel.core import *
 
-from ...add import shortName, simpleName
+from ...add import shortName
 from ... import core
 from ... import lib
 
-from . import controller
+from . import controllerShape
 from . import log
 from . import rig
 from . import settings
-from . import space
+#from . import space
 from . import util
+
+try:
+    basestring
+except NameError:
+    basestring = str
 
 
 class ParamInfo(object):
@@ -60,7 +64,6 @@ class ParamInfo(object):
         self.name = name
         self.desc = desc
 
-        #self.types = [types] # REMOVE ALL THIS SHIT
         self.type = type
             
         if default is not None:
@@ -341,47 +344,6 @@ def colorParity(side, controlSpec={}):
         
     return {'controlSpec': modifiedSpec}
 
-
-def _argParse(s):
-    '''
-    Given a string of controllers options, ex "--main -shape box --pv -size 3",
-    parse it into a dict, ex:
-        {
-            'main': {'shape': box, '},
-            'pv': {'size': 3}
-        }
-    
-    ..  todo::
-        If a failures happens, give the available options.
-    '''
-    info = {}
-    for arg in s.split('-'):
-        parts = shlex.split( arg )
-        if not parts:
-            continue
-        name, data = parts[0], parts[1:]
-        
-        if name == 'shape':
-            if hasattr( controller.control, data[0]):
-                info['shape'] = getattr(controller.control, data[0])
-            else:
-                warning( "INVALID SHAPE: {0}  ".format(data[0]) )
-                
-        elif name == 'color':
-            info['color'] = ' '.join(data)
-        elif name == 'size':
-            info['size'] = float(data[0])
-        elif name == 'visGroup':
-            info['visGroup'] = data[0]
-        elif name == 'align':
-            info['align'] = data[0]
-        elif name == 'rotOrder':
-            info['rotOrder'] = data[0]
-        else:
-            warning( "UNRECOGNIZED PARAMETER: {0}".format(name) )
-            
-    return info
-
     
 OutputControls = collections.namedtuple( 'OutputControls', 'fk ik' )
 
@@ -506,11 +468,12 @@ class MetaControl(object):
                 kwargs[argName] = paramInfo.default
                 
             validNames.add(argName)
-        print(validNames, 'VN')
+        print(validNames, 'Valid names')
         userOverrides = card.rigData.get('ikParams', {}) # ParamInfo.toDict( card.rigParams )
         print(userOverrides)
         # Not sure if decoding nodes is best done here or passed through in ParamInfo.toDict
         for key, val in userOverrides.items():
+            print('VALID', key, key in validNames)
             if key in validNames:  # Only copy over valid inputs, incase shenanigans happen
                 if val == 'NODE_0':
                     kwargs[key] = card.extraNode[0]
@@ -522,7 +485,6 @@ class MetaControl(object):
     readKwargs = classmethod( _readKwargs )
     readIkKwargs = classmethod( partial(_readKwargs, kinematicType='ik') )
     
-    # Need to delete readFkKwards, it is not needed.
     readFkKwargs = classmethod( partial(_readKwargs, kinematicType='fk') )
 
     @classmethod
@@ -537,9 +499,9 @@ class MetaControl(object):
         to a dict to change colors if appropriate.
         '''
         
-        if side == 'L':
+        if side == 'left':
             sideAlteration = partial( colorParity, 'L' )
-        elif side == 'R':
+        elif side == 'right':
             sideAlteration = partial( colorParity, 'R' )
         else:
             sideAlteration = lambda **kwargs: kwargs  # noqa e731
@@ -558,7 +520,8 @@ class MetaControl(object):
             fkControlSpec = cls.controlOverrides(card, 'fk')
             fkGroupName = card.getGroupName( **fkControlSpec )
             
-            kwargs = collections.defaultdict(dict)
+            #kwargs = collections.defaultdict(dict)
+            kwargs = cls.readFkKwargs(card, isMirroredSide, sideAlteration)
             kwargs.update( cls.fkArgs )
             kwargs['controlSpec'].update( cls.fkControllerOptions )
             kwargs.update( sideAlteration(**fkControlSpec) )
@@ -575,7 +538,7 @@ class MetaControl(object):
         
         switchPlug = None
         if cls.ik and cls.fk and buildFk:
-            switchPlug = controller.ikFkSwitch( name, ikCtrl, ikConstraints, fkCtrl, fkConstraints )
+            switchPlug = controllerShape.ikFkSwitch( name, ikCtrl, ikConstraints, fkCtrl, fkConstraints )
         
         log.PostRigRotation.check(chain, card, switchPlug)
         
@@ -591,10 +554,10 @@ class MetaControl(object):
         name = rig.trimName(end)
 
         if 'name' in kwargs and kwargs['name']:
-            if side == 'L':
-                kwargs['name'] += '_L'
-            elif side == 'R':
-                kwargs['name'] += '_R'
+            if side == 'left':
+                kwargs['name'] += settings.sideSuffix('left').title()
+            elif side == 'right':
+                kwargs['name'] += settings.sideSuffix('right').title()
             name = kwargs['name']
 
         if name.count(' '):  # Hack for splineIk to have different controller names
@@ -616,10 +579,12 @@ class MetaControl(object):
         
         log.TooStraight.targetCard(card)
         
-        if not util.canMirror( card.start() ) or card.isAsymmetric():
-            suffix = card.findSuffix()
-            if suffix:
-                ctrls = cls._buildSide(card, card.start().real, card.end().real, False, suffix, buildFk=buildFk)
+        side = card.findSuffix()
+        
+        if not side or card.isAsymmetric():
+            
+            if side:
+                ctrls = cls._buildSide(card, card.start().real, card.end().real, False, side, buildFk=buildFk)
             else:
                 ctrls = cls._buildSide(card, card.start().real, card.end().real, False, buildFk=buildFk)
 
@@ -629,22 +594,22 @@ class MetaControl(object):
                 card.outputCenter.fk = ctrls.fk
         else:
             # Build one side...
-            suffix = card.findSuffix()
-            side = settings.letterToWord[suffix]
-            ctrls = cls._buildSide(card, card.start().real, card.end().real, False, suffix, buildFk=buildFk)
+            #side = settings.letterToWord[mirrorCode]
+            ctrls = cls._buildSide(card, card.start().real, card.end().real, False, side, buildFk=buildFk)
             if ctrls.ik:
                 card.getSide(side).ik = ctrls.ik
             if ctrls.fk:
                 card.getSide(side).fk = ctrls.fk
             
             # ... then flip the side info and build the other
-            suffix = settings.otherLetter(suffix)
-            side = settings.otherWord(side)
-            ctrls = cls._buildSide(card, card.start().realMirror, card.end().realMirror, True, suffix, buildFk=buildFk)
+            #side = settings.otherLetter(side)
+            otherSide = settings.otherSideCode(side)
+            #side = settings.otherWord(side)
+            ctrls = cls._buildSide(card, card.start().realMirror, card.end().realMirror, True, otherSide, buildFk=buildFk)
             if ctrls.ik:
-                card.getSide(side).ik = ctrls.ik
+                card.getSide(otherSide).ik = ctrls.ik
             if ctrls.fk:
-                card.getSide(side).fk = ctrls.fk
+                card.getSide(otherSide).fk = ctrls.fk
         
     @classmethod
     def postCreate(cls, card):
@@ -665,8 +630,6 @@ class MetaControl(object):
         if not func:
             return {}
 
-        rigOptions = getattr(card, kinematicType + 'ControllerOptions' )
-        
         # Get the defaults defined by the rig component
         for specName, spec in func.__defaultSpec__.items():
             override[specName] = spec.copy()
@@ -674,32 +637,6 @@ class MetaControl(object):
         # Apply any overrides from the MetaControl
         for specName, spec in getattr(cls, kinematicType + 'ControllerOptions' ).items():
             override[specName].update( spec )
-        
-        # Apply any overrides from the user
-        if rigOptions:
-            try:
-                temp = rigOptions.split('--')
-
-                if temp:
-                    for data in temp:
-                        if data:
-                            name = re.match( '\w+', data )
-                            if not name:
-                                name = 'main'
-                            else:
-                                name = name.group(0)
-                                data = data[ len(name): ].strip()
-                            
-                            if name in override:
-                                # &&& I have no idea why passing unicode to shlex fails
-                                override[name].update( _argParse( str(data) ) )
-                            else:
-                                # I think this happens when a control's rig changes
-                                # to something with less options
-                                override[name] = _argParse( str(data) )
-            except Exception:
-                warning( 'Error parsing card overrides on {0}'.format(card) )
-                print( traceback.format_exc() )
 
         return {'controlSpec': override}
         
@@ -725,27 +662,17 @@ class MetaControl(object):
 class RotateChain(MetaControl):
     ''' Rotate only controls.  Unless this is a single joint, lead joint is always translatable too. '''
     fkArgs = {'translatable': False}
+    fkInput = OrderedDict( [
+        ('scalable', ParamInfo('Scalable', 'Scalable', ParamInfo.BOOL, default=False))
+    ] )
 
 
 class TranslateChain(MetaControl):
     ''' Translatable and rotatable controls. '''
     fkArgs = {'translatable': True}
-
-
-"""
-class IkChain(MetaControl):
-    ''' Basic 3 joint ik chain. '''
-    ik_ = 'pdil.tool.fossil.rig.ikChain'
-    ikInput = OrderedDict( [
-        ('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, '')),
-        ('pvLen', ParamInfo('PV Length', 'How far the pole vector should be from the chain', ParamInfo.FLOAT, default=0) ),
-        ('stretchDefault', ParamInfo('Stretch Default', 'Default value for stretch (set when you `zero`)', ParamInfo.FLOAT, default=1, min=0, max=1)),
-        ('endOrientType', ParamInfo('Control Orient', 'How to orient the last control', ParamInfo.ENUM, enum=rig.EndOrient.asChoices())),
+    fkInput = OrderedDict( [
+        ('scalable', ParamInfo('Scalable', 'Scalable', ParamInfo.BOOL, default=False))
     ] )
-    
-    ikArgs = {}
-    fkArgs = {'translatable': True}
-"""
 
 
 class IkChain(MetaControl):
@@ -756,6 +683,7 @@ class IkChain(MetaControl):
         ('pvLen', ParamInfo('PV Length', 'How far the pole vector should be from the chain', ParamInfo.FLOAT, default=0) ),
         ('stretchDefault', ParamInfo('Stretch Default', 'Default value for stretch (set when you `zero`)', ParamInfo.FLOAT, default=1, min=0, max=1)),
         ('endOrientType', ParamInfo('Control Orient', 'How to orient the last control', ParamInfo.ENUM, enum=rig.EndOrient.asChoices(), default=rig.EndOrient.TRUE_ZERO)),
+        ('makeBendable', ParamInfo('Make Bendy', 'Adds fine detail controls to adjust each joint individually', ParamInfo.BOOL, default=False) ),
     ] )
     
     ikArgs = {}
@@ -794,31 +722,7 @@ class IkChain(MetaControl):
         return kwargs
 
 
-class SplineChest(MetaControl):
-    ''' Spline control for the chest mass.  Currently assumes 5 joints. '''
-    ik_ = 'pdil.tool.fossil.rig.splineChest'
-    ikInput = OrderedDict( [('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, 'Chest')),
-                            ('useTrueZero', ParamInfo( 'Use True Zero', 'Use True Zero', ParamInfo.BOOL, True)),
-                            ('numChestJoints', ParamInfo( '# Chest Joints', 'How many joints are part of the chest mass', ParamInfo.INT, 3)),
-                            ] )
-    
-    fkArgs = {'translatable': True}
 
-
-class SplineChest3Joint(MetaControl):
-    ''' Spline control for the chest mass for just 3 joints. '''
-    ik_ = 'pdil.tool.fossil.rig.splineChestThreeJoint'
-    ikInput = OrderedDict( [('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, 'Chest'))] )
-    
-    fkArgs = {'translatable': True}
-
-
-class SplineChest4Joint(MetaControl):
-    ''' Spline control for the chest mass for just 4 joints. '''
-    ik_ = 'pdil.tool.fossil.rig.splineChestFourJoint'
-    ikInput = OrderedDict( [('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, 'Chest'))] )
-    
-    fkArgs = {'translatable': True}
 
 
 class SplineTwist(MetaControl):
@@ -874,600 +778,8 @@ class SplineTwist(MetaControl):
         return kwargs
 
 
-class DogHindleg(MetaControl):
-    ''' 4 joint dog hindleg. '''
-    ik_ = 'pdil.tool.fossil.rig.dogleg'
-
-    ikInput = OrderedDict( [
-        ('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, 'Leg')),
-        ('pvLen', ParamInfo('PV Length', 'How far the pole vector should be from the chain', ParamInfo.FLOAT, default=0) ),
-        ('endOrientType', ParamInfo('Control Orient', 'How to orient the last control', ParamInfo.ENUM, default=rig.EndOrient.TRUE_ZERO_FOOT, enum=rig.EndOrient.asChoices())),
-    ] )
 
 
-"""  Eventually a space and params presets system will replace these, but it's too much to deal with for now.
-class Arm(MetaControl):
-    ''' Same as IkChain but tries to add spaces for clavicle and chest. '''
-    ik_ = 'pdil.tool.fossil.rig.ikChain'
-    ikInput = OrderedDict( [
-        ('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, 'Arm')),
-        ('pvLen', ParamInfo('PV Length', 'How far the pole vector should be from the chain', ParamInfo.FLOAT, default=0) ),
-        ('stretchDefault', ParamInfo('Stretch Default', 'Default value for stretch (set when you `zero`)', ParamInfo.FLOAT, default=1, min=0, max=1)),
-        ('endOrientType', ParamInfo('Control Orient', 'How to orient the last control', ParamInfo.ENUM, default=rig.EndOrient.TRUE_ZERO, enum=rig.EndOrient.asChoices())),
-    ] )
-    
-    fkArgs = {'translatable': True}
-    fkControllerOptions = {'main': {'color': 'green .5', 'size': 13 }}
-
-    @classmethod
-    def postCreate(cls, card):
-        '''
-        ..  todo::
-            * Despair had the hands to the head to, does that really make sense?
-        '''
-        
-        for ctrl, side, type in card._outputs():
-            if type == 'fk':
-                continue
-                
-            socket = ctrl.subControl['socket']
-            
-            space.addWorld( ctrl )
-            space.add( ctrl, socket, spaceName='clavicle_pos_only', mode=space.Mode.TRANSLATE)
-            
-            # Fixup names from default to be generic for easy default keying
-            pv = ctrl.subControl['pv']
-            names = space.getNames(pv)
-            names[1] = 'arm'
-            names[2] = 'arm_pos_only'
-            space.setNames(pv, names)
-            
-            if card.parentCard and card.parentCard.start().parent:
-                chest = card.parentCard.start().parent.real
-                space.add( ctrl, chest, spaceName='chest')
-
-
-class Leg(MetaControl):
-    ''' Same as IkChain but adds world and parent spaces. '''
-    ik_ = 'pdil.tool.fossil.rig.ikChain'
-    ikInput = OrderedDict( [
-        ('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, 'Leg')),
-        ('pvLen', ParamInfo('PV Length', 'How far the pole vector should be from the chain', ParamInfo.FLOAT, default=0) ),
-        ('stretchDefault', ParamInfo('Stretch Default', 'Default value for stretch (set when you `zero`)', ParamInfo.FLOAT, default=1, min=0, max=1)),
-        ('endOrientType', ParamInfo('Control Orient', 'How to orient the last control', ParamInfo.ENUM, default=rig.EndOrient.TRUE_ZERO_FOOT, enum=rig.EndOrient.asChoices())),
-    ] )
-            
-    fkArgs = {'translatable': True}
-    
-    @classmethod
-    def postCreate(cls, card):
-        '''
-        ..  todo::
-            * Despair had the hands to the head to, does that really make sense?
-        '''
-        
-        for ctrl, side, type in card._outputs():
-            if type == 'fk':
-                continue
-            
-            space.addWorld( ctrl )
-            space.add( ctrl, card.start().parent.real )
-            
-            # Fixup names from default to be generic for easy default keying
-            pv = ctrl.subControl['pv']
-            names = space.getNames(pv)
-            names[1] = 'leg'
-            names[2] = 'leg_pos_only'
-            space.setNames(pv, names)
-"""
-
-
-class SplineNeck(MetaControl):
-    ''' Spline controller with a center control to provide arcing. '''
-    ik_ = 'pdil.tool.fossil.rig.splineNeck'
-    ikInput = OrderedDict( [
-        ('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, '')),
-        ('matchEndOrient', ParamInfo( 'DEP-Match Orient', 'Ik Control will match the orientation of the joint last joint', ParamInfo.BOOL, default=False)),
-        ('endOrient', ParamInfo('Control Orient', 'How to orient the last control', ParamInfo.ENUM, default=rig.EndOrient.TRUE_ZERO, enum=rig.EndOrient.asChoices())),
-        ('curve', ParamInfo( 'Curve', 'A nurbs curve to use for spline', ParamInfo.NODE_0 ) ),
-    ] )
-
-    fkArgs = {'translatable': True}
-
-    @classmethod
-    def readIkKwargs(cls, card, isMirroredSide, sideAlteration=lambda **kwargs: kwargs, kinematicType='ik'):
-        '''
-        Overriden to handle if a custom curve was given, which then needs to be duplicated, mirrored and
-        fed directly into the splineTwist.
-        '''
-
-        kwargs = cls.readKwargs(card, isMirroredSide, sideAlteration, kinematicType='ik')
-        if isMirroredSide:
-            if 'curve' in kwargs:
-                crv = kwargs['curve']
-                crv = duplicate(crv)[0]
-                kwargs['curve'] = crv
-                move( crv.sp, [0, 0, 0], a=True )
-                move( crv.rp, [0, 0, 0], a=True )
-                crv.sx.set(-1)
-                
-                kwargs['duplicateCurve'] = False
-                
-        return kwargs
-
-
-""" I think this is best left to each control to define and deal with than a leaf joint that interferes with default weighting.
-class TwistHelper(MetaControl):
-    ''' Special controller to automate distributed twisting, like on the forearm. '''
-    #displayInUI = False
-
-    fk_ = 'pdil.tool.fossil.rig.twist'
-
-    fkInput = OrderedDict( [
-        ('defaultPower', ParamInfo( 'Default Power', 'Default automatic twist power', ParamInfo.FLOAT, 0.5)),
-    ] )
-
-    @classmethod
-    def build(cls, card, buildFk=True):
-        '''
-        ..  todo::
-            Make this actually respect control overrides.
-        '''
-
-        #twist(twist, twistDriver, twistLateralAxis=[0,0,1], driverLateralAxis=[0,0,1], controlSpec={}):
-
-        kwargs = cls.readFkKwargs(card, False)
-
-        if not util.canMirror( card.start() ) or card.isAsymmetric():
-            ctrl, container = cls.fk(card.joints[0].real, card.extraNode[0].real, **kwargs)
-            card.outputCenter.fk = ctrl
-        else:
-            # Build one side...
-            suffix = card.findSuffix()
-            side = settings.letterToWord[suffix]
-            ctrl, container = cls.fk(card.joints[0].real, card.extraNode[0].real, **kwargs)
-            card.getSide(side).fk = ctrl
-            
-            # ... then flip the side info and build the other
-            suffix = settings.otherLetter(suffix)
-            side = settings.otherWord(side)
-            ctrl, container = cls.fk(card.joints[0].realMirror, card.extraNode[0].realMirror, **kwargs)
-            card.getSide(side).fk = ctrl
-"""
-
-
-class SquashStretch(MetaControl):
-    ''' Special controller providing translating bones simulating squash and stretch. '''
-    displayInUI = False
-
-    ik_ = 'pdil.tool.fossil.rig.squashAndStretch'
-    ikInput = OrderedDict( [
-        ('rangeMin', ParamInfo( 'Min Range', 'Lower bounds of the keyable attr.', ParamInfo.FLOAT, -5.0)),
-        ('rangeMax', ParamInfo( 'Max Range', 'Upper bounds of the keyable attr.', ParamInfo.FLOAT, 5.0)),
-        ('scaleMin', ParamInfo( 'Shrink Value', 'When the attr is at the lower bounds, scale it to this amount.', ParamInfo.FLOAT, .5)),
-        ('scaleMax', ParamInfo( 'Expand Value', 'When the attr is at the upper bounds, scale it to this amount.', ParamInfo.FLOAT, 2)),
-    ] )
-    
-    #orientAsParent=True, min=0.5, max=1.5
-    
-    @classmethod
-    def build(cls, card):
-        '''
-        Custom build that uses all the joints, except the last, which is used
-        as a virtual center/master control for all the scaling joints.
-        '''
-        assert len(card.joints) > 2
-        pivotPoint = xform(card.joints[-1], q=True, ws=True, t=True)
-        joints = [j.real for j in card.joints[:-1]]
-    
-        ikControlSpec = cls.controlOverrides(card, 'ik')
-    
-        def _buildSide( joints, pivotPoint, isMirroredSide, side=None ):
-            log.Rotation.check(joints, True)
-            if side == 'L':
-                sideAlteration = partial( colorParity, 'L' )
-            elif side == 'R':
-                sideAlteration = partial( colorParity, 'R' )
-            else:
-                sideAlteration = lambda **kwargs: kwargs  # noqa
-            
-            kwargs = cls.readIkKwargs(card, isMirroredSide, sideAlteration)
-            kwargs.update( cls.ikArgs )
-            kwargs['controlSpec'].update( cls.ikControllerOptions )
-            kwargs.update( sideAlteration(**ikControlSpec) )
-            
-            ikCtrl, ikConstraints = cls.ik( joints, pivotPoint, **kwargs )
-            return OutputControls(None, ikCtrl)
-    
-        if not util.canMirror( card.start() ) or card.isAsymmetric():
-            suffix = card.findSuffix()
-            if suffix:
-                ctrls = _buildSide(joints, pivotPoint, False, suffix)
-            else:
-                ctrls = _buildSide(joints, pivotPoint, False)
-
-            card.outputCenter.ik = ctrls.ik
-        else:
-            ctrls = _buildSide(joints, pivotPoint, False, 'L')
-            card.outputLeft.ik = ctrls.ik
-
-            pivotPoint[0] *= -1
-            joints = [j.realMirror for j in card.joints[:-1]]
-            ctrls = _buildSide(joints, pivotPoint, True, 'R' )
-            card.outputRight.ik = ctrls.ik
-    
-    @staticmethod
-    def getSquashers(ctrl):
-        '''
-        Returns the objs the squasher controls follow, which have the set driven keys.
-        Cheesy at the moment because it's just the list of children (alphabetized).
-        '''
-        squashers = listRelatives(ctrl, type='transform')
-        return sorted( set(squashers) )
-    
-    @classmethod
-    def saveState(cls, card):
-        sdkInfo = {}
-        for ctrl, side, kinematicType in card.getMainControls():
-            if kinematicType == 'ik':
-                sdkInfo[side] = [ lib.anim.findSetDrivenKeys(o) for o in cls.getSquashers(ctrl) ]
-                
-        state = card.rigState
-        state['squasherSDK'] = sdkInfo
-        card.rigState = state
-        
-    @classmethod
-    def restoreState(cls, card):
-        state = card.rigState
-        if 'squasherSDK' not in state:
-            return
-        
-        for ctrl, side, kinematicType in card.getMainControls():
-            if kinematicType == 'ik':
-                if side in state['squasherSDK']:
-                    curves = state['squasherSDK'][side]
-                    squashers = cls.getSquashers(ctrl)
-                    for squasher, crv in zip(squashers, curves):
-                        lib.anim.applySetDrivenKeys(squasher, crv)
-
-
-class Group(MetaControl):
-    ''' A control that doesn't control a joint.  Commonly used as a space for other controls. '''
-    fkInput = OrderedDict( [
-        ('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, '')),
-        ('translatable', ParamInfo( 'Translatable', 'It can translate', ParamInfo.BOOL, default=True)),
-        ('scalable', ParamInfo( 'Scalable', 'It can scale', ParamInfo.BOOL, default=False)),
-        ('useTrueZero', ParamInfo( 'True Zero', 'Use true zero like ik controls', ParamInfo.BOOL, default=False)),
-    ] )
-
-    @classmethod
-    def validate(cls, card):
-        # &&& Eventually just validate that all it's joints are non-helpers
-        pass
-    
-    @classmethod
-    def _buildSide(cls, card, start, end, isMirroredSide, side=None, buildFk=True):
-        '''
-        Most inputs are ignored because it does it's own thing since the joints
-        don't exist.
-        
-        
-        ..  todo:: Will need special attention to deal with twin mode.
-        '''
-        # DO NOT check rotation on a thing that doesn't exist.
-        # log.Rotation.check(rig.getChain(start, end), True)
-        
-        ikCtrl = None
-        
-        sideAlteration = cls.sideAlterationFunc(side)
-        fkControlSpec = cls.controlOverrides(card, 'fk')
-        
-        # kwargs = collections.defaultdict(dict)
-        # kwargs.update( cls.fkArgs )
-        # kwargs['controlSpec'].update( cls.fkControllerOptions )
-        # kwargs.update( sideAlteration(**fkControlSpec) )
-
-        kwargs = cls.readFkKwargs(card, isMirroredSide, sideAlteration)
-
-        if not kwargs['name']:
-            kwargs['name'] = simpleName(card.start())
-
-        if side == 'L':
-            kwargs['name'] += '_L'
-        elif side == 'R':
-            kwargs['name'] += '_R'
-
-        kwargs.update( sideAlteration(**fkControlSpec) )
-        
-        position = xform(card.start(), q=True, ws=True, t=True)
-        
-        # If there is 1 joint, orient as the card (for backwards compatibility)
-        # but if there are more, figure out what it's orientation should be
-        if len(card.joints) == 1:
-            rotation = xform(card, q=True, ws=True, ro=True)
-        else:
-            lib.anim.orientJoint(card.joints[0], card.joints[1], xform(card.joints[0], q=True, ws=True, t=True) + card.upVector())
-            rotation = xform(card.joints[0], q=True, ws=True, ro=True)
-        
-        if isMirroredSide:
-            position[0] *= -1.0
-            rotation[1] *= -1.0
-            rotation[2] *= -1.0
-
-        if not card.start().parent:
-            parent = None
-        else:
-            if isMirroredSide and card.start().parent.realMirror:
-                parent = card.start().parent.realMirror
-            else:
-                parent = card.start().parent.real
-        
-        fkCtrl, emptyConstraints = rig.ctrlGroup(parent, position, rotation, **kwargs)
-        
-        if isMirroredSide:
-            space = core.dagObj.zero(fkCtrl, make=False)
-            space.rx.set( space.rx.get() + 180 )
-        
-        return OutputControls(fkCtrl, ikCtrl)
-
-
-class Freeform(MetaControl):
-    ''' Allows for non-linear arbitrary joint chains with translating and rotating controls. '''
-    fkInput = OrderedDict( [
-        ('translatable', ParamInfo( 'Translatable', 'It can translate', ParamInfo.BOOL, default=True)),
-    ] )
-
-    @classmethod
-    def validate(cls, card):
-        pass
-    
-    @classmethod
-    def _buildSide(cls, card, start, end, isMirroredSide, side=None, buildFk=True):
-        '''
-        Since the joints aren't in a chain, just pass them all along to get sorted out later
-        '''
-        
-        log.Rotation.check(rig.getChain(start, end), True)
-        
-        ikCtrl = None
-        
-        sideAlteration = cls.sideAlterationFunc(side)
-        fkControlSpec = cls.controlOverrides(card, 'fk')
-        
-        kwargs = cls.readFkKwargs(card, isMirroredSide, sideAlteration)
-        
-        #if not kwargs['name']:
-        #    kwargs['name'] = simpleName(card.start())
-        
-        # I think kwargs[name] is totally ignored anyway
-        '''
-        if side == 'L':
-            print( "kwargs['name']", kwargs['name'] )
-            kwargs['name'] += '_L'
-        elif side == 'R':
-            kwargs['name'] += '_R'
-        '''
-
-        kwargs.update( sideAlteration(**fkControlSpec) )
-                
-        if isMirroredSide:
-            joints = [j.realMirror for j in card.joints if not j.isHelper]
-        else:
-            joints = [j.real for j in card.joints if not j.isHelper]
-        
-        fkCtrl, emptyConstraints = rig.freeform(joints, **kwargs)
-        
-        return OutputControls(fkCtrl, ikCtrl)
-
-
-"""  Once a system is made to easily mark non-binding joints, this shouldn't be needed.
-class SplineProxy(MetaControl):
-    '''
-    Super fancy control that lets you control a daisy chained ik system with a
-    spline, like a jaggy tail.
-    '''
-    
-    # Use a modified version of SpineTwist
-    ikInput = copy.deepcopy(SplineTwist.ikInput)
-    ikInput['tipBend'].value = False
-    ikInput['sourceBend'].value = False
-    del ikInput['allowOffset']
-    del ikInput['useLeadOrient']
-    
-    # Even though the chainIk is the real function, this is the one we want the
-    # options for --though there must be a better way to recognize this as they
-    # are already specified in ikInput--
-    ik_ = 'pdil.tool.fossil.rig.splineIk'
-    
-    fkArgs = {'translatable': True}
-    
-    @classmethod
-    def validate(cls, card):
-        '''
-        This validation is going to be complex
-        
-        * It needs to have a reference to another card,
-        * It also needs to refer to several joints along the chain to make IKs
-        * The OTHER card needs to refer to 2x as many, for the P
-        '''
-        
-        assert card.extraNode[0].__class__.__name__ == 'Card'
-    
-    @classmethod
-    def _buildIk(cls, card, start, end, side, sideAlteration, isMirroredSide):
-        
-        driveCard = card.extraNode[0]
-        
-        driveChain = driveCard.joints
-        
-        chain = []
-        matchup = {}
-        for i, srcJoint in enumerate(driveChain, 1):
-            name = srcJoint.name() + "_d%i" % i
-            select(cl=True)
-            j = joint(  n=name,
-                        p=xform(srcJoint, q=True, ws=True, t=True),
-                        relative=False)
-            chain.append(j)
-            matchup[srcJoint] = j
-        
-        # Set up parents
-        for p, jnt in zip( chain[:-1], chain[1:] ):
-            jnt.setParent(p)
-        
-        # This has similiarities with Card.orientJoints but I'm not sure
-        # they can share a base.  Most stuff isn't relevaant
-        axis = card.upVector()
-        upLoc = spaceLocator()
-        
-        def moveUpLoc(obj, axis=axis):  # Move the upLoc above the given obj
-            xform( upLoc, ws=True, t=axis + dt.Vector(xform(obj, q=True, ws=True, t=True)))
-    
-        upAxis = 'y'
-        aim = card.getAimAxis(driveChain[0].suffixOverride)
-        
-        for i, (jnt, tempJnt, orientTarget) in enumerate(zip(chain, driveChain, chain[1:])):
-            aim = card.getAimAxis(tempJnt.suffixOverride)
-                        
-            moveUpLoc(jnt, card.upVector() )
-                        
-            lib.anim.orientJoint(jnt, orientTarget, upLoc, aim=aim, up=upAxis)
-                        
-        joint( chain[-1], e=True, oj='none' )
-           
-        delete(upLoc)
-        
-        # &&& This is no good, extra node info can totally stomp on eachother.
-        nodes = list(card.extraNode)
-        
-        handleInfo = []
-        for i, node in enumerate(nodes[1:]):
-            
-            handleInfo.append([
-                node,
-                matchup[driveCard.extraNode[i * 2]],
-                matchup[driveCard.extraNode[ i * 2 + 1 ]]
-            ])
-        
-        # v---
-        # &&& This ripped right out of the original _buildIk
-        ikControlSpec = cls.controlOverrides(card, 'ik') # noqa
-        
-        kwargs = cls.readIkKwargs(card, isMirroredSide, sideAlteration)
-
-        name = rig.trimName(end)
-
-        if 'name' in kwargs and kwargs['name']:
-            if side == 'L':
-                kwargs['name'] += '_L'
-            elif side == 'R':
-                kwargs['name'] += '_R'
-            name = kwargs['name']
-        # ^---
-        
-        ctrl, constraints = rig.chainedIk(start, end, chain, handleInfo, splineOptions=kwargs)
-        return name, ctrl, constraints
-"""
-
-
-class Foot(MetaControl):
-    
-    ik_ = 'pdil.tool.fossil.rig.foot'
-    
-    @classmethod
-    def build(cls, card):
-        '''
-        '''
-        
-        #assert len(card.joints) > 2
-        
-        toe = card.joints[1]
-        heel = card.joints[2]
-        
-        previousJoint = card.joints[0].parent
-        assert previousJoint.card.rigCommand in ('Leg', 'IkChain')
-        
-        legCard = previousJoint.card
-        
-        if not util.canMirror( card.start() ) or card.isAsymmetric():
-            legControl = legCard.outputCenter.ik
-            suffix = card.findSuffix()
-            if suffix:
-                ctrls = cls._buildSide(card, card.joints[0].real, xform(toe, q=True, ws=True, t=True), xform(heel, q=True, ws=True, t=True), legControl, False, suffix)
-            else:
-                ctrls = cls._buildSide(card, card.joints[0].real, xform(toe, q=True, ws=True, t=True), xform(heel, q=True, ws=True, t=True), legControl, False)
-
-            card.outputCenter.ik = ctrls.ik
-            
-        else:
-            
-            toePos = xform(toe, q=True, t=True, ws=True)
-            heelPos = xform(heel, q=True, t=True, ws=True)
-            
-            leftLegControl = legCard.outputLeft.ik
-            ctrls = cls._buildSide(card, card.joints[0].real, toePos, heelPos, leftLegControl, True, 'L')
-            card.outputLeft.ik = ctrls.ik
-
-
-            rightLegControl = legCard.outputRight.ik
-            toePos[0] *= -1
-            heelPos[0] *= -1
-            ctrls = cls._buildSide(card, card.joints[0].realMirror, toePos, heelPos, rightLegControl, False, 'R')
-            card.outputRight.ik = ctrls.ik
-        
-        
-        
-        #pivotPoint = xform(card.joints[-1], q=True, ws=True, t=True)
-        #joints = [j.real for j in card.joints[:-1]]
-    
-        #ikControlSpec = cls.controlOverrides(card, 'ik')
-        
-    
-    @classmethod
-    def _buildSide( cls, card, ballJoint, toePos, heelPos, legControl, isMirroredSide, side=None, buildFk=False ):
-        
-        log.Rotation.check([ballJoint], True)
-        if side == 'L':
-            sideAlteration = partial( colorParity, 'L' )
-        elif side == 'R':
-            sideAlteration = partial( colorParity, 'R' )
-        else:
-            sideAlteration = lambda **kwargs: kwargs  # noqa
-        
-        fkCtrl = None
-        
-        if buildFk:
-            fkControlSpec = cls.controlOverrides(card, 'fk')
-            fkGroupName = card.getGroupName( **fkControlSpec )
-            
-            kwargs = collections.defaultdict(dict)
-            kwargs.update( cls.fkArgs )
-            kwargs['controlSpec'].update( cls.fkControllerOptions )
-            kwargs.update( sideAlteration(**fkControlSpec) )
-            
-            fkCtrl, fkConstraints = cls.fk( ballJoint, ballJoint, groupName=fkGroupName, **kwargs )
-            
-            # Ik is coming, disable fk so ik can lay cleanly on top.  Technically it shouldn't matter but sometimes it does.
-            for const in fkConstraints:
-                const.set(0)
-        
-        ikControlSpec = cls.controlOverrides(card, 'ik')
-        
-        kwargs = cls.readIkKwargs(card, isMirroredSide, sideAlteration)
-        kwargs.update( cls.ikArgs )
-        kwargs['controlSpec'].update( cls.ikControllerOptions )
-        kwargs.update( sideAlteration(**ikControlSpec) )
-        
-        #fkCtrl, fkConstraints = rig.fkChain(ballJoint, ballJoint, translatable=True)
-        ikCtrl, ikConstraints = cls.ik( ballJoint, toePos, heelPos, legControl, side, **kwargs )
-        
-        switchPlug = None
-        if cls.ik and cls.fk and buildFk:
-            switchPlug = controller.ikFkSwitch( 'FootFKSwitch', ikCtrl, ikConstraints, fkCtrl, fkConstraints )
-        
-        #switchPlug = controller.ikFkSwitch( ballJoint.name(), ikCtrl, ikConstraints, fkCtrl, fkConstraints )
-        
-        return OutputControls(fkCtrl, ikCtrl)
 
 
 def availableControlTypeNames():
@@ -1475,43 +787,6 @@ def availableControlTypeNames():
     return [name for name, cls in sorted(registeredControls.items()) if cls.displayInUI]
     
     
-def updateIkChainCommands():
-    '''
-    ikChain uses a single `endOrientType` (string) enum instead of conflicting
-    matchEndOrient and matchRotation.
-    '''
-    for card in core.findNode.allCards():
-        if card.rigCommand in ('IkChain', 'Arm', 'Leg'):
-            
-            temp = ParamInfo.toDict( card.rigParams )
-            
-            # Convert old values to new value
-            if 'endOrientType' not in temp:
-                
-                rotation = temp['matchRotation'] if 'matchRotation' in temp and temp['matchRotation'] else None
-                trueWorld = temp['matchEndOrient'] if 'matchEndOrient' in temp and temp['matchEndOrient'] else None
-                
-                if trueWorld or (rotation is None and trueWorld is None):
-                    temp['endOrientType'] = rig.EndOrient.TRUE_ZERO
-                elif not trueWorld and rotation:
-                    temp['endOrientType'] = rig.EndOrient.JOINT
-                elif not trueWorld and not rotation:
-                    temp['endOrientType'] = rig.EndOrient.WORLD
-                else:
-                    temp['endOrientType'] = rig.EndOrient.TRUE_ZERO
-                
-                print( 'card.rigParams', card.rigParams )
-                print( 'UPDATING', card, 'to', temp['endOrientType'] )
-            
-            # Remove old values
-            if 'matchRotation' in temp:
-                del temp['matchRotation']
-            
-            if 'matchEndOrient' in temp:
-                del temp['matchEndOrient']
-                
-            card.rigParams = ParamInfo.toStr(temp)
-
 
 if 'raiseErrors' not in globals():
     raiseErrors = False

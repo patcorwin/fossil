@@ -13,11 +13,17 @@ back to MFnDagNode when casting a curve with no cvs.
 '''
 from __future__ import absolute_import, print_function
 
+import json
+import logging
+
 from pymel.core import cmds, createNode, objExists, delete, parent, warning, connectAttr, group, listConnections, deleteAttr, mel, setAttr, addAttr, PyNode, nodeType, getAttr
 
 from ..add import shortName
 from .. import core
 from .. import nodeApi
+
+
+log = logging.getLogger(__name__)
 
 
 def _makeSharedShape(obj, name, shapeType):
@@ -92,7 +98,7 @@ def get(create=True):
     '''
 
 
-def connect( obj, (name, level) ):
+def connect( obj, name_level ):
     '''
     Hook the given obj's visibility to the `name` attribute on the sharedShape.
     If the attr doesn't exist, it will be made.
@@ -101,6 +107,8 @@ def connect( obj, (name, level) ):
     example, 2 will not be visible at 1, but will at 2 and higher.
     '''
     
+    name, level = name_level # Probably should just update this eventually to be 3 params
+    
     orig = obj
     
     zero = core.dagObj.zero(obj, apply=False, make=False)
@@ -108,6 +116,13 @@ def connect( obj, (name, level) ):
         obj = zero
     
     shape = get()
+    
+    if not shape:
+        warning('Unable to add vis control, no object exists named "main" or tagged with ".fossilMainControl"')
+        return
+    
+    log.debug('Applying vis control to {}, was given {} using {}'.format(obj, orig, shape))
+    
     plug = shape + '.' + name
     if not cmds.objExists( plug ):
         cmds.addAttr( shape, ln=name, at='short', min=0, max=level, dv=1 )
@@ -130,6 +145,9 @@ def connect( obj, (name, level) ):
     # the main group more organized.
     
     visGroupName = '_vis_' + name
+    
+    if not find(orig):
+        use(orig)
     
     if isinstance(orig, nodeApi.RigController):
         if shortName(orig.container.getParent()) != visGroupName:
@@ -216,10 +234,11 @@ def existingGroups():
     .. todo::
         make a real check for if main exists
     '''
-    if not objExists('|main'):
-        return []
-
     shape = get()
+    
+    if not shape:
+        return []
+    
     groups = cmds.listAttr( shape, ud=True, s=True )
     if not groups:
         groups = []
@@ -252,3 +271,35 @@ def reorderAll():
             reorder(find(inst), b=True)
     '''
     pass
+    
+
+def serializeAllConnections(toClipboard=False):
+    visGroup = PyNode(get(create=False))
+    
+    connections = {}
+
+    for plug in visGroup.listAttr(ud=True, s=True, w=True):
+        for node in plug.listConnections():
+            if node.type() == 'condition':
+                for obj in node.listConnections( s=False, d=True ):
+                    data = getVisGroup(obj)
+                    if data:
+                        connections[obj.name()] = data
+            else:
+                data = getVisGroup(node)
+                connections[node.name()] = data
+    
+    if toClipboard:
+        core.text.clipboard.set( json.dumps(connections) )
+    else:
+        return connections
+    
+    
+def deserializeAllConnections(connections=None):
+    
+    if connections is None:
+        connections = json.loads( core.text.clipboard.get() )
+
+    for obj, data in connections.items():
+        if objExists(obj):
+            connect(PyNode(obj), data)

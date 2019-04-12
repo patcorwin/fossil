@@ -5,15 +5,15 @@ from __future__ import print_function, absolute_import
 
 import collections
 import itertools
-import json
+import logging
 import re
 import traceback
 
 from maya.api import OpenMaya
 
 import pymel.api
-#from pymel.core import *
-from pymel.core import cmds, select, objExists, PyNode, ls, nt, listRelatives, joint, hasAttr, removeMultiInstance, xform, mirrorJoint, delete, warning, dt, connectAttr, pointConstraint, parentConstraint, group, getAttr
+from pymel.core import cmds, select, objExists, PyNode, ls, nt, listRelatives, joint, hasAttr, removeMultiInstance, \
+    xform, delete, warning, dt, connectAttr, pointConstraint, getAttr
 
 from ..add import simpleName, shortName, meters
 from .. import core
@@ -21,7 +21,7 @@ from .. import lib
 
 
 from ..tool.fossil import cardRigging
-from ..tool.fossil import controller
+from ..tool.fossil import controllerShape
 from ..tool.fossil import rig
 from ..tool.fossil import log
 from ..tool.fossil import proxy
@@ -30,6 +30,11 @@ from ..tool.fossil import space
 from ..tool.fossil import util
 
 from . import registerNodeType
+
+try:
+    basestring
+except NameError:
+    basestring = str
 
 
 def findConstraints(ctrl):
@@ -75,7 +80,7 @@ def applyConstraints(ctrl, data):
         align = core.dagObj.align(ctrl)
         core.constraints.aimDeserialize(align, data['align'])
     '''
-    print( ctrl, data, 'DATA' )
+    #print( ctrl, data, 'DATA' )
 
     constTypes = ['aim', 'point', 'parent', 'orient']
     align = core.dagObj.align(ctrl)
@@ -235,6 +240,7 @@ class NodeListProxy(object):
     Provides primitive list-like access to obj.extraRigNodes.
     Assign None to clear an entry.
     '''
+    
     def __init__(self, obj):
         self.obj = obj
 
@@ -361,42 +367,21 @@ def deprecated_nameInfo_set(obj, value):
     obj.rigData = rigData
 
 
+card_log = logging.getLogger('fossil.CardNode')
+joint_build_log = logging.getLogger(__name__ + '.buildJoints')
+
+
 class Card(nt.Transform):
     
-    version = 1  # Look at updateRigState for a history of what has been updated.
-    
-    VIS_STORAGE = 'MoVisGroup'
-    SPACE_STORAGE = 'spaces'
-    SPACES_STORAGE = 'MoSpaces'
-    LINK_STORAGE = 'MoCtrlLink'
-    SDK_STORAGE = 'MoSDK'
-    CUSTOM_ATTR_STORAGE = 'MoCustomAttr'
+    version = 1
     
     parentCardLink = core.factory.SingleStringConnectionAccess('moParentCardLink')
-    
-    def updateRigState(self):
-        state = self.rigState
-        version = state.get('version', 0)
         
-        '''
-        1: Vis groups now have a level, which defaults to 1.
-        '''
-        if version < 1:
-            if 'visGroup' in state:
-                for controlVisGroupSettings in state['visGroup'].values():
-                    for ctrl in controlVisGroupSettings.keys():
-                        controlVisGroupSettings[ctrl] = (controlVisGroupSettings[ctrl], 1)
-        
-        state['version'] = self.version
-        
-        self.rigState = state
-        
-    
     @classmethod
     def _isVirtual(cls, obj, name):
         fn = pymel.api.MFnDependencyNode(obj)
         try:
-            if fn.hasAttribute('moRigData'):
+            if fn.hasAttribute('fossilRigData'):
                 return True
         except Exception:
             pass
@@ -410,12 +395,11 @@ class Card(nt.Transform):
             
         return False
     
-    #rigCommand          = core.factory.StringAccess('rigCmd')
     ikControllerOptions = core.factory.StringAccess('ikControllerOptions')
     fkControllerOptions = core.factory.StringAccess('fkControllerOptions')
     
-    rigData             = core.factory.JsonAccess('moRigData')  # This replaces NameInfo, Suffic, RigCmd,
-    rigState            = core.factory.JsonAccess('moRigState')  # &&& This replaces MoVisGroup, MoCtrlLink, MoSDK, MoCustumAttr, MoSpaces
+    rigData             = core.factory.JsonAccess('fossilRigData', {'version': 1})  # This replaces NameInfo, Suffix, RigCmd,
+    rigState            = core.factory.JsonAccess('fossilRigState')  # &&& This replaces MoVisGroup, MoCtrlLink, MoSDK, MoCustumAttr, MoSpaces
     
     # Need to update these with direct references to rigData[*]
     
@@ -651,25 +635,26 @@ class Card(nt.Transform):
         New version with definable repeating areas.
         '''
         
-        #suffix = '_' + self.suffix.get() if self.suffix.get() else ''
-        suffix = self.rigData.get('mirrorCode', '')
-        suffix = '_' + suffix if suffix else ''
-        
+        mirrorCode = self.rigData.get('mirrorCode', '')
+        #card_log.debug('{} mirror code, via rigData is {}'.format(self, mirrorCode))
         
         # Inherit the suffix from the mirrored card if no suffix was provided
-        if not suffix:
+        if not mirrorCode:
             mirrorSrc = self.isCardMirrored()
             if mirrorSrc:
-                #suffix = '_' + mirrorSrc.suffix.get() if mirrorSrc.suffix.get() else ''
-                suffix = mirrorSrc.rigData.get('mirrorCode', '')
-                suffix = '_' + suffix if suffix else ''
-                
+                mirrorCode = mirrorSrc.rigData.get('mirrorCode', '')
+                #card_log.debug('Mirror inherited on {} = {}'.format(self, mirrorCode))
         
-        # &&& Need to actually deal with suffix crap at some point
-        if mirroredSide and suffix:
-            suffix = '_R' if suffix == '_L' else '_L'
+        if mirrorCode:
+            if mirroredSide:
+                suffix = settings.sideSuffix( settings.otherSideCode(mirrorCode) )
+            else:
+                suffix = settings.sideSuffix( mirrorCode )
+        else:
+            suffix = ''
         
-        prefix = 'b_' if usePrefix else ''
+        
+        prefix = settings.prefix if usePrefix else ''
         
         names = self.rigData.get('nameInfo')
         if names:
@@ -761,13 +746,14 @@ class Card(nt.Transform):
                 to determine the truth.
         '''
             
-        suffix = self.findSuffix()
-        if not suffix:
+        sideName = self.findSuffix()
+        if not sideName:
             primarySide = 'Center'
             otherSide = ''
         else:
-            primarySide = settings.letterToWord[suffix]
-            otherSide = settings.otherWord(primarySide)
+            #primarySide = settings.letterToWord[suffix]
+            primarySide = sideName
+            otherSide = settings.otherSideCode(primarySide)
 
         result = []
         for j in self.joints:
@@ -819,7 +805,7 @@ class Card(nt.Transform):
     
     def getSide(self, side):
         '''
-        Basically a wrapper for getattr(self, side)
+        Basically a wrapper for getattr(self, side), expects 'left', 'right' and (maybe?) 'center'
         '''
         return getattr(self, 'output' + side.title())
 
@@ -837,46 +823,6 @@ class Card(nt.Transform):
         
         return False
         
-    def makeJoints(self):
-        select(cl=True)
-        
-        data = self.rigData
-        checkOffcenter = True
-        if 'log ignores' in data:
-            if 'Centerline' in data['log ignores']:
-                checkOffcenter = False
-        
-        names = self.nameList()
-        
-        if len(names) < len(self.joints):
-            # Buffer for dummy joints if needed
-            if self.joints[ len(names) ].isHelper:
-                names += ['WILL_BE_DELETED']
-            else:
-                raise Exception( 'Not enough names specified to build joints on {0}'.format(self) )
-        
-        for name, bpJoint in zip( names, self.joints):
-            select(cl=True)
-            j = joint(
-                n=name,
-                p=xform(bpJoint, q=True, ws=True, t=True),
-                relative=False)
-            j.msg >> bpJoint.realJoint
-            if checkOffcenter:
-                log.Centerline.check(j)
-            
-            '''
-            &&& This might be ready for prime time.
-            info = bpJoint.info
-            if 'mechanical' in info and info['mechanical']:
-                m = joint(
-                    n=name + '_mech',
-                    p=xform(bpJoint, q=True, ws=True, t=True),
-                    relative=False)
-                pointConstraint(j, m)
-                bjJoint.addRealExtra(m)
-                #m.msg >> bpJoint.realJointExtra
-            '''
             
     def isAsymmetric(self):
         '''
@@ -902,129 +848,10 @@ class Card(nt.Transform):
         else:
             return False
             
-    def makeJoints2(self):
-        '''
-        Just like `makeJoints` but orients and parents them.  (I *THINK* that buildJoints further supercedes this)
-        
-        ..  todo::
-            * If a joint orients as parent, it needs to determing the parent orientation first
-                * Maybe this means tracking what joints are oriented, and if the joint
-                  doesn't exist, imaginging how it will be oriented in the future.
-                
-        
-            Needs to deal with pure helper cards, and helper joints in general, better
-        '''
-        select(cl=True)
-        
-        names = self.nameList()
-        
-        if len(names) < len(self.joints):
-            # Buffer for dummy joints if needed
-            if self.joints[ len(names) ].isHelper:
-                names += ['WILL_BE_DELETED']
-            else:
-                raise Exception( 'Not enough names specified to build joints on {0}'.format(self) )
-        
-        newJoints = []
-        for name, srcJoint in zip( names, self.joints):
-            select(cl=True)
-            j = joint(
-                n=name,
-                p=xform(srcJoint, q=True, ws=True, t=True),
-                relative=False)
-            j.msg >> srcJoint.realJoint
-            newJoints.append(j)
-        
-        self.orientJoints()
-        
-        # Mirror the joints across X
-        mirroredJoints = []
-        
-        isMirrored = self.isCardMirrored()
-        
-        if isMirrored:
-            for tempJnt, j in zip(self.joints, newJoints):
-                #dup = duplicate(j)[0]
-                dup = PyNode(mirrorJoint(j, mirrorYZ=True, mirrorBehavior=True)[0])
-                
-                if self.suffix.get() == 'L':
-                    newName = re.sub( '_L$', '_R', shortName(j) )
-                if self.suffix.get() == 'R':
-                    newName = re.sub( '_R$', '_L', newName )
-                
-                dup.rename( newName )
-                # &&& Probably should note naming failure here
-                #dup.tx.set(dup.tx.get()*-1)
-                #dup.jointOrientX.set( dup.jointOrientX.get() - 180.0 )
-                mirroredJoints.append(dup)
-                
-                if not hasAttr(tempJnt, 'realJointMirror'):
-                    tempJnt.addAttr( 'realJointMirror', at='message' )
-                dup.msg >> tempJnt.realJointMirror
-        
-        # Parenting is aggressive in case things are made out of order
-        
-            # Set parents for mirrored joints
-            for tempJnt, realMirror in zip(self.joints, mirroredJoints):
-                p = tempJnt.parent
-                # Set the parent, unless the parent isn't mirrored (ex clav->spine)
-                if p.card.isCardMirrored():
-                    if p.realMirror and realMirror.getParent() != p.realMirror:
-                        realMirror.setParent(p.realMirror)
-                else:
-                    if p.real and realMirror.getParent() != p.real:
-                        realMirror.setParent(p.real)
-                
-                # Set any children
-                for child in tempJnt.proxyChildren:
-                    if child.card.isCardMirrored():
-                        if child.realMirror:
-                            if child.realMirror.getParent() != realMirror:
-                                child.realMirror.setParent(realMirror)
-                
-                # See if the mirror exists as a future parent
-                for futureChild in tempJnt.msg.listConnections(type=BPJoint):
-                    if getReparentCommand(futureChild) == tempJnt:
-                        if futureChild.real:
-                            futureChild.real.setParent(tempJnt.realMirror)
-                        
-        # Set parents for non-mirrored/center joints
-        for tempJnt, real in zip(self.joints, newJoints):
-            # Handle anything that parents to the mirrored joint.
-            mirrorParent = getReparentCommand(tempJnt)
-            if mirrorParent:
-                if mirrorParent.realMirror:
-                    real.setParent(mirrorParent.realMirror)
-                continue
-            
-            # Handle standard single/original sided parenting.
-            if tempJnt.parent:
-                p = tempJnt.parent
-                if p.real and real.getParent() != p.real:
-                    real.setParent(p.real)
-            else:
-                real.setParent(getTrueRoot())
-            
-            for child in tempJnt.proxyChildren:
-                if child.real:
-                    if child.real.getParent() != real:
-                        child.real.setParent(real)
-                if not isMirrored and child.realMirror:
-                    if child.realMirror.getParent() != real:
-                        child.realMirror.setParent(real)
-                
-        # &&& Delete helpers, though not making them in the first place would be better
-        for j in self.joints:
-            if j.isHelper:
-                if j.realMirror:
-                    delete(j.realMirror)
-                if j.real:
-                    delete(j.real)
-    
-    
+
     def buildJoints(self):
         '''
-        Intended replacement for makeJoints, orientJoints and parentJoints (does all 3).
+        Creates, parents and orients the joints of a card.
         
         ..  todo::
             Need to deal with unbuild parents (for regular and mirrored joints)
@@ -1057,11 +884,10 @@ class Card(nt.Transform):
             raise Exception( 'Not enough names specified to build joints on {0}'.format(self) )
         
         isMirrored = self.isCardMirrored()
+        card_log.debug( '{} is mirrored'.format(isMirrored) )
         
-        if isMirrored:
-            getMirrorName = getMirrorNameFunction(self)
-        
-        for name, bpJoint in zip( names, jointsThatBuild):
+        # If not mirrorred, mirrorName is just ignored in the loop body.
+        for name, bpJoint, mirrorName in zip( names, jointsThatBuild, self.nameList(mirroredSide=True)):
             # Make the joint
 
             j = joint( None,
@@ -1125,6 +951,15 @@ class Card(nt.Transform):
                 joint( j, e=True, oj='none' )
                 j.setParent(p)
             
+            elif state == BPJoint.Orient.CUSTOM:
+                
+                matrix = dt.Matrix( xform(target, q=True, ws=True, m=True) )
+                
+                targetPos = bpJoint.getTranslation(space='world') - dt.Vector( matrix[0][:3] )
+                upVector = dt.Vector( matrix[1][:3] )
+                
+                lib.anim.orientJoint(j, targetPos, None, aim=aimAxis, up=upAxis, upVector=upVector)
+            
             elif state == BPJoint.Orient.FAIL:
                 warning('FAIL ' + j.name())
             
@@ -1132,18 +967,26 @@ class Card(nt.Transform):
             if isMirrored:
                 # Behavior mirror
                 m = xform(j, q=True, ws=True, m=True)
-                m[1] *= -1
-                m[2] *= -1
-            
-                m[1 + 4] *= -1
-                m[2 + 4] *= -1
                 
-                m[1 + 8] *= -1
-                m[2 + 8] *= -1
+                
+                if self.mirror == 'twin':
+                    pass
+                    
+                    # Find which base is facing forward and up
+                    # Find how off rotated it is from forward
+                    # Rotate the matrix in the other direction
+                    
+                else:
+                    m[1] *= -1
+                    m[2] *= -1
+                
+                    m[1 + 4] *= -1
+                    m[2 + 4] *= -1
+                    
+                    m[1 + 8] *= -1
+                    m[2 + 8] *= -1
                 
                 m[12] *= -1
-                
-                mirrorName = getMirrorName(name)
                 
                 jo = core.math.eulerFromMatrix(dt.Matrix(m), degrees=True)
                 mj = joint(None, n=mirrorName, p=m[12:15], relative=False)
@@ -1189,7 +1032,7 @@ class Card(nt.Transform):
         _suffix = suffix if suffix else self.suffix.get()
         aim = 'x' if _suffix in ['', 'L'] else '-x'
         if suffix:
-            print( "OVERRIDEEN", aim )
+            print( "OVERRIDEN", aim )
         return aim
            
     def addJoint(self, newJoint=None):
@@ -1411,95 +1254,6 @@ class Card(nt.Transform):
         for jnt, targetName in queued.items():
             jnt.rename(targetName)
                 
-           
-    def orientJoints(self):
-        '''
-        Orient the real joints.  Use the card's arrow as the up vector.
-        '''
-        
-        #axis = self.upVector()
-        #upLoc = spaceLocator()
-        
-        #def moveUpLoc(obj, axis=axis):  # Move the upLoc above the given obj
-        #    xform( upLoc, ws=True, t=axis + dt.Vector(xform(obj, q=True, ws=True, t=True)))
-        
-        #aim = 'x' if self.suffix.get() in ['', 'L'] else '-x'
-        
-        upAxis = 'y'
-        
-        for tempJnt in self.joints:
-            if not tempJnt.real:
-                continue
-        
-            j = tempJnt.real
-            jPos = dt.Vector(xform(j, q=True, ws=True, t=True))
-            
-            if tempJnt.customOrient:
-                matrix = xform(tempJnt.customOrient, q=True, ws=True, m=True)
-                xVector = dt.Vector(matrix[0:3])
-                yVector = dt.Vector(matrix[4:7])
-                #zVector = matrix[8:11]
-                
-                lib.anim.orientJoint(j, jPos + xVector, jPos + yVector, up=upAxis)
-                
-            else:
-                upVector = self.upVector(tempJnt.customUp) # Uses default if customUp isn't set
-                
-                state, target = tempJnt.getOrientState()
-                
-                if state in [   BPJoint.Orient.HAS_TARGET,
-                                BPJoint.Orient.SINGLE_CHILD,
-                                BPJoint.Orient.RELATED_CHILD,
-                                BPJoint.Orient.CENTER_CHILD ]:
-                    lib.anim.orientJoint(j, target, aim=self.getAimAxis(tempJnt.suffixOverride), up=upAxis, upVector=upVector)
-                    
-                elif state == BPJoint.Orient.AS_PARENT:
-                    joint( j, e=True, oj='none' )
-                
-                elif state == BPJoint.Orient.WORLD:
-                    p = j.getParent()
-                    j.setParent(w=True)
-                    joint( j, e=True, oj='none' )
-                    j.setParent(p)
-                
-                elif state == BPJoint.Orient.FAIL:
-                    warning('FAIL ' + j.name())
-        
-    def parentJoints(self):
-        
-        for j in self.joints:
-            if j.parent:
-                j.real.setParent( j.parent.real )
-        
-        '''
-        If a card is marked as unbindable, move it to a proxy in the unbindable
-        group.
-        
-        &&& Does this handle mirrored stuff at all?
-        
-        I don't think it handles freeform (non-linear) at all
-        '''
-        if self.rigDataQuery('joints', 'unbindable') is True:
-            main = space.getMainGroup()
-
-            unbindable = lib.getNodes.childByName(main, 'unbindable')
-            if not unbindable:
-                unbindable = group(n='unbindable', em=True, p=main)
-            
-            if self.start().parent:
-                parent = self.start().parent.real
-                parentName = simpleName(parent) + '_proxy'
-            else:
-                parent = main
-                parentName = 'main_proxy'
-            
-            proxy = lib.getNodes.childByName(unbindable, parentName)
-            if not proxy:
-                proxy = group(em=True, n=parentName, p=unbindable)
-                
-                parentConstraint(parent, proxy, mo=False)
-            
-            self.start().real.setParent(proxy)
 
     def removeHelpers(self):
         '''
@@ -1642,11 +1396,11 @@ class Card(nt.Transform):
         array attrs with strings.
         '''
         for node, side, type in self._outputs():
-            shapeInfo = controller.saveControlShapes(node)
+            shapeInfo = controllerShape.saveControlShapes(node)
             shapeInfo = core.text.asciiCompress(shapeInfo)
             core.factory._setStringAttr( self, 'outputShape' + side + type, shapeInfo)
                     
-    def restoreShapes(self):
+    def restoreShapes(self, objectSpace=True):
         '''
         Apply any shape data saved via saveShapes
         '''
@@ -1654,54 +1408,9 @@ class Card(nt.Transform):
             shapeInfo = core.factory._getStringAttr( self, 'outputShape' + side + type)
             if shapeInfo:
                 shapeInfo = core.text.asciiDecompress(shapeInfo)
-                controller.loadControlShapes( node, shapeInfo.splitlines() )
+                controllerShape.loadControlShapes( node, shapeInfo.splitlines(), useObjectSpace=objectSpace)
         
-    def saveSpaces(self):
-        self._saveData( self.SPACES_STORAGE, space.serializeSpaces)
-
-        # TEMP CODE, Remove old space storage method when new spaces are saved
-        for side in ['Center', 'Left', 'Right']:
-            for kinematic in ['ik', 'fk']:
-                if self.hasAttr( 'spaces' + side + kinematic ):
-                    self.deleteAttr( 'spaces' + side + kinematic )
-
-    def restoreSpaces(self, clearOldSpaces=True):
-        
-        self.updateStoredData()
-        
-        def restoreTargets(control, data):
-            if clearOldSpaces:
-                space.removeAll(control)
-    
-            space.deserializeSpaces(control, data)
-            
-        self._restoreData( self.SPACES_STORAGE, restoreTargets )
-
-    def updateStoredData(self):
-
-        # Spaces are now in the much easier json format
-        targetInfo = lambda: collections.defaultdict( list )  # noqa e731
-        transformedData = collections.defaultdict( targetInfo )
-        
-        transferringOccurred = False
-        for side in ['Center', 'Left', 'Right']:
-            for kinematic in ['ik', 'fk']:
-                if self.hasAttr( 'spaces' + side + kinematic ):
-                    data = self.attr( 'spaces' + side + kinematic ).get()
-                    for chunk in data.split('*'):
-                        name, parts = chunk.split('=')
-                        for spaces in parts.split(';'):
-                            parts = spaces.split(',')
-                            if len(parts) == 3:
-                                transformedData[ side + ' ' + kinematic ][name.strip()].append(
-                                    [ parts[0], parts[1], int(parts[2]) ] )
-                    self.deleteAttr( 'spaces' + side + kinematic )
-                    transferringOccurred = True
-                        
-        if transferringOccurred:
-            core.factory._setStringAttr( self, self.SPACES_STORAGE, json.dumps(transformedData))
-
-    def _saveData(self, attrName, function, returnData=False):
+    def _saveData(self, function, returnData=False):
         '''
         Wrapper for storing controller data for all the controls made by this
         card.  Data must be json serializable.
@@ -1748,12 +1457,9 @@ class Card(nt.Transform):
             if data:
                 allData[ "%s %s" % (side, type) ] = data
         
-        if returnData:
-            return allData
-        else:
-            core.factory._setStringAttr( self, attrName, json.dumps(allData))
+        return allData
         
-    def _restoreData(self, attrName, function, info=None):
+    def _restoreData(self, function, info):
         '''
         The other side of _saveData, except `function` must be in the form of:
             def applyData(ctrl, data):
@@ -1765,12 +1471,6 @@ class Card(nt.Transform):
         :param info: Is when you feed it something instead of getting it from an attr
 
         '''
-        if not info:
-            info = core.factory._getStringAttr( self, attrName)
-            info = json.loads(info)
-        
-        if not info:
-            return
         
         for side_type, value in info.items():
             side, type = side_type.split()
@@ -1784,13 +1484,7 @@ class Card(nt.Transform):
                     ctrl = mainCtrl.subControl[id]
             
                 function(ctrl, ctrlInfo)
-        
-    def saveCustomAttrs(self):
-        self._saveData(self.CUSTOM_ATTR_STORAGE, controller.identifyCustomAttrs)
-        
-    def restoreCustomAttrs(self):
-        self._restoreData(self.CUSTOM_ATTR_STORAGE, controller.restoreAttr)
-        
+                
     def removeRig(self):
         # Sometimes deleting the rig flips things out, so try deleting the constraints first
         try:
@@ -1811,22 +1505,20 @@ class Card(nt.Transform):
         delete(self.getRealJoints())
 
     thingsToSave = [
-        ('visGroup', lib.sharedShape.getVisGroup, lib.sharedShape.connect, 'MoVisGroup'),
-        ('connections', getLinks, setLinks, LINK_STORAGE),
-        ('setDriven', findSDK, applySDK, SDK_STORAGE),
-        ('customAttrs', controller.identifyCustomAttrs, controller.restoreAttr, CUSTOM_ATTR_STORAGE),
-        ('spaces', space.serializeSpaces, space.deserializeSpaces, SPACES_STORAGE),
-        ('constraints', findConstraints, applyConstraints, None),
-        ('lockedAttrs', findLockedAttrs, lockAttrs, None),
+        ('visGroup',    lib.sharedShape.getVisGroup,        lib.sharedShape.connect),
+        ('connections', getLinks,                           setLinks),
+        ('setDriven',   findSDK,                            applySDK),
+        ('customAttrs', controllerShape.identifyCustomAttrs, controllerShape.restoreAttr),
+        ('spaces',      space.serializeSpaces,              space.deserializeSpaces),
+        ('constraints', findConstraints,                    applyConstraints),
+        ('lockedAttrs', findLockedAttrs,                    lockAttrs),
     ]
     
     def saveState(self):
         allData = self.rigState
 
-        for niceName, harvestFunc, restoreFunc, attr in self.thingsToSave:
-            if attr:
-                self._saveData(attr, harvestFunc)
-            data = self._saveData(attr, harvestFunc, returnData=True)
+        for niceName, harvestFunc, restoreFunc in self.thingsToSave:
+            data = self._saveData(harvestFunc)
             allData[niceName] = data
 
         self.rigState = allData
@@ -1837,7 +1529,7 @@ class Card(nt.Transform):
         
         self.saveShapes()
 
-    def restoreState(self):
+    def restoreState(self, shapesInObjectSpace=True):
         '''
         Restores everything listed in `thingsToSave`, returning a list of ones that failed.
         '''
@@ -1846,10 +1538,10 @@ class Card(nt.Transform):
         
         issues = []
 
-        for niceName, harvestFunc, restoreFunc, attr in self.thingsToSave:
+        for niceName, harvestFunc, restoreFunc in self.thingsToSave:
             if niceName in allData and allData[niceName]:
                 try:
-                    self._restoreData(attr, restoreFunc, allData[niceName])
+                    self._restoreData(restoreFunc, allData[niceName])
                 except Exception:
                     print(traceback.format_exc())
                     issues.append( 'Issues restoring ' + niceName )
@@ -1862,29 +1554,11 @@ class Card(nt.Transform):
             except Exception:
                 issues.append( 'Issues restoring shapes' )
         
-        self.restoreShapes()
+        self.restoreShapes(objectSpace=shapesInObjectSpace)
         
         return issues
 
     # -----------------
-
-    def saveVisGroups(self):
-        self._saveData('MoVisGroup', lib.sharedShape.getVisGroup)
-        
-    def restoreVisGroups(self):
-        self._restoreData('MoVisGroup', lib.sharedShape.connect)
-
-    def saveControlConnections(self):
-        self._saveData(self.LINK_STORAGE, getLinks)
-        
-    def restoreControlConnections(self):
-        self._restoreData(self.LINK_STORAGE, setLinks)
-
-    def saveSetDrivenKeys(self):
-        self._saveData(self.SDK_STORAGE, findSDK)
-    
-    def restoreSetDrivenKeys(self):
-        self._restoreData(self.SDK_STORAGE, applySDK)
 
     def getAllControls(self):
         controls = []
@@ -2047,6 +1721,7 @@ class BPJoint(nt.Joint):
         CENTER_CHILD = 'CENTER_CHILD'
         RELATED_CHILD = 'RELATED_CHILD'
         WORLD = 'WORLD'
+        CUSTOM = 'CUSTOM'
         Result = collections.namedtuple( 'Result', 'status joint' )
 
     def getOrientStateNEW(self):
@@ -2088,29 +1763,41 @@ class BPJoint(nt.Joint):
         localChildren = [c for c in children if c in cardJoints]
         outerChildren = [c for c in children if c not in localChildren and c.card.rigCommand != 'Group']
         
+        if self.customOrient:
+            return self.Orient.Result( self.Orient.CUSTOM, self.customOrient )
+        
         target = self.orientTarget
+        joint_build_log.debug( '.orientTarget = {}'.format(target) )
         if target == '-world-':
+            joint_build_log.debug('world')
             return self.Orient.Result( self.Orient.WORLD, None )
         elif target == '-parent-':
+            joint_build_log.debug('-parent- set explicitly')
             return self.Orient.Result( self.Orient.AS_PARENT, None )
         elif target:
+            joint_build_log.debug('explicit target {}'.format(target))
             return self.Orient.Result( self.Orient.HAS_TARGET, target )
                     
         if not children:
+            joint_build_log.debug('parent, no children exist')
             return self.Orient.Result( self.Orient.AS_PARENT, None )
         
         if len(localChildren) == 1:
             if tooClose(localChildren[0]):
+                joint_build_log.debug('parent, SINGLE local child is too close')
                 return self.Orient.Result( self.Orient.AS_PARENT, None )
             else:
+                joint_build_log.debug('Towards single local child {}'.format(localChildren[0]))
                 return self.Orient.Result( self.Orient.SINGLE_CHILD, localChildren[0] )
         
         if localChildren:
             centered = [c for c in localChildren if abs(xform(c, q=True, ws=True, t=True)[0]) < 0.001]
             
             if len(centered) == 1 and not tooClose(centered[0]):
+                joint_build_log.debug('A single child was centered {}'.format(centered[0]))
                 return self.Orient.Result( self.Orient.SINGLE_CHILD, centered[0] )
             elif not outerChildren:
+                joint_build_log.debug('parent, too many local children')
                 return self.Orient.Result( self.Orient.AS_PARENT, None )
             
         # At this point, no local children were orientable so check the following card(s).
@@ -2118,21 +1805,26 @@ class BPJoint(nt.Joint):
         if len(outerChildren) == 1:
             # If I'm not mirrored, but next is, it branches so use parent.
             if not self.card.isCardMirrored() and outerChildren[0].card.isCardMirrored():
+                joint_build_log.debug('as parent, next card branches')
                 return self.Orient.Result( self.Orient.AS_PARENT, None )
                 
             # Both self and child are mirrored, or child is skipped, so use it.
             else:
                 if not tooClose(outerChildren[0]):
+                    #joint_build_log.debug()
                     return self.Orient.Result( self.Orient.SINGLE_CHILD, outerChildren[0] )
                 else:
+                    #joint_build_log.debug()
                     return self.Orient.Result( self.Orient.AS_PARENT, None )
         
         # There are several outerChildren
         centered = [c for c in outerChildren if abs(xform(c, q=True, ws=True, t=True)[0]) < 0.001]
         
         if len(centered) == 1 and not tooClose(centered[0]):
+            #joint_build_log.debug()
             return self.Orient.Result( self.Orient.SINGLE_CHILD, centered[0] )
         
+        #joint_build_log.debug()
         return self.Orient.Result( self.Orient.AS_PARENT, None )
 
             
@@ -2249,7 +1941,7 @@ class BPJoint(nt.Joint):
     
     def setBPParent(self, parent):
         # Freeform and Squash allows non-linear parenting, but everything else must be kept linear.
-        if self.card.rigCommand not in ('Freeform', 'SquashStretch'):
+        if self.card.rigCommand not in ('Freeform', 'SquashStretch', 'SurfaceFollow'):
             if parent is None:
                 if self.parent and self.parent.card != self.card:
                     self.card.parentCardLink = None
@@ -2683,13 +2375,3 @@ registerNodeType( BPJoint )
 #nodeTypes.Card = CardNode
 #nodeTypes.SubController = SubController
 #nodeTypes.RigController = RigController
-
-
-def getMirrorNameFunction(card):
-    if card.suffix.get() == 'L':
-        return lambda x: re.sub('_L$', '_R', x)
-    elif card.suffix.get() == 'R':
-        return lambda x: re.sub('_R$', '_L', x)
-        
-    else:
-        return lambda x: x

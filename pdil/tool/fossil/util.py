@@ -116,13 +116,6 @@ def preserveSelection(func):
     return newFunc
 
 
-def recordFloat(obj, name, val):
-    if not obj.hasAttr(name):
-        obj.addAttr( name, at='double' )
-        
-    obj.attr(name).set(val)
-
-
 def strToPairs(s):
     '''
     Given a comma separated list of pairs, return as list of pairs.
@@ -316,7 +309,7 @@ def saveCardStates():
     for c in cards:
         name = c.name()
         cardStateInfo[name] = {}
-        cardStateInfo[name]['moRigState'] = c.moRigState.get()
+        cardStateInfo[name]['fossilRigState'] = c.fossilRigState.get()
 
         for side in ('Left', 'Center', 'Right'):
             for kinematic in ('ik', 'fk'):
@@ -347,8 +340,8 @@ def loadCardStates():
                 
         
     for card, info in cardAndInfo:
-        if 'moRigState' in info:
-            card.moRigState.set( info['moRigState'] )
+        if 'fossilRigState' in info:
+            card.fossilRigState.set( info['fossilRigState'] )
             
         for side in ('Left', 'Center', 'Right'):
             for kinematic in ('ik', 'fk'):

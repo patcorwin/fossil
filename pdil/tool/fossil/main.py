@@ -5,19 +5,11 @@ import operator
 import os
 import traceback
 
-import maya.OpenMayaUI
-
 from ...vendor import Qt
 
-try:
-    import shiboken
-except ImportError:
-    import shiboken2 as shiboken
 
-#from pymel.core import *
-from pymel.core import select, setParent, scriptJob, confirmDialog, getAttr, objExists, setAttr, Callback, selected, xform, hide, showHidden, warning, MeshVertex
-
-from pymel.core import frameLayout, columnLayout, button, text, textScrollList, textFieldButtonGrp, rowColumnLayout, optionMenu, menuItem, intFieldGrp, checkBox, rowLayout, floatField, connectControl, layout, deleteUI
+from pymel.core import Callback, confirmDialog, getAttr, hide, objExists, scriptJob, select, selected, setParent, setAttr, \
+    shelfButton, shelfLayout, showHidden, tabLayout, warning, xform
 
 from ... import core
 
@@ -25,22 +17,57 @@ from . import card as fossil_card  # Hack to not deal with the fact that "card" 
 from . import cardlister
 from . import cardparams
 from . import cardRigging
-from . import controller
+from . import controllerShape
 from . import moveCard
 from . import proxy
-from . import space
 from . import util
 
+from .ui import artistToolsTab
 from .ui import controllerEdit
 from .ui import _visGroup
+
+from .ui import spacesTab
+from .ui import startingTab
 
 
 RigToolUI = core.ui.getQtUIClass( os.path.dirname(__file__) + '/ui/rigToolUI.ui', 'pdil.tool.fossil.ui.rigToolUI')
 
 
+def matchOrient():
+    if len(selected()) < 2:
+        return
+        
+    src = selected()[0]
+    rot = xform(src, q=True, ws=True, ro=True)
+    
+    for dest in selected()[1:]:
+        xform( dest, ws=True, ro=rot )
+
+
+def customUp(self):
+    if not selected():
+        return
+        
+    arrow = selected()[0]
+
+    if not arrow.name().count('arrow'):
+        arrow = None
+        
+    if not util.selectedJoints():
+        warning('No BPJoints were selected')
+        return
+
+    for jnt in util.selectedJoints():
+        fossil_card.customUp(jnt, arrow)
+
+
 class RigTool(Qt.QtWidgets.QMainWindow):
     
     _inst = None
+    
+    FOSSIL_START_TAB = 'Fossil_RigTool_StartTab'
+    FOSSIL_ARTIST_TOOLS = 'Fossil_RigTool_ToolsTab'
+    FOSSIL_SPACE_TAB = 'Fossil_RigTool_SpacedTab'
     
     settings = core.ui.Settings( "Skeleton Tool Settings",
         {
@@ -58,10 +85,36 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         })
     
     @staticmethod
-    #@core.alt.name( 'Rig Tool' )
+    @core.alt.name( 'Rig Tool' )
     def run():
         return RigTool()
+    
+    
+    def connectorDisplayToggle(self):
         
+        if self.ui.actionConnectors.isChecked():
+            showHidden( fossil_card.getConnectors() )
+        else:
+            hide( fossil_card.getConnectors() )
+    
+    
+    def handleDisplayToggle(self):
+        
+        val = self.ui.actionHandles.isChecked()
+        
+        #cards = ls( '*.skeletonInfo', o=1 )
+        for card in core.findNode.allCards():
+            for joint in card.joints:
+                joint.displayHandle.set(val)
+    
+    
+    def orientsToggle(self):
+        if self.ui.actionCard_Orients_2.isChecked():
+            showHidden( fossil_card.getArrows() )
+        else:
+            hide( fossil_card.getArrows() )
+    
+    
     def __init__(self, *args, **kwargs):
         global settings
         
@@ -76,6 +129,25 @@ class RigTool(Qt.QtWidgets.QMainWindow):
 
         self.setObjectName(objectName)
         self.setWindowTitle('Fossil')
+        
+        # Menu callbacks
+        self.ui.actionReconnect_Real_Joints.triggered.connect( Callback(fossil_card.reconnectRealBones) )
+        self.ui.actionMatch_Selected_Orients.triggered.connect( Callback(matchOrient) )
+        
+        self.ui.actionCard_Orients_2.triggered.connect( Callback(self.orientsToggle) )
+        
+        # &&& I think this isn't useful but I'm going to wait a while to be sure.
+        #self.ui.actionConnectors.triggered.connect( Callback(self.connectorDisplayToggle) )
+        self.ui.menuVisibility.removeAction(self.ui.actionConnectors)
+        
+        self.ui.actionHandles.triggered.connect( Callback(self.handleDisplayToggle) )
+        
+        
+        '''
+        button(l="Custom Up", c=Callback(customUp), w=200)
+    
+        '''
+        
         
         # Callback setup
         
@@ -99,26 +171,35 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         
         self.ui.rebuildProxyBtn.clicked.connect( proxy.rebuildConnectorProxy )
         
-        # Start Group Tab
-        qtLayout = Qt.QtWidgets.QVBoxLayout(self.ui.tab)
-        qtLayout.setObjectName( "Mot_RigTool_StartTab" )
-        setParent( "Mot_RigTool_StartTab" )
-        self.startTab = StartLayout( self )
+        self.ui.customUpBtn.clicked.connect(Callback(customUp))
         
-        # Util Group Tab
-        qtLayout = Qt.QtWidgets.QVBoxLayout(self.ui.tab_2)
-        qtLayout.setObjectName( "Mot_RigTool_UtilTab" )
-        setParent( "Mot_RigTool_UtilTab" )
-        self.utilTab = UtilLayout()
+        # Start Group Tab
+        self.startTabLayout = Qt.QtWidgets.QVBoxLayout(self.ui.tab)
+        self.startTabLayout.setObjectName( self.FOSSIL_START_TAB )
+        setParent( self.FOSSIL_START_TAB )
+        self.startTab = startingTab.StartLayout( self )
+        
         
         # Vis Group Tab
         self.visGroupProxy = _visGroup.VisGroupLayout(self.ui)
         
         # Space Tab
-        qtLayout = Qt.QtWidgets.QVBoxLayout(self.ui.tab_5)
-        qtLayout.setObjectName( "Mot_RigTool_SpaceTab" )
-        setParent( "Mot_RigTool_SpaceTab")
-        self.spaceTab = SpaceLayout()
+        self.spaceTabLayout = Qt.QtWidgets.QVBoxLayout(self.ui.space_tab)
+        
+        self.spaceTabLayout.setObjectName( self.FOSSIL_SPACE_TAB )
+        setParent( self.FOSSIL_SPACE_TAB)
+        self.spaceTab = spacesTab.SpaceLayout()
+        
+        
+        # Shelf tab
+        
+        
+        self.artistShelfLayout = Qt.QtWidgets.QVBoxLayout(self.ui.artist_tools)
+        self.artistShelfLayout.setObjectName( self.FOSSIL_ARTIST_TOOLS )
+        setParent( self.FOSSIL_ARTIST_TOOLS )
+        
+        artistToolsTab.toolShelf()
+
         
         # Card Lister setup
         self.updateId = scriptJob( e=('SelectionChanged', core.alt.Callback(self.selectionChanged)) )
@@ -134,16 +215,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         self.ui.cardLister.namesChanged.connect( self.ui.jointLister.jointListerRefresh )
         
         # Controller Edit
-        qtLayout = Qt.QtWidgets.QVBoxLayout(self.ui.controllerEdit)
-        qtLayout.setObjectName( 'Mo_Controller_EditSection' )
-        
-        self.controllerEdit = controllerEdit.Gui()
-        ptr = maya.OpenMayaUI.MQtUtil.findLayout('Post_Control_Edit')
-        obj = shiboken.wrapInstance(long(ptr), Qt.QtWidgets.QWidget)
-        self.ui.testLayout.addWidget(obj)
-        #setParent( 'Mo_Controller_EditSection' )
-        #
-        
+        self.shapeEditor = controllerEdit.ShapeEditor(self)
         self.show()
         
         core.pubsub.subscribe(core.pubsub.Event.MAYA_DAG_OBJECT_CREATED, self.ui.cardLister.newObjMade)
@@ -193,7 +265,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
                 card.saveShapes()
             
             # If this being rebuilt, also restore the if it's in ik or fk
-            switchers = [controller.getSwitcherPlug(x[0]) for x in card._outputs()]
+            switchers = [controllerShape.getSwitcherPlug(x[0]) for x in card._outputs()]
             prevValues = [ (s, getAttr(s)) for s in switchers if s]
 
             card.removeRig()
@@ -208,6 +280,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
                     setAttr(switch, value)
 
     def closeEvent(self, event):
+        #print('------  - - -  i am closing')
         core.pubsub.unsubscribe(core.pubsub.Event.MAYA_DAG_OBJECT_CREATED, self.ui.cardLister.newObjMade)
         try:
             if self.updateId is not None:
@@ -216,6 +289,14 @@ class RigTool(Qt.QtWidgets.QMainWindow):
                 scriptJob(kill=id)
         except Exception:
             pass
+        
+        # Might be overkill but I'm trying to prevent new gui parenting to the old widgets
+        self.artistShelfLayout.setObjectName( 'delete_me' )
+        self.spaceTabLayout.setObjectName( 'delete_me2' )
+        self.shapeEditor.curveColorLayout.setObjectName( 'delete_me3' )
+        self.shapeEditor.surfaceColorLayout.setObjectName( 'delete_me4' )
+        self.startTabLayout.setObjectName('delete_me5')
+        
         event.accept()
     
     def selectionChanged(self):
@@ -226,28 +307,12 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         cardparams.update(self, selectedCard)
         self.ui.jointLister.jointListerRefresh(selectedCard)
         self.ui.jointLister.refreshHighlight()
+        self.shapeEditor.refresh()
             
     def cardListerSelection(self):
         if self.ui.cardLister.uiActive:
             cards = [item.card for item in self.ui.cardLister.selectedItems()]
             select(cards)
-
-    def visGroupUI_layout( self ):
-        frameLayout(l='Visiblity Groups')
-        
-        columnLayout()
-        text( l='Existing Groups' )
-        textScrollList(nr=10)
-        textFieldButtonGrp( l="Assign to Group", bl='Assign' )
-        text(l='')
-        button( l='Use Vis Shared Shape' )
-        text(l='')
-        button( l='Remove Vis Shared Shape' )
-        text(l='')
-        button( l='Prune Unused Vis Groups' )
-        setParent("..")
-        
-        setParent("..")
 
     def makeCard(self):
         '''
@@ -442,284 +507,4 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         j = util.selectedJoints()
         if j:
             fossil_card.splitCard(j[0])
-        
     
-            
-class StartLayout( object ):
-    def __init__( self, settingsObj ):
-        rowColumnLayout(nc=2)
-
-        # LegType UI
-        text(l='Leg Type')
-        self.legType = optionMenu( l='' )
-        menuItem( l='Human' )
-        menuItem( l='Dogleg' )
-        settingsObj.settings.optionMenuSetup(self.legType, 'legType' )
-    
-        # Spine Orient UI
-        text(l="Spine Orientation")
-        self.spineOrient = optionMenu( l='')
-        menuItem('Vertical')
-        menuItem('Horizontal')
-        settingsObj.settings.optionMenuSetup(self.spineOrient, 'spineOrient' )
-    
-        text(l='Number of Spine Joints')
-        self.spineCount = intFieldGrp( nf=1, v1=settingsObj.settings.spineCount )
-        text(l='Number of Fingers')
-        self.fingerCount = intFieldGrp( nf=1, v1=settingsObj.settings.fingerCount )
-        text(l="Thumb")
-        self.thumb = checkBox(l='', v=settingsObj.settings.thumb)
-    
-        #setParent("..")
-    
-        text(l='')
-        text(l='')
-        text(l='')
-        button(l="Start", w=300, c=core.alt.Callback(self.start))
-        
-    def update( self ):
-        pass
-    
-    def start( self ):
-        fossil_card.bipedSetup(
-            spineCount=self.spineCount.getValue()[0],
-            numFingers=self.fingerCount.getValue()[0],
-            legType=self.legType.getValue(),
-            thumb=self.thumb.getValue(),
-            spineOrient='vertical' if self.spineOrient.getValue() == 'Vertical' else 'horizontal',  # &&& Need to use enums
-        )
-
-        
-class UtilLayout( object ):
-    def __init__( self ):
-        columnLayout()
-        button(l="Match Selected Orients", c=Callback(matchOrient), w=200)
-        button(l="Custom Up", c=Callback(customUp), w=200)
-    
-        rowLayout(nc=2)
-        button(l="Hide Orients", w=200, c=Callback(hideOrients))
-        button(l="Show Orients", w=200, c=Callback(showOrients))
-        setParent("..")
-    
-        rowLayout(nc=2)
-        button(l="Hide Connectors", w=200, c=Callback(connectorDisplayToggle, False))
-        button(l="Show Connectors", w=200, c=Callback(connectorDisplayToggle, True))
-        setParent("..")
-    
-        rowLayout(nc=2)
-        button(l="Hide Handles", w=200, c=Callback(handleDisplayToggle, False))
-        button(l="Show Handles", w=200, c=Callback(handleDisplayToggle, True))
-        setParent("..")
-    
-        button(l="Reconnect Real Bones", w=200, c=Callback(fossil_card.reconnectRealBones))
-        button(l="Ensure Cards have Output Attrs", w=200)
-
-        
-def matchOrient():
-    if len(selected()) < 2:
-        return
-        
-    src = selected()[0]
-    rot = xform(src, q=True, ws=True, ro=True)
-    
-    for dest in selected()[1:]:
-        xform( dest, ws=True, ro=rot )
-
-
-def customUp(self):
-    if not selected():
-        return
-        
-    arrow = selected()[0]
-
-    if not arrow.name().count('arrow'):
-        arrow = None
-        
-    if not util.selectedJoints():
-        warning('No BPJoints were selected')
-        return
-
-    for jnt in util.selectedJoints():
-        fossil_card.customUp(jnt, arrow)
-
-
-def hideOrients():
-    hide( fossil_card.getArrows() )
-
-
-def showOrients():
-    showHidden( fossil_card.getArrows() )
-
-
-def connectorDisplayToggle(val):
-    if val:
-        showHidden( fossil_card.getConnectors() )
-    else:
-        hide( fossil_card.getConnectors() )
-
-
-def handleDisplayToggle( val ):
-    #cards = ls( '*.skeletonInfo', o=1 )
-    for card in core.findNode.allCards():
-        for joint in card.joints:
-            joint.displayHandle.set(val)
-
-
-def addCardOutputs():
-    # Make sure the cards
-    for card in core.findNode.allCards():
-        fossil_card._addOutputControls( card )
-
-
-class SpaceLayout( object ):
-    def __init__( self ):
-        columnLayout()
-        self.targets = textScrollList(nr=20, sc=Callback(self.targetSelected))
-    
-        rowColumnLayout(nc=2)
-        button( l='   ^   ', c=Callback(self.moveUp))
-        button( l='   v   ', c=Callback(self.moveDown))
-        setParent("..")
-    
-        self.name = textFieldButtonGrp(l='Custom Name', bl='Update Existing')
-        button( l="Add", c=Callback(self.addSpace, space.Mode.ROTATE_TRANSLATE) )
-        button( l="Add (Trans Only)", c=Callback(self.addSpace, space.Mode.TRANSLATE) )
-        button( l="Add ( No Rot )", c=Callback(self.addSpace, "#NOROT") )
-        button( l="Add (No Trans)", c=Callback(self.addSpace, space.ROTATE) )
-        button( l="Split Targets (pos then rot)", c=Callback(self.addSpace, space.Mode.ALT_ROTATE) )
-        button( l="Multi/Vert targets", c=Callback(self.addMultiSpace) )
-        button( l="Multi Orient", c=Callback(self.addMultiOrientSpace) )
-        text(l='')
-        button( l="Add Parent", c=Callback(self.addSpace, '#PARENT') )
-        button( l="Add World", c=Callback(self.addSpace, '#WORLD') )
-        button( l="Add True World", c=Callback(self.addSpace, '#TRUEWORLD') )
-        button( l="Add External World (For attachments)", c=Callback(self.addSpace, '#EXTERNALWORLD') )
-        button( l="Remove", c=Callback(self.remove) )
-        
-        self.update()
-        scriptJob( e=('SelectionChanged', Callback(self.update)), p=self.name )
-
-    def targetSelected(self):
-        sel = selected()
-        targetIndex = self.targets.getSelectIndexedItem()
-        if not targetIndex:
-            return
-        
-        i = targetIndex[0] - 1
-        
-        targets = space.getTargetInfo(sel[0])
-        targetConstraints = space._targetInfoConstraints[:]
-        
-        self.clearMultiTarget()
-        if targets[i].type in [space.Mode.MULTI_PARENT, space.Mode.MULTI_ORIENT]:
-            
-            with rowColumnLayout( nc=2, p=self.multiUI ):
-                state = space.serializeSpaces( sel[0] )[i]
-                
-                weights = targetConstraints[i].getWeightAliasList()
-                
-                for t_i, (target, val) in enumerate(zip(state['targets'], state['extra'])):
-                    text(l=target[0])  # target is a pair, name and cardpath
-                    f = floatField(v=val, min=0, max=1)
-                    connectControl( f, weights[t_i])
-                    
-    def moveUp(self):
-        sel = textScrollList( self.targets, q=True, sii=True)
-        if not sel:
-            return
-        
-        index = sel[0] - 1
-        
-        if index == 0:
-            return
-            
-        space.swap(selected()[0], index, index - 1)
-        
-        self.update()
-        textScrollList(self.targets, e=True, sii=index)  # tsl is 1-based
-        
-    def moveDown(self):
-        sel = textScrollList( self.targets, q=True, sii=True)
-        if not sel:
-            return
-        
-        index = sel[0] - 1
-        
-        if index == len(space.getNames(selected()[0])) - 1:
-            return
-            
-        space.swap(selected()[0], index, index + 1)
-        self.update()
-        textScrollList(self.targets, e=True, sii=index + 2)  # tsl is 1-based
-
-    def addSpace(self, mode):
-        sel = selected()
-        
-        if mode == '#WORLD':
-            space.addWorld( sel[0] )
-        elif mode == '#TRUEWORLD':
-            space.addTrueWorld( sel[0] )
-        elif mode == '#EXTERNALWORLD':
-            space.addExternalWorld( sel[0] )
-        elif mode == '#PARENT':
-            
-            if sel[0].fossilCtrlType.get() in ['translate', 'rotate']:
-
-                bindBone = core.constraints.getOrientConstrainee(sel[0])
-                parent = bindBone.getParent()
-
-                space.add( sel[0], parent, 'parent', space.Mode.ROTATE_TRANSLATE )
-        
-        elif mode == '#NOROT':
-            space.add( sel[0], sel[1], self.name.getText(), space.Mode.ALT_ROTATE )
-
-        elif mode == space.Mode.ALT_ROTATE:
-            if len(sel) != 3:
-                warning('You must have 2 targets selected')
-                return
-            
-            space.add(sel[0], sel[1], self.name.getText(), mode, rotateTarget=sel[2])
-
-        else:
-            if len(sel) < 2:
-                return
-            space.add( sel[0], sel[1], self.name.getText(), mode )
-        select(sel)
-        
-    def addMultiSpace(self):
-        sel = selected()
-        if isinstance(sel[1], MeshVertex):
-            space.rivetSpace(sel[0], sel[1], self.name.getText())
-        else:
-            space.add(sel[0], sel[1:], self.name.getText(), space.Mode.MULTI_PARENT)
-            
-    def addMultiOrientSpace(self):
-        sel = selected()
-        space.add(sel[0], sel[1:], self.name.getText(), space.Mode.MULTI_ORIENT)
-        
-    def remove(self):
-        spaces = self.targets.getSelectItem()
-        
-        for obj in selected():
-            for _space in spaces:
-                if _space in space.getNames(obj):
-                    space.remove( obj, _space )
-                    
-        self.update()
-        
-    def update(self):
-        self.targets.removeAll()
-        
-        sel = selected(type='transform')
-        #self.clearMultiTarget()
-        if sel:
-            sel = sel[0]
-            names = space.getNames(sel)
-            if names:
-                for name in names:
-                    self.targets.append(name)
-                    
-    def clearMultiTarget(self):
-        children = layout(self.mulitUI, q=True, ca=True)
-        if children:
-            deleteUI(children)

@@ -127,6 +127,7 @@ class JointLister(QtWidgets.QTableWidget):
                 item.setSelected(self.joints[row] in sel)
     
     def jointListerRightClick(self, position):
+        
         item = self.itemAt(position)
         
         row = self.row(item)
@@ -155,10 +156,12 @@ class JointLister(QtWidgets.QTableWidget):
             menu.exec_(self.viewport().mapToGlobal(position))
         
         elif col == self.JOINT_LISTER_ORIENT:
+            
             menu = QtWidgets.QMenu()
             menu.addAction('-clear-').triggered.connect( partial(self.setOrientTarget, row, bpJoint, None) )
             menu.addAction('-world-').triggered.connect( partial(self.setOrientTarget, row, bpJoint, '-world-') )
             menu.addAction('-as card-').triggered.connect( partial(self.setOrientTarget, row, bpJoint, '-as card-') )
+            menu.addAction('-as proxy-').triggered.connect( partial(self.setOrientTarget, row, bpJoint, '-as proxy-') )
             #menu.addAction('-custom-') ?????? &&& ???
             
             #joints = util.listTempJoints(includeHelpers=True)
@@ -220,6 +223,11 @@ class JointLister(QtWidgets.QTableWidget):
             bpJoint.customOrient = bpJoint.card
             self.item(row, self.JOINT_LISTER_ORIENT).setText('-as card-')
         
+        elif newTarget == '-as proxy-':
+            bpJoint.orientTarget = None
+            bpJoint.customOrient = bpJoint
+            self.item(row, self.JOINT_LISTER_ORIENT).setText('-as proxy-')
+        
         elif newTarget == '-world-':
             '''
             ..  todo:: Make a pass to fix the old stuff then remove the code
@@ -267,6 +275,8 @@ class JointLister(QtWidgets.QTableWidget):
             
             if tempJoint.customOrient == tempJoint.card:
                 orientText = '-as card-'
+            elif tempJoint.customOrient == tempJoint:
+                orientText = '-as proxy-'
             else:
                 orientText = 'custom:' + add.shortName(tempJoint.customOrient)
             

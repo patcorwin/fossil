@@ -1,31 +1,149 @@
 from __future__ import absolute_import, print_function
 
-from pymel.core import button, Callback, colorEditor, colorIndex, columnLayout, menuItem, objectType, optionMenu
-from pymel.core import palettePort, PyNode, rotate, rowColumnLayout, scale, select, selected, selectedNodes, text
+import json
+import os
+import traceback
 
+from pymel.core import Callback, colorEditor, colorIndex, columnLayout, objectType, NurbsCurveCV
+from pymel.core import palettePort, PyNode, rotate, select, selected, selectedNodes, setParent, warning
+
+from ....vendor import Qt
 from .... import core
-from .. import controller
+from .. import controllerShape
+from .. import rig
+from .. import cardlister
+
+if 'SHAPE_DEBUG' not in globals():
+    SHAPE_DEBUG = False
 
 
 class ShapeEditor(object):
+    '''
     def __init__(self):
         with columnLayout() as self.main:
             button( l='Select CVs', c=core.alt.Callback(self.selectCVs) )
             button( l='Select Pin Head', c=Callback(self.selectPinHead) )
-            text(l='')
-            button( l='Rotate X 45', c=core.alt.Callback(self.rotate, 'x', 45) )
-            button( l='Rotate Y 45', c=core.alt.Callback(self.rotate, 'y', 45) )
-            button( l='Rotate Z 45', c=core.alt.Callback(self.rotate, 'z', 45) )
-            text( l='' )
+    '''
+
+    NUM_COLS = 4
+    
+    CURVE_NAME = 'Fossil_Curve_Colorer'
+    SURFACE_NAME = 'Fossil_Surface_Colorer'
+
+    def __init__(self, source):
+        self.window = source
+        self.source = source.ui
+
+        # Not sure this is actually needed yet so keep it hidden.
+        self.controlCardList.hide()
+        
+        if not SHAPE_DEBUG:
+            self.shapeDebug.hide()
             
-    def selectPinHead(self):
+        self.hookupSignals()
+        self.buildShapeMenu()
+
+        self.surfaceColorLayout.setObjectName(self.SURFACE_NAME)
+        
+        setParent( self.SURFACE_NAME )
+        self.surfaceColorer = SurfaceColorEditor()
+
+
+        self.curveColorLayout.setObjectName( self.CURVE_NAME )
+        setParent( self.CURVE_NAME )
+        self.curveColorer = CurveColorEditor()
+        
+        self.refresh()
+        self.refreshCardList()
+
+
+    def __getattr__(self, name):
+        return getattr( self.source, name)
+
+    
+    def hookupSignals(self):
+        # Scaling
+        self.minus_one.clicked.connect( Callback(self.scaleCvs, 0.99) )
+        self.minus_ten.clicked.connect( Callback(self.scaleCvs, 0.90) )
+        self.plus_ten.clicked.connect( Callback(self.scaleCvs, 1.10) )
+        self.plus_one.clicked.connect( Callback(self.scaleCvs, 1.01) )
+        
+        # Rotating
+        self.rot_local_x.clicked.connect( Callback(self.rotate, 'x', 45, 'local') )
+        self.rot_local_y.clicked.connect( Callback(self.rotate, 'y', 45, 'local') )
+        self.rot_local_z.clicked.connect( Callback(self.rotate, 'z', 45, 'local') )
+        self.rot_world_x.clicked.connect( Callback(self.rotate, 'x', 45, 'world') )
+        self.rot_world_y.clicked.connect( Callback(self.rotate, 'y', 45, 'world') )
+        self.rot_world_z.clicked.connect( Callback(self.rotate, 'z', 45, 'world') )
+        
+        # Selecting
+        self.select_cvs.clicked.connect( Callback(self.selectCVs) )
+        self.select_pin_head.clicked.connect( Callback(self.selectPinHead) )
+        self.select_band_edge_1.clicked.connect( Callback(self.bandEdge, 1))
+        self.select_band_edge_2.clicked.connect( Callback(self.bandEdge, 2))
+        
+        
+        # Shapes
+        self.copyShapes.clicked.connect( Callback(self.transferShape) )
+        self.mirrorShapes.clicked.connect( Callback(self.transferShape, mirror=True) )
+        self.mirrorSide.clicked.connect( Callback(lambda: mirrorAllKinematicShapes(selected()[0])) )
+        
+        #self.mirrorSide.setContextMenuPolicy(Qt.QtCore.Qt.CustomContextMenu)
+        #self.mirrorSide.customContextMenuRequested.connect(self.XXXcontextMenuEvent)
+        
+        self.copyToCBBtn.clicked.connect( Callback(self.copyToClipboad) )
+        self.pasteLocalBtn.clicked.connect( Callback(self.pasteFromCliboard, 'os') )
+        self.pasteWorldBtn.clicked.connect( Callback(self.pasteFromCliboard, 'ws') )
+        
+    def copyToClipboad(self):
+        try:
+            info = controllerShape.getShapeInfo(selected()[0])
+            s = json.dumps(info)
+            core.text.clipboard.set( s )
+        except Exception:
+            warning('Unable to copy shapes')
+        
+    def pasteFromCliboard(self, space):
+        '''
+        Deserialize shape info from the clipboard and apply it, either in space='os', object space, or 'ws', world space.
+        '''
+        try:
+            info = json.loads( core.text.clipboard.get() )
+            for obj in selected():
+                controllerShape.applyShapeInfo(obj, info, space)
+        except Exception:
+            warning('Unable to paste shapes')
+    
+    def XXXcontextMenuEvent(self, point):
+        menu = Qt.QtWidgets.QMenu(self.mirrorSide)
+        menu.addAction('demo')
+        menu.addAction('test')
+        #menu.addAction(self.pasteAct)
+        menu.exec_( self.mirrorSide.mapToGlobal(point) )
+    
+    
+    @staticmethod
+    def scaleCvs(val):
+        #scaleFactor = [val] * 3  # Scale factor needs to be a 3 vector for all axes.
+        
+        for obj in selected():
+            controllerShape.scaleAllCVs(obj, val)
+            #for shape in core.shape.getShapes(obj):
+            #    scale(shape.cv, scaleFactor, r=True, os=True)
+
+
+    @staticmethod
+    def selectPinHead():
         sel = selected()
         if not sel:
             return
-
+        
+        # No the best method, assuming it's made of a tube and another shape but
+        # it works for now.
         tube, outline, head = None, None, None
-
-        shapes = sel[0].getShapes()
+        
+        shapes = core.shape.getShapes(sel[0]) # This culls out switchers/vis shapes
+        
         for shape in shapes[:]:
             if shape.name().count('tube'):
                 tube = shape
@@ -35,21 +153,55 @@ class ShapeEditor(object):
                 shapes.remove(outline)
             elif shape.name().count('sharedShape'):
                 shapes.remove(shape)
-
+        
         if len(shapes) == 1:
             head = shapes[0]
-                
+        
         if tube and outline and head:
             select(head.cv[0:6][0:5], outline.cv[1:14], tube.cv[3][0:3])
 
-    def selectCVs(self):
+    
+    @staticmethod
+    def bandEdge(side):
+        sel = selected()
+        if not sel:
+            return
+        
+        obj = sel[0]
+        
+        # If the selection is a cv, it probably means we're selecting the other side so assume the parent is the obj.
+        if isinstance(obj, NurbsCurveCV):
+            obj = obj.node().getParent()
+        
+        if not obj.hasAttr('shapeType') or obj.shapeType.get() != 'band':
+            return
+        
+        shapes = core.shape.getShapes(obj)
+        
+        if shapes[0].type() == 'nurbsSurface':
+            surface = shapes[0]
+            outline = shapes[1]
+        else:
+            surface = shapes[1]
+            outline = shapes[0]
+        
+        if side == 1:
+            select( outline.cv[0:14], surface.cv[3][0:7] )
+        else:
+            select( outline.cv[16:32], surface.cv[0][0:7] )
+
+    
+    @staticmethod
+    def selectCVs():
         sel = selected()
         select(cl=True)
         for obj in sel:
             for shape in core.shape.getShapes(obj):
                 select( shape.cv, add=True )
-        
-    def rotate(self, dir, angle):
+    
+    
+    @staticmethod
+    def rotate(dir, angle, space):
         rot = [0, 0, 0]
         rot[ ord(dir) - ord('x') ] = angle
         
@@ -58,117 +210,144 @@ class ShapeEditor(object):
         
         for obj in set(trans):
             for shape in core.shape.getShapes(obj):
-                rotate( shape.cv, rot, r=True, os=True )
+                if space == 'world':
+                    rotate( shape.cv, rot, r=True, ws=True )
+                else:
+                    rotate( shape.cv, rot, r=True, os=True )
 
-
-class Gui(object):
-    def __init__(self):
-        self.customColor = [1.0, 1.0, 1.0]
-        self._colorChangeObjs = []
-
-        with rowColumnLayout('Post_Control_Edit', nc=2):
-            with columnLayout():
-                self.shapeMenu = optionMenu(l='')  # , cc=core.alt.Callback(self.setOverrides) )
-                for shape in controller.control.listShapes():
-                    menuItem(l=shape)
-                                        
-                button('Copy Shape', c=core.alt.Callback(self.copyShape))
-                button('Mirror Shape', c=core.alt.Callback(self.copyShape, True))
-                button('Copy Colors', c=core.alt.Callback(self.copyColor))
-                                
-                self.shapeMenu.changeCommand( core.alt.Callback(self.changeShape) )
-                
-                with rowColumnLayout(nc=2):
-                    button(l='+10%', c=core.alt.Callback(self.scaleCvs, 1.10))
-                    button(l='+ 1%', c=core.alt.Callback(self.scaleCvs, 1.01))
-                    
-                    button(l='-10%', c=core.alt.Callback(self.scaleCvs, 0.90))
-                    button(l='- 1%', c=core.alt.Callback(self.scaleCvs, 0.99))
-            
-                ShapeEditor()
-                
-            with columnLayout():
-                text(l='Surface Color')
-                
-                self.surfacePalette = palettePort(
-                    dim=(7, 4),
-                    w=(7 * 20),
-                    h=(4 * 20),
-                    td=True,
-                    colorEditable=False)
-                self.surfacePalette.changeCommand( core.alt.Callback(self.changeSurfaceColor) )
-                
-                self.surfacePalette.setRgbValue( [0] + self.customColor )
-                for i, (name, c) in enumerate(core.shader.namedColors.items()):
-                    self.surfacePalette.setRgbValue( [i + 1] + list(c) )
-                
-                text(l='')
-            
-                text(l='Curve Color')
-                self.palette = palettePort(
-                    dim=(8, 4),
-                    w=(8 * 20),
-                    h=(4 * 20),
-                    td=True,
-                    colorEditable=False,
-                    transparent=0)
-                self.palette.changeCommand( core.alt.Callback(self.changeCurveColor) )
-                
-                for i in range(1, 32):
-                    param = [i] + colorIndex(i, q=True)
-                    self.palette.setRgbValue( param )
-
-                self.palette.setRgbValue( (0, .6, .6, .6) )
-
-    def update(self):
-        if selected():
-            self._colorChangeObjs = selected()
-
-    def changeShape(self):
-        newShape = self.shapeMenu.getValue()
+    
+    @staticmethod
+    def transferShape(mirror=False):
+        sel = selected()
+        if len(sel) > 1:
+            for dest in sel[1:]:
+                controllerShape.copyShape(sel[0], dest, mirror=mirror)
+    
+    
+    @staticmethod
+    def changeShape(shapeName):
+        
         sel = selected()
         if sel:
             for obj in sel:
-                if obj.hasAttr( 'fossilCtrlType' ):
-                    controller.control.setShape(obj, newShape)
+                #if obj.hasAttr( 'fossilCtrlType' ):
+                controllerShape.setShape(obj, shapeName)
             select(sel)
+    
+    
+    def buildShapeMenu(self):
                 
-    @staticmethod
-    def copyShape(mirror=False):
-        sel = selected()
-        if len(sel) > 1:
-            controller.copyShape(sel[0], sel[1], mirror=mirror)
-    
-    @staticmethod
-    def copyColor():
-        sel = selected()
-        if len(sel) > 1:
-            controller.copyColors(sel[0], sel[1])
-
-    def changeCurveColor(self):
-        colorIndex = self.palette.getSetCurCell()
+        shapeFolder = os.path.dirname( __file__ ).replace('\\', '/') + '/shapes'
         
-        select(cl=True)
-
-        for obj in self._colorChangeObjs:
-            controller.setCurveColor(obj, colorIndex)
-    
-    @staticmethod
-    def scaleCvs(val):
-        scaleFactor = [val] * 3
+        shapeNames = controllerShape.listShapes()
         
-        for obj in selected():
-            for shape in core.shape.getShapes(obj):
-                scale(shape.cv, scaleFactor, r=True, os=True)
+        temp_style = []
+        template = "QPushButton#%s { background-image: url('%s'); border: none; }"  # padding: 0; margin: 0;
+        for name in shapeNames:
+            temp_style.append( template % (name, shapeFolder + '/' + name + '.png') )
+        
+        self.window.setStyleSheet( '\n'.join(temp_style) )
+        
+        row = 0
+        col = 0
 
-    def defineSurfaceColor(self):
-        val = colorEditor(rgb=self.customColor)
-        if val[-1] == '1':  # Control has strange returns, see maya docs
-            self.customColor = [ float(f) for f in val.split()][:-1]
-            self.surfacePalette.setRgbValue( [0] + self.customColor )
-            palettePort(self.surfacePalette, e=True, redraw=True)
-            return True
-        return False
+        for f in os.listdir(shapeFolder):
+            if f.lower().endswith('.png'):
+                shapeName = f[:-4]
+                if shapeName in shapeNames:
+                    button = Qt.QtWidgets.QPushButton()
+                    button.setFixedSize(64, 64)
+                    #button.iconSize().setHeight(31)
+                    #button.iconSize().setWidth(31)
+                    
+                    #icon = Qt.QtGui.QIcon(shapeFolder + '/' + f)
+                    #button.setIcon(icon)
+                    #button.setProperty('background-image', "url('{}')".format(shapeFolder + '/' + f) )
+                    
+                    #button.setProperty('background-color', '#000' )
+                    
+                    button.setObjectName(f[:-4])
+                    #button.setProperty('border', '20px solid black')
+                    
+                    #button.setStyle( button.style() )
+                    #print(button.style())
+                    
+                    button.clicked.connect( Callback(self.changeShape, shapeName) )
+                    
+                    self.shape_chooser.addWidget(button, row, col)
+                    #return
+                    
+                    col += 1
+                    if col >= self.NUM_COLS:
+                        col = 0
+                        row += 1
+    
+    
+    def refreshCardList(self):
+        '''
+        Form cardLister, use .cardHierarchy() just like it does to refresh it's own list
+        # cardOrder = cardHierarchy()
+        '''
+        return
+        cards = cardlister.cardHierarchy()
+
+        cardToItem = {None: self.controlCardList.invisibleRootItem()}
+
+        for parent, children in cards:
+            
+            for child in children:
+                item = Qt.QtWidgets.QTreeWidgetItem([child.name()])
+                cardToItem[parent].addChild(item)
+                cardToItem[child] = item
+                item.setExpanded(True)
+
+    
+    def refresh(self):
+        self.curveColorer.update()
+        if SHAPE_DEBUG:
+            try:  # &&& Don't have time for this now..
+                temp = selected(type='transform')
+                if temp:
+                    card = temp[0]
+                else:
+                    return
+                
+                if not card.c.__class__.__name__ == 'Card':  # &&& Not a great verification this is a card node.
+                    main = rig.getMainController(card)
+                    if main:
+                        card = main.card
+                            
+                text = ''
+                
+                try:
+                    for attr in ['outputShape' + side + kin for side in ['Left', 'Right', 'Center'] for kin in ['ik', 'fk']]:
+                        if card.hasAttr(attr):
+                            text += '---- ' + attr + '\n\n'
+                            text += core.text.asciiDecompress( card.attr(attr).get() ) + '\n\n'
+                except Exception:
+                    print( traceback.format_exc() )
+                
+                self.shapeDebug.setPlainText(text)
+            except:
+                pass
+        
+
+class SurfaceColorEditor(object):
+
+    def __init__(self):
+        self.customColor = [1.0, 1.0, 1.0]
+        columnLayout(w=100, h=100)
+        self.surfacePalette = palettePort(
+            dim=(7, 4),
+            w=(7 * 20),
+            h=(4 * 20),
+            td=True,
+            colorEditable=False)
+        self.surfacePalette.changeCommand( core.alt.Callback(self.changeSurfaceColor) )
+        
+        self.surfacePalette.setRgbValue( [0] + self.customColor )
+        for i, (name, c) in enumerate(core.shader.namedColors.items()):
+            self.surfacePalette.setRgbValue( [i + 1] + list(c) )
 
     def changeSurfaceColor(self):
         colorIndex = self.surfacePalette.getSetCurCell() - 1
@@ -189,3 +368,66 @@ class Gui(object):
                 pass
         if sel:
             select(sel)
+
+    def defineSurfaceColor(self):
+        val = colorEditor(rgb=self.customColor)
+        if val[-1] == '1':  # Control has strange returns, see maya docs
+            self.customColor = [ float(f) for f in val.split()][:-1]
+            self.surfacePalette.setRgbValue( [0] + self.customColor )
+            palettePort(self.surfacePalette, e=True, redraw=True)
+            return True
+        return False
+
+
+class CurveColorEditor(object):
+    
+    def __init__(self):
+        self._colorChangeObjs = []
+        
+        columnLayout()
+        self.curvePalette = palettePort(
+            dim=(8, 4),
+            w=(8 * 20),
+            h=(4 * 20),
+            td=True,
+            colorEditable=False,
+            transparent=0)
+        self.curvePalette.changeCommand( core.alt.Callback(self.changeCurveColor) )
+        
+        for i in range(1, 32):
+            param = [i] + colorIndex(i, q=True)
+            self.curvePalette.setRgbValue( param )
+        
+        self.curvePalette.setRgbValue( (0, .6, .6, .6) )
+    
+    
+    def changeCurveColor(self):
+        colorIndex = self.curvePalette.getSetCurCell()
+        
+        select(cl=True)
+
+        for obj in self._colorChangeObjs:
+            controllerShape.setCurveColor(obj, colorIndex)
+
+    def update(self):
+        if selected():
+            self._colorChangeObjs = selected()
+
+
+def mirrorAllKinematicShapes(ctrl):
+    '''
+    Copies all the shapes for that motion type, ex, ik left -> ik right
+    '''
+    main = rig.getMainController(ctrl)
+    
+    if not main:
+        return
+    
+    other = main.getOppositeSide()
+    
+    if not other:
+        return
+
+    controllerShape.copyShape(main, other, mirror=True)
+    for name, ctrl in main.subControl.items():
+        controllerShape.copyShape(ctrl, other.subControl[name], mirror=True)

@@ -238,7 +238,7 @@ def allCards(main=None):
     # Use cmds for speed (swift takes 0.20 with pymel but 0.04 with cmds)
     targetCards = set(
         cmds.ls( '*.skeletonInfo', o=True, r=True, l=True ) +
-        cmds.ls( '*.moRigData', o=True, r=True, l=True )
+        cmds.ls( '*.fossilRigData', o=True, r=True, l=True )
     )
     
     if main:
@@ -251,7 +251,7 @@ def allCards(main=None):
             pass
     
         try:
-            return json.loads(cmds.getAttr(obj + '.moRigData')).get('buildOrder', 10)
+            return json.loads(cmds.getAttr(obj + '.fossilRigData')).get('buildOrder', 10)
         except Exception:
             pass
     

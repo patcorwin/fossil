@@ -5,7 +5,9 @@ When defining controls, they must all follow this pattern:
 
     @defaultspec( {'shape': control.box,    'size': 10, 'color':'green 0.22' },
                pv={'shape': control.sphere, 'size': 5,  'color':'green 0.92' } )
+
     someControl(startJoint, endJoint, <keyword Args altering behavior>, name='', groupName='', controlSpec={} )
+
         return control, container
     
         `name` (Likely for most IkControls only) will be name of the control, respecting the suffix.
@@ -56,7 +58,6 @@ When defining controls, they must all follow this pattern:
     Tool to easily make a blueprint that matches an existing skeleton
     (probably will want to add tip joints to most things).
     
-    If the neck is more than 1 joint, the last joint builds wrong with Zoo...
     Align hand control to hand joint.
 
     Each rig has a list of criteria so it's easy to test if rigging will actually work or not.
@@ -74,26 +75,34 @@ When defining controls, they must all follow this pattern:
 from __future__ import absolute_import
 
 import collections
-import functools
 import math
 import re
 
-from pymel.core import *
+#from pymel.core import *
+from pymel.core import addAttr, aimConstraint, arclen, cluster, createNode, curve, \
+    duplicate, delete, dt, expression, group, \
+    hide, ikHandle, insertKnotCurve, joint, listRelatives, makeIdentity, \
+    move, mel, orientConstraint, parent, \
+    parentConstraint, pointConstraint, pointOnCurve, poleVectorConstraint, PyNode, \
+    rotate, select, selected, setDrivenKeyframe, showHidden, skinCluster, \
+    spaceLocator, upAxis, xform
 
 from maya.api import OpenMaya
 import maya.OpenMayaAnim
 import maya.OpenMaya
 
-from ...add import *
+from ...add import simpleName, shortName
 from ...core.dagObj import lockRot, lockTrans, lockScale
 from ... import core
 from ... import lib
 from ... import nodeApi
 
-from . import controller
+from . import controllerShape
 from . import log
 from . import space
 from . import util
+
+from .rigging._util import adds, defaultspec, getChain, constrainTo, parentGroup, trimName, storeTrueZero, ConstraintResults, constrainAtoB, drive, EndOrient, shortestAxis, trueZeroSetup, determineClosestWorldOrient, trueZeroFloorPlane, chainLength, dupChain, prune, findChild, createMatcher, calcOutVector, saveRestLength, makeStretchySpline, _makeStretchyPrep, identifyAxis, advancedTwist, midAimer
 
 mel.ikSpringSolver()
 
@@ -183,128 +192,6 @@ def getMainController(obj):
 #pymel.internal.factories.registerVirtualClass( RigController )
 
 
-def constrainTo(constrainee, target):
-    '''
-    zoo does orient and point but it is possible a parent would work just as well.
-    It is also possible the "rotation only" is the reason they are separate but
-    I'll want to prove this is the case before changing anything.
-    
-    :return:
-    '''
-    
-    o = orientConstraint( target, constrainee, mo=True )
-    p = pointConstraint( target, constrainee, mo=True )
-    
-    return o.getWeightAliasList()[-1], p.getWeightAliasList()[-1]
-
-
-def drive(control, attr, driven, minVal=None, maxVal=None, asInt=False, dv=None):
-    '''
-    Add the attr to the control and feed it into driven.
-    '''
-    
-    attrType = 'short' if asInt else 'double'
-    
-    if not control.hasAttr( attr ):
-        control.addAttr( attr, at=attrType, k=True )
-        if minVal is not None:
-            control.attr( attr ).setMin(minVal)
-        if maxVal is not None:
-            control.attr( attr ).setMax(maxVal)
-        
-        if dv is not None:
-            defaultVal = dv
-            if maxVal is not None:
-                defaultVal = min(defaultVal, maxVal)
-            if minVal is not None:
-                defaultVal = max(defaultVal, minVal)
-            addAttr(control.attr(attr), e=True, dv=dv)
-
-    control.attr(attr) >> driven
-    
-    return control.attr(attr)
-
-
-def prune(start, end, trimEnd=True):
-    '''
-    Cut the joint chain to just the start and end joints, no branching.
-    
-    :param bool trimEnd: True by default, removing any children of `end`.
-    '''
-    p = end.getParent()
-    keep = end
-    
-    if trimEnd:
-        ends = end.listRelatives(type='transform')
-        if ends:
-            delete(ends)
-    
-    if not end.longName().startswith( start.longName() ):
-        raise Exception( "{0} is not a descendant of {1}".format( end, start) )
-    
-    while True:
-        for child in p.listRelatives():
-            if child != keep:
-                delete(child)
-                
-        keep = p
-        p = p.getParent()
-        
-        if keep == start:
-            return
-
-
-def findChild(chain, target):
-    '''
-    Given a joint chain, find the child of the target name
-    '''
-    
-    for child in chain.listRelatives(type='joint'):
-        if child.name().rsplit('|')[-1] == target:
-            return child
-
-    for child in chain.listRelatives(type='joint'):
-        t = findChild(child, target)
-        if t:
-            return t
-            
-    return None
-
-
-def dupChain(start, end, nameFormat='{0}_dup'):
-    '''
-    Creates a duplicate chain, pruned of all branches and children.  Can handle
-    same joints and start and end.
-    
-    :param string nameFormat: The str.format used on the duped chain
-    
-    '''
-    
-    chain = getChain(start, end)
-    
-    assert chain, '{0} and {1} are not in the same hierarchy, dupChain() failed'.format(start, end)
-    
-    dup = duplicate(start)[0]
-    
-    if start != end:
-        child = findChild( dup, simpleName(end) )
-        assert child, 'dupChain failed to find duped child {0} in {1}'.format(end, start)
-        prune( dup, child )
-    else:
-        child = dup
-    
-    dupChain = getChain( dup, child )
-    
-    ends = dupChain[-1].getChildren(type='transform')
-    if ends:
-        delete(ends)
-    
-    for src, d in zip(chain, dupChain):
-        dupName = simpleName(src, nameFormat)
-        d.rename(dupName)
-    return dupChain
-        
-
 def countJoints(start, end):
     count = 2
     
@@ -331,6 +218,7 @@ def getDepth(jnt, depth):
     return child
 
 
+"""
 def adds(*attributes):
     '''
     Marks a function with fossilDynamicAttrs to track the attributes made so
@@ -457,37 +345,7 @@ def defaultspec(defSpec, **additionalSpecs):
         return newFunc
         
     return realDecorator
-        
-   
-def calcOutVector(start, middle, end):
-    '''
-    Given the lead joint of 3, determine the vector pointing directly away along the xz plane.
-    
-    ..  todo::
-        Gracefully handle if the ik is on the xz plane already.
-    '''
-
-    s = dt.Vector( xform(start, q=1, ws=1, t=1) )
-    m = dt.Vector( xform(middle, q=1, ws=1, t=1) )
-    e = dt.Vector( xform(end, q=1, ws=1, t=1) )
-
-    up = s - e
-
-    kneeScale = ( m.y - e.y ) / up.y if up.y else 0.0
-    
-    modifiedUp = kneeScale * up
-    newPos = modifiedUp + e
-
-    outFromKnee = m - newPos
-    
-    angleBetween = (m - s).angle( e - m )
-
-    log.TooStraight.check(angleBetween)
-
-
-    outFromKnee.normalize()
-    
-    return outFromKnee
+"""
 
 
 def calcOutVectorRaw(start, middle, end):
@@ -514,44 +372,6 @@ def bugleg(start, end):
     pass
 
 
-def _makeStretchyPrep(controller, ik, stretchDefault=1):
-    start = ik.startJoint.listConnections()[0]
-    end = ik.endEffector.listConnections()[0].tz.listConnections()[0]
-    chain = getChain( start, end )
-    jointAxis = identifyAxis( end )
-    
-    switcher = createNode('blendTwoAttr', n='stretchSlider')
-    switcher.input[0].set(1)
-
-    drive(controller, 'stretch', switcher.attributesBlender, minVal=0, maxVal=1, dv=max(min(stretchDefault, 1), 0) )
-    controller.stretch.set(1)
-    
-    controller.addAttr('modAmount', at='double', k=False)
-    controller.modAmount.set(cb=True)
-    chainMeasure(chain) >> controller.modAmount
-    
-    return start, chain, jointAxis, switcher
-
-
-def makeStretchySpline(controller, ik, stretchDefault=1):
-    start, chain, jointAxis, switcher = _makeStretchyPrep( controller, ik, stretchDefault )
-    
-    crv = ik.inCurve.listConnections()[0]
-    length = arclen(crv, ch=1).arcLength
-    lengthMax = arclen(crv, ch=1).arcLength.get()
-    # Spline squashes and stretches
-    multiplier = core.math.divide( length, lengthMax )
-    
-    jointLenMultiplier = switcher.output
-    
-    multiplier >> switcher.input[1]
-    
-    for i, j in enumerate(chain[1:], 1):
-        util.recordFloat(j, 'restLength', j.attr('t' + jointAxis).get() )
-        core.math.multiply( jointLenMultiplier, j.restLength) >> j.attr('t' + jointAxis)
-    
-    return controller.attr('stretch'), jointLenMultiplier
-    
     
 def makeStretchyNonSpline(controller, ik, stretchDefault=1):
     start, chain, jointAxis, switcher = _makeStretchyPrep( controller, ik, stretchDefault )
@@ -560,7 +380,7 @@ def makeStretchyNonSpline(controller, ik, stretchDefault=1):
     grp.setParent( controller )
     dist.setParent( ik )
     length = dist.distance
-    #lengthMax = sum( [abs(j.attr('t'+jointAxis).get()) for j in chain[1:] ] )
+    
     lengthMax = chainLength(chain)
     # Regular IK only stretches
     # ratio = (abs distance between start and end) / (length of chain)
@@ -591,46 +411,27 @@ def makeStretchyNonSpline(controller, ik, stretchDefault=1):
     multiplier >> switcher.input[1]
     
     for i, j in enumerate(chain[1:], 1):
-        util.recordFloat(j, 'restLength', j.attr('t' + jointAxis).get() )
+        saveRestLength(j, jointAxis)
+        #util.recordFloat(j, 'restLength', j.attr('t' + jointAxis).get() )
             
-        attrName = 'segLen' + str(i)
-        
         # Make an attribute that is -10 to 10 map to multiplying the restLength by 0 to 2
+        attrName = 'segLen' + str(i)
         controller.addAttr( attrName, at='double', k=True, min=-10, max=10 )
         normalizedMod = core.math.add(core.math.divide( controller.attr(attrName), 10), 1)
         
+        "j.attr('t' + jointAxis) = lockSwitcher.output = jointLenMultiplier * normalizedMod * j.restLength"
         
-        "j.attr('t' + jointAxis) = jointLenMultiplier * normalizedMod * j.restLength"
+        # As of 2/9/2019 it looks to be fine to make this even if it's not used by the ik to lock the elbow (like in dogleg)
+        lockSwitcher = createNode('blendTwoAttr', n='lockSwitcher')
         
         core.math.multiply(
             jointLenMultiplier,
             core.math.multiply( normalizedMod, j.restLength)
-        ) >> j.attr('t' + jointAxis)
+        ) >> lockSwitcher.input[0] # >> j.attr('t' + jointAxis)
+    
+        lockSwitcher.output >> j.attr('t' + jointAxis)
     
     return controller.attr('stretch'), jointLenMultiplier
-
-
-ConstraintResults = collections.namedtuple( 'ConstraintResults', 'point orient' )
-
-
-def constrainAtoB(chain, controlChain, mo=True):
-    '''
-    Point/orient constraint the first chain to the second, driving all their
-    weights by the lead joint.
-    '''
-    points = []
-    orients = []
-    for _controller, orig in zip( controlChain, chain ):
-        points.append( pointConstraint( _controller, orig, mo=mo ).getWeightAliasList()[-1] )
-        orients.append( orientConstraint( _controller, orig, mo=mo ).getWeightAliasList()[-1] )
-    
-    for p in points[1:]:
-        points[0] >> p
-        
-    for o in orients[1:]:
-        orients[0] >> o
-        
-    return ConstraintResults(points[0], orients[0])
 
 
 def driveConstraints(srcConstraintResult, destConstraintResult):
@@ -646,7 +447,7 @@ def driveConstraints(srcConstraintResult, destConstraintResult):
     
 
 # Spline
-def ___addControllers():
+def ___addControllers(ctrl):
     jnts = listRelatives(ad=True) + selected()
     for j in jnts:
 
@@ -762,7 +563,7 @@ def addTwistControls(controlChain, boundChain, boundEnd, influenceDist=3):
     
     for i, (obj, target) in enumerate(zip(controlJoints, boundJoints)):
     
-        c = controller.control.circle()
+        c = controllerShape.simpleCircle()
         c.setParent(obj)
         c.t.set(0, 0, 0)
         c.r.set(0, 0, 0)
@@ -874,7 +675,7 @@ def driverExpression( driven, controls, axis ):
 
 
 def addControlsToCurve(name, crv=None,
-    spec={'shape': controller.control.sphere, 'size': 10, 'color': 'blue 0.22'} ):  # noqa e128
+    spec={'shape': 'sphere', 'size': 10, 'color': 'blue 0.22'} ):  # noqa e128
     '''
     Given a curve, make a control sphere at each CV.
     
@@ -887,7 +688,7 @@ def addControlsToCurve(name, crv=None,
         
     for i, cv in enumerate(crv.cv):
         #l = control.sphere( '{0}{1:0>2}'.format( name, i+1), size, 'blue', type=control.SPLINE )
-        l = controller.control.build('{0}{1:0>2}'.format(name, i + 1), spec, type=controller.control.SPLINE)
+        l = controllerShape.build('{0}{1:0>2}'.format(name, i + 1), spec, type=controllerShape.ControlType.SPLINE)
         
         core.dagObj.moveTo( l, cv )
         handle = cluster(cv)[1]
@@ -950,23 +751,9 @@ def findDepth(start, end):
         depth += 1
         
     if not p:
-        raise Error( end + ' is not a descendent of ' + start  )
+        raise Exception( end + ' is not a descendent of ' + start  )
         
     return depth
-
-
-def identifyAxis(jnt, asVector=False):
-    '''
-    Determines the primary axis of the joint in relation to its parent,
-    returning 'x', 'y' or 'z' or the appropriate vector if asVector is True.
-    '''
-        
-    jointAxis = max( zip( [abs(n) for n in jnt.t.get()], 'xyz' ) )[1]
-    
-    if asVector:
-        jointAxis = {'x': [1, 0, 0], 'y': [0, 1, 0], 'z': [0, 0, 1]}[jointAxis]
-        
-    return jointAxis
 
 
 def getIkGroup():
@@ -1026,259 +813,6 @@ def parentProxy(target):
     return grp
 
 
-def parentGroup(target):
-    '''
-    Returns a group that is constrained to the parent of the target.
-    Used to allow control hierarchies to live elsewhere.
-    
-    ..  todo::
-        Get rid of parentProxy, which is dumb
-    '''
-    
-    name = simpleName(target, '{0}_Proxy' )
-    grp = group( em=True, name=name )
-
-    # Don't constrain top level nodes since they need to follow main, not b_Root
-    if target.getParent() != core.findNode.getRoot():
-        parentConstraint( target.getParent(), grp, mo=False )
-
-    return grp
-    
-
-def getChain(start, end):
-    '''
-    Returns a list of joints from start to end or an empty list if end isn't
-    descended from start.
-    '''
-    
-    joints = []
-    current = end
-    while current and current != start:
-        joints.append( current )
-        current = current.getParent()
-        
-    # If we never hit the start, start and end are unrelated.
-    if current != start:
-        return []
-        
-    joints.append( start )
-    joints.reverse()
-    
-    return joints
-
-
-def trimName(jnt):
-    '''
-    Given an joint, return its simple name without b_ or rig_ if those prefixes exist.
-    '''
-    name = simpleName(jnt)
-    if name.startswith( 'b_' ):
-        return name[2:]
-    
-    return name
-
-
-def storeTrueZero(obj, rot):
-    '''
-    '''
-    obj.addAttr( 'trueZero', at='double3' )
-    
-    obj.addAttr( 'trueZeroX', at='double', p='trueZero' )
-    obj.addAttr( 'trueZeroY', at='double', p='trueZero' )
-    obj.addAttr( 'trueZeroZ', at='double', p='trueZero' )
-
-    obj.trueZero.set( channelBox=True )
-    obj.trueZeroX.set( channelBox=abs(rot[0]) > 0.00000000001 )
-    obj.trueZeroY.set( channelBox=abs(rot[1]) > 0.00000000001 )
-    obj.trueZeroZ.set( channelBox=abs(rot[2]) > 0.00000000001 )
-    obj.trueZero.set( rot )
-    obj.trueZero.lock()
-    obj.trueZeroX.lock()
-    obj.trueZeroY.lock()
-    obj.trueZeroZ.lock()
-    '''
-    
-    for val, attr in zip(rot, 'XYZ'):
-        obj.addAttr( 'trueZero' + attr, at='double', p='trueZero' )
-        obj.attr( 'trueZero' + attr).set( channelBox=True )
-        obj.attr( 'trueZero' + attr).set( val )
-        obj.attr( 'trueZero' + attr).lock()
-        
-    obj.trueZero.set( channelBox=True )
-    obj.trueZero.lock()'''
-
-
-def determineClosestWorldOrient(obj):
-    '''
-    Given an object, returns the shortest rotation that aligns the object with
-    the world.  This is used to allow IK elements to have world alignment but
-    easily return to the bind pose.
-    '''
-
-    ''' # This is essentially a math version of the following:
-        x = spaceLocator()
-        y = spaceLocator()
-        core.dagObj.moveTo( x, obj )
-        core.dagObj.moveTo( y, obj )
-        x.tx.set( 1 + x.tx.get() )
-        y.ty.set( 1 + y.ty.get() )
-        x.setParent(obj)
-        y.setParent(obj)
-        
-        def zeroSmaller(loc):
-            vals = [abs(v) for v in loc.t.get() ]
-            largetVal = max(vals)
-            index = vals.index(largetVal)
-            for i, attr in enumerate('xyz'):
-                if i == index:
-                    continue
-                loc.attr( 't' + attr ).set(0)
-        
-        zeroSmaller( x )
-        zeroSmaller( y )
-        
-        ref = spaceLocator()
-        core.dagObj.moveTo( ref, obj )
-        aimConstraint( x, ref, wut='object', wuo=y )
-        
-        rot = ref.r.get()
-        delete( x, y, ref )
-        return rot
-    '''
-
-    # Make 2 world spaced points one unit along x and y
-    x = dt.Matrix( [ (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (1, 0, 0, 0) ] )
-    y = dt.Matrix( [ (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 1, 0, 0) ] )
-    #z = dt.Matrix( [ (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 1, 0,) ] )
-    
-    world = obj.worldMatrix.get()
-    inv = world.inverse()
-
-    # Find the local matrices respective of the obj
-    localX = x * inv
-    localY = y * inv
-    
-    # For X, zero out the two smaller axes for each, ex t=.2, .3, .8 -> t=0, 0, .8
-    def useX(matrix):
-        return dt.Matrix( [matrix[0], matrix[1], matrix[2], [matrix[3][0], 0, 0, matrix[3][3]]] )
-    
-    def useY(matrix):
-        return dt.Matrix( [matrix[0], matrix[1], matrix[2], [0, matrix[3][1], 0, matrix[3][3]]] )
-        
-    def useZ(matrix):
-        return dt.Matrix( [matrix[0], matrix[1], matrix[2], [0, 0, matrix[3][2], matrix[3][3]]] )
-    
-    xUsed, yUsed, zUsed = [False] * 3
-    if abs(localX[3][0]) > abs(localX[3][1]) and abs(localX[3][0]) > abs(localX[3][2]):
-        localX = useX(localX)
-        xUsed = True
-    elif abs(localX[3][1]) > abs(localX[3][0]) and abs(localX[3][1]) > abs(localX[3][2]):
-        localX = useY(localX)
-        yUsed = True
-    else:
-        localX = useZ(localX)
-        zUsed = True
-
-    # Do the same for Y
-    if xUsed:
-        if abs(localY[3][1]) > abs(localY[3][2]):
-            localY = useY(localY)
-            yUsed = True
-        else:
-            localY = useZ(localY)
-            zUsed = True
-    
-    elif yUsed:
-        if abs(localY[3][0]) > abs(localY[3][2]):
-            localY = useX(localY)
-            xUsed = True
-        else:
-            localY = useZ(localY)
-            zUsed = True
-    
-    elif zUsed:
-        if abs(localY[3][0]) > abs(localY[3][1]):
-            localY = useX(localX)
-            xUsed = True
-        else:
-            localY = useY(localY)
-            yUsed = True
-    
-    # Find the 'world' (but treating the obj's pos as the origin) positions.
-    worldX = localX * world
-    worldY = localY * world
-    
-    # Convert this into a rotation matrix by mimicing an aim constraint
-    x = dt.Vector(worldX[-1][:-1])
-    y = dt.Vector(worldY[-1][:-1])
-
-    x.normalize()
-    y.normalize()
-    z = x.cross(y)
-    y = z.cross(x)
-
-    msutil = maya.OpenMaya.MScriptUtil()
-    mat = maya.OpenMaya.MMatrix()
-    msutil.createMatrixFromList([
-        x[0], x[1], x[2], 0.0,
-        y[0], y[1], y[2], 0.0,
-        z[0], z[1], z[2], 0.0,
-        0.0, 0.0, 0.0, 1.0
-        ], mat) # noqa e123
-    rot = maya.OpenMaya.MEulerRotation.decompose(mat, maya.OpenMaya.MEulerRotation.kXYZ)
-
-    return dt.Vector(math.degrees( rot.x), math.degrees(rot.y), math.degrees(rot.z))
-
-
-def shortestAxis(srcAngle):
-    angle = abs(srcAngle) % 90
-    
-    if angle >= 89.99999:  # Due to float error, allow for some negligible slop to align the axis
-        angle -= 90
-    
-    return math.copysign(angle, srcAngle)
-
-
-def trueZeroSetup(rotationTarget, ctrl):
-    '''
-    Stores the closest world orient of the rotation target on the given control.
-
-    ..  todo::
-        Use this function in all the places where matchOrient exists.
-    '''
-    rot = determineClosestWorldOrient(rotationTarget)
-    ctrl.r.set( rot )
-    storeTrueZero(ctrl, rot)
-
-
-def trueZeroFloorPlane(rotationTarget, ctrl):
-    
-    trans = xform(rotationTarget, q=True, ws=True, t=True)
-    
-    # Make a unit X vector (assume left side is +x, right is -x)
-    if trans[0] >= 0:
-        tx = dt.Matrix([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [1.0, 0.0, 0.0, 1.0]])
-    else:
-        tx = dt.Matrix([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [-1.0, 0.0, 0.0, 1.0]])
-    
-    # Move out from the rotator by the unit X vector (in world space)
-    altered = tx * rotationTarget.worldMatrix.get()
-
-    # Get the X and Z world position of the new point
-    alteredX = altered[3][0]
-    alteredZ = altered[3][2]
-
-    # Find the difference in X and Z world positions to calc Y
-    
-    deltaX = alteredX - trans[0]
-    deltaZ = alteredZ - trans[2]
-
-    rad = math.atan2(deltaX, deltaZ)
-    degrees = math.degrees(rad)
-    ctrl.ry.set(degrees)
-    storeTrueZero(ctrl, [0, degrees, 0])
-
-
 def transferKeyableUserAttrs( src, dest ):
     '''
     '''
@@ -1336,7 +870,7 @@ def squashLinker(name, ctrlA, ctrlB):
     
     lengthCalc = lengthCalc[:-3]
     
-    ctrl = controller.control.build(name, {'shape': controller.control.sphere})
+    ctrl = controllerShape.build(name, {'shape': 'sphere'})
     zeroGrp = core.dagObj.zero(ctrl)
 
     pointConstraint(child, parent, zeroGrp)
@@ -1354,28 +888,6 @@ def squashLinker(name, ctrlA, ctrlB):
     print( exp )
         
     expression(s=exp)
-
-
-def createMatcher(ctrl, target):
-    '''
-    Creates an object that follows target, based on ctrl so ctrl can match it
-    easily.
-    '''
-    matcher = duplicate(ctrl, po=True)[0]
-    parentConstraint( target, matcher, mo=True )
-
-    matcher.rename( ctrl.name() + '_matcher' )
-    hide(matcher)
-
-    if not ctrl.hasAttr( 'matcher' ):
-        ctrl.addAttr('matcher', at='message')
-
-    matcher.message >> ctrl.matcher
-    
-    if matcher.hasAttr('fossilCtrlType'):
-        matcher.deleteAttr( 'fossilCtrlType' )
-    
-    return matcher
 
 
 def squashDrive(squashCtrl):
@@ -1403,140 +915,7 @@ def squashDrive(squashCtrl):
     setDrivenKeyframe( squashCtrl, at=['size'], v=5.0, cd=targetBone.tx, dv=[length * .25] )
 
 
-def chainLength(joints):
-    return abs(sum( [j.tx.get() for j in joints[1:]] ))
-
-
-def chainMeasure(joints):
-    n = createNode('plusMinusAverage')
-    n.operation.set(1)
-    
-    for i, j in enumerate(joints[1:]):
-        j.tx >> n.input1D[i]
-    
-    l = chainLength(joints)
-    if n.output1D.get() < 0:
-        l *= -1
-    
-    return core.math.divide( n.output1D, l)
-
-
-def advancedTwist(start, end, baseCtrl, endCtrl, ik):
-    # Setup advanced twist
-    startAxis = duplicate( start, po=True )[0]
-    startAxis.rename( 'startAxis' )
-    startAxis.setParent( baseCtrl )
-    lockTrans(lockRot(lockScale(startAxis)))
-    
-    endAxis = duplicate( start, po=True )[0]
-    endAxis.rename( 'endAxis' )
-    endAxis.setParent( endCtrl )
-    endAxis.t.set(0, 0, 0)
-    lockTrans(lockRot(lockScale(endAxis)))
-    
-    hide(startAxis, endAxis)
-    
-    ik.dTwistControlEnable.set(1)
-    ik.dWorldUpType.set(4)
-    startAxis.worldMatrix[0] >> ik.dWorldUpMatrix
-    endAxis.worldMatrix[0] >> ik.dWorldUpMatrixEnd
-
-
-def midAimer(start, end, midCtrl, name='aimer', upVector=None):
-    '''
-    Creates an object point contrained to two others, aiming at the second.  Up
-    vector defaults to the control's Y.
-    '''
-    aimer = group(em=True, name=name)
-    #aimer.setParent(container)
-    #aimer = polyCone(axis=[1, 0, 0])[0]
-    core.dagObj.moveTo(aimer, midCtrl)
-    pointConstraint(end, start, aimer, mo=True)
-    
-    
-    aimV = dt.Vector(xform(end, q=True, ws=True, t=True)) - dt.Vector( xform(aimer, q=1, ws=1, t=1) )
-    aimV.normalize()
-    
-    if upVector:
-        midCtrlYUp = upVector
-    else:
-        temp = xform(midCtrl, q=True, ws=True, m=True)
-        midCtrlYUp = dt.Vector( temp[4:7] )
-    
-    """
-    # Generally the X axis is a good default up since things are normally  on that plane
-    if abs(aimV[0]) < 0.0001 or min([abs(v) for v in aimV]) == abs(aimV[0]):
-        upV = dt.Vector([-1, 0, 0])
-        forwardV = aimV.cross(upV)
-        recalcUp = forwardV.cross(aimV)
-        
-        # Reference
-        #xrow = aimV
-        #yrow = recalcUp
-        #zrow = forwardV
-        midCtrlYUp = recalcUp
-        print( 'midCtrlYUp', midCtrlYUp )
-    else:
-        # Choose Y up as the up (hopefully this works)
-        if abs(aimV[1]) < abs(aimV[0]) and abs(aimV[1]) < abs(aimV[2]):
-            upV = dt.Vector([0, 1, 0])
-            forwardV = aimV.cross(upV)
-            recalcUp = forwardV.cross(aimV)
-            
-            # Reference
-            #xrow = aimV
-            #yrow = recalcUp
-            #zrow = forwardV
-            midCtrlYUp = recalcUp
-            pass
-    #
-    """
-    
-    # Determine which axis of the end is closest to the midControl's Y axis.
-    endMatrix = xform(end, q=True, ws=True, m=True)
-    #midMatrix = xform(aimer, q=True, ws=True, m=True)
-    #midCtrlYUp = dt.Vector(midMatrix[4:7])
-    
-    choices = [
-        (endMatrix[:3], [1, 0, 0]),
-        ([-x for x in endMatrix[:3]], [-1, 0, 0]),
-        (endMatrix[4:7], [0, 1, 0]),
-        ([-x for x in endMatrix[4:7]], [0, -1, 0]),
-        (endMatrix[8:11], [0, 0, -1]),
-        ([-x for x in endMatrix[8:11]], [0, 0, 1]),
-    ]
-    
-    # Seed with the first choice as the best...
-    low = midCtrlYUp.angle(dt.Vector(choices[0][0]))
-    axis = choices[0][1]
-    # ... and see if any others are better
-    for vector, destAxis in choices[1:]:
-        vector = dt.Vector(vector)  # Just passing 3 numbers sometimes gets a math error.
-        
-        if midCtrlYUp.angle(vector) < low:
-            low = midCtrlYUp.angle(vector)
-            axis = destAxis
-    
-    aimConstraint( end, aimer, wut='objectrotation', aim=[1, 0, 0], wuo=end, upVector=[0, 1, 0], wu=axis, mo=False)
-    
-    return aimer
-
-
-def findClosest(obj, targets):
-    '''
-    Given an object or position, finds which of the given targets it is closest to.
-    '''
-    if isinstance(obj, (PyNode, basestring)):
-        pos = xform(obj, q=True, ws=True, t=True)
-    else:
-        pos = obj
-    
-    dists = [((dt.Vector(xform(t, q=1, ws=1, t=1)) - pos).length(), t) for t in targets]
-    dists.sort()
-    return dists[0][1]
-
-
-def twistSetup(control, twistJoints, startSegment, endSegment, twistLateralAxis=[0, 1, 0], driverLateralAxis=[0, 1, 0], defaultPower=0.5):
+def twistSetup(control, twistJoints, startSegment, endSegment, jointLenMultiplier, twistLateralAxis=[0, 1, 0], driverLateralAxis=[0, 1, 0], defaultPower=0.5):
     '''
     Given a list of twist joints, an anchoring startSegment and the endSegment
     
@@ -1561,6 +940,9 @@ def twistSetup(control, twistJoints, startSegment, endSegment, twistLateralAxis=
     for jnt in twistJoints:
         aimer = duplicate( jnt, po=True )[0]
         space = duplicate( jnt, po=True )[0]
+        
+        saveRestLength(space)
+        core.math.multiply(space.restLength, jointLenMultiplier) >> space.tx
         
         aimer.rename( simpleName(jnt, '{0}Aimer') )
         space.rename( simpleName(jnt, '{0}Space') )
@@ -1613,20 +995,13 @@ def twistSetup(control, twistJoints, startSegment, endSegment, twistLateralAxis=
     #return ctrl, #container
 
 
-class EndOrient:
-    TRUE_ZERO = 'True_Zero'             # Matches world but has true zero to return to bind
-    JOINT = 'Joint'                     # Match the orient of the last joint (VERIFY this just mean it matches the joint, no true zero)
-    TRUE_ZERO_FOOT = 'True_Zero_Foot'   # Same as TRUE_ZERO but only in xz plane
-    WORLD = 'World'
-    
-    @classmethod
-    def asChoices(cls):
-        choices = collections.OrderedDict()
-        choices[cls.TRUE_ZERO.replace('_', ' ')] = cls.TRUE_ZERO
-        choices[cls.JOINT.replace('_', ' ')] = cls.JOINT
-        choices[cls.TRUE_ZERO_FOOT.replace('_', ' ')] = cls.TRUE_ZERO_FOOT
-        choices[cls.WORLD] = cls.WORLD
-        return choices
+def getBPJoint(realJoint):
+    jnt = realJoint.message.listConnections(type=nodeApi.BPJoint)
+    if jnt:
+        return jnt[0]
+
+
+
 
 #------------------------------------------------------------------------------
 # Controls are actually made below here!
@@ -1634,8 +1009,8 @@ class EndOrient:
 
 
 @adds()
-@defaultspec( {'shape': controller.control.sphere, 'color': 'orange 0.22', 'size': 10} )
-def fkChain(start, end, translatable=False, groupName='', controlSpec={} ):
+@defaultspec( {'shape': 'sphere', 'color': 'orange 0.22', 'size': 10} )
+def fkChain(start, end, translatable=False, scalable=False, groupName='', controlSpec={} ):
     '''
     Make an FK chain between the given joints.
     
@@ -1661,32 +1036,56 @@ def fkChain(start, end, translatable=False, groupName='', controlSpec={} ):
     
     top = container
     
-    leadOrient, leadPoint = None, None
+    leadOrient, leadPoint, leadScale = None, None, None
     
     controls = []
     
+    validCtrl = None
+    prevBPJ = None
+    
     for j in joints:
-        ctrl = controller.control.build(   trimName(j) + "_ctrl",
+        ctrl = controllerShape.build(   trimName(j) + "_ctrl",
                                 controlSpec['main'],
-                                type=controller.control.TRANSLATE if translatable else controller.control.ROTATE )
+                                type=controllerShape.ControlType.TRANSLATE if translatable else controllerShape.ControlType.ROTATE )
         controls.append( ctrl )
         core.dagObj.matchTo( ctrl, j )
         space = core.dagObj.zero( ctrl )
         
-        space.setParent( top )
+        # If the parent is a twist, make it a child of the most recent non-twist so twists are isolated.
+        if top == container or (prevBPJ and not prevBPJ.info.get('twist')):
+            space.setParent( top )
+        else:
+            space.setParent( validCtrl )
+        
         top = ctrl
         
         if not translatable:
             lockTrans( ctrl )
-        lockScale( ctrl )
+            
+        if not scalable:
+            lockScale( ctrl )
     
-        orient, point = constrainTo( j, ctrl )
-        
+        if scalable:
+            orient, point, scaleConst = constrainTo( j, ctrl, includeScale=True )
+            
+            if leadScale:
+                leadScale >> scaleConst
+            else:
+                leadScale = scaleConst
+            
+        else:
+            orient, point = constrainTo( j, ctrl )
+                
         if leadOrient:
             leadOrient >> orient
             leadPoint >> point
         else:
             leadOrient, leadPoint = orient, point
+        
+        
+        prevBPJ = getBPJoint(j)
+        if not prevBPJ.info.get('twist'):
+            validCtrl = ctrl
             
     #drive( start, CONTROL_ATTR_NAME, leadOrient )
     #drive( start, CONTROL_ATTR_NAME, leadPoint )
@@ -1712,366 +1111,6 @@ def fkChain(start, end, translatable=False, groupName='', controlSpec={} ):
     return controls[0], ConstraintResults(leadPoint, leadOrient )
 
 
-@adds()
-@defaultspec( {'shape': controller.control.sphere, 'color': 'orange 0.22', 'size': 10} )
-def freeform(joints, translatable=False, groupName='', controlSpec={} ):
-    '''
-    Make an FK chain between the given joints.
-    
-    :param PyNode start: Start of joint chain
-    :param PyNode end: End of chain
-    :param bool translatable: Default=False
-    :param dict controlSpec: Override default control details here.  Only has 'main'.
-    
-    ..  todo::
-        I think I want to control spec housed elsewhere for easier accessibility.
-    
-    '''
-    
-    # Make a top level section for each lead joint in the subHierarchy
-    #topLevel = [j for j in joints if j.getParent() not in joints]
-
-    topContainer = group(n=simpleName(joints[0], '{0}_Freeform'), p=lib.getNodes.mainGroup(), em=True)
-    
-    #top = container
-    #leadOrient, leadPoint = None, None
-    
-    controls = []
-    
-    done = {}
-    for j in joints:
-        done[j] = False
-
-    for j in joints:
-
-        ctrl = controller.control.build(   trimName(j) + "_ctrl",
-                                controlSpec['main'],
-                                type=controller.control.TRANSLATE if translatable else controller.control.ROTATE )
-        controls.append( ctrl )
-        core.dagObj.matchTo( ctrl, j )
-
-        constrainTo( j, ctrl )
-
-        space = core.dagObj.zero( ctrl )
-        
-        done[j] = (ctrl, space)
-        #space.setParent( top )
-        #top = ctrl
-        
-        if not translatable:
-            lockTrans( ctrl )
-        lockScale( ctrl )
-    
-        '''
-        orient, point = constrainTo( j, ctrl )
-        
-        if leadOrient:
-            leadOrient >> orient
-            leadPoint >> point
-        else:
-            leadOrient, leadPoint = orient, point
-        '''
-    
-    for jnt, (ctrl, space) in done.items():
-        if jnt.getParent() in done:
-            space.setParent( done[jnt.getParent()][0] )
-        else:
-            # containers = []
-            # for top in topLevel:
-            container = parentGroup(jnt)
-            container.setParent(topContainer)
-            container.rename( trimName(jnt) + '_fkChain' )
-
-            space.setParent(container)
-            # containers.append(container)
-
-    # A leader must be choosen
-    ctrl = nodeApi.RigController.convert(controls[0])
-    for i, c in enumerate(controls[1:]):
-        ctrl.subControl[str(i)] = c
-
-    ctrl.container = topContainer
-
-    return ctrl, None # ConstraintResults(leadPoint, leadOrient )
-
-
-@adds()
-@defaultspec( {'shape': controller.control.sphere, 'color': 'blue 0.22', 'size': 10} )
-def ctrlGroup(parentJoint, point, rotation, name='Group', translatable=True, scalable=False, useTrueZero=False, groupName='', controlSpec={} ):
-    '''
-    Makes a control at the given point
-    
-    :param PyNode start: Start of joint chain
-    :param bool translatable: Default=True
-    :param dict controlSpec: Override default control details here.  Only has 'main'.
-    '''
-    
-    # Can't use parentGroup() since target isn't a real joint.
-    container = group( em=True, name='{0}_Proxy'.format(name) )
-    
-    if parentJoint:
-        parentConstraint( parentJoint, container, mo=False )
-    
-    container.setParent( lib.getNodes.mainGroup() )
-        
-    ctrl = controller.control.build(   name + "_ctrl",
-                            controlSpec['main'],
-                            type=controller.control.TRANSLATE if translatable else controller.control.ROTATE )
-    
-    ctrl.t.set(point)
-
-    if not useTrueZero:
-        ctrl.r.set(rotation)
-    
-    core.dagObj.zero( ctrl ).setParent( container )
-
-    if useTrueZero:
-        ctrl.r.set(rotation)
-        storeTrueZero(ctrl, rotation)
-        
-    if not translatable:
-        lockTrans( ctrl )
-        
-    if not scalable:
-        lockScale( ctrl )
-                
-    ctrl = nodeApi.RigController.convert(ctrl)
-    ctrl.container = container
-    
-    leadOrient, leadPoint = None, None
-    return ctrl, ConstraintResults(leadPoint, leadOrient)
-
-
-@adds('stretch')
-@defaultspec( {'shape': controller.control.box,    'color': 'blue 0.22', 'size': 10},
-       middle={'shape': controller.control.sphere, 'color': 'blue 0.22', 'size': 10},
-        start={'shape': controller.control.box,    'color': 'blue 0.22', 'size': 10},)
-def splineNeck(start, end, name='', matchEndOrient=False, endOrient=EndOrient.TRUE_ZERO, curve=None, duplicateCurve=True, groupName='', controlSpec={} ):
-    '''
-    Makes a spline with a middle control point constrained between the endpoints.
-    
-    ..  todo::
-        * Might want to make the end the main control to treat it more consistently
-            with other IK, where the main is the end of the chain.
-    '''
-    if not name:
-        name = simpleName(start)
-        
-    container = group(em=True, p=lib.getNodes.mainGroup(), n=name + "_controls")
-    container.inheritsTransform.set(False)
-    container.inheritsTransform.lock()
-    
-    controlChain = dupChain(start, end)
-    controlChain[0].setParent(container)
-    
-    # If the chain is mirrored, we need to reorient to point down x so the
-    # spline doesn't mess up when the main control rotates
-    if controlChain[1].tx.get() < 0:
-        # Despite aggresive zeroing of the source, the dup can still end up slightly
-        # off zero so force it.
-        for jnt in controlChain:
-            jnt.r.set(0, 0, 0)
-        joint( controlChain[0], e=True, oj='xyz', secondaryAxisOrient='yup', zso=True, ch=1)
-        joint(controlChain[-1], e=True, oj='none')
-    
-    # Since the spline might shift the joints, make joints at the original pos
-    # to constrain to.  This lets us make controls agnostically since we don't.
-    # need to maintain offset
-    offsetChain = dupChain(start, end, '{0}_offset')
-
-    if curve:
-        if duplicateCurve:
-            crv = duplicate(curve)[0]
-        else:
-            crv = curve
-        mainIk, _effector = ikHandle( sol='ikSplineSolver',
-            sj=controlChain[0],  # noqa e128
-            ee=controlChain[-1],
-            ccv=False,
-            pcv=False)
-        crv.getShape().worldSpace[0] >> mainIk.inCurve
-
-    else:
-        mainIk, _effector, crv = ikHandle( sol='ikSplineSolver',
-            sj=controlChain[0],  # noqa e128
-            ee=controlChain[-1],
-            ns=1)
-        
-    constraints = constrainAtoB( getChain(start, end)[:-1], offsetChain[:-1], mo=False)
-    
-    hide(mainIk, crv, controlChain[0])
-    parent( mainIk, crv, container )
-    
-    startJnt = duplicate( start, po=True )[0]
-    startJnt.setParent(w=True)
-    endJnt = duplicate( end, po=True )[0]
-    endJnt.setParent(w=True)
-    
-    midCtrl = controller.control.build( name + "_Mid", controlSpec['middle'], controller.control.SPLINE )
-    lockScale(midCtrl)
-    midPoint = pointOnCurve( crv, pr=0.5, p=True, top=True )
-    midChain = findClosest(midPoint, getChain(start, end))
-    core.dagObj.matchTo(midCtrl, midChain)
-    midZero = core.dagObj.zero(midCtrl)
-    midZero.t.set( midPoint )
-    
-    midJoint = joint(None)
-    midJoint.setParent(midCtrl)
-    midJoint.t.set(0, 0, 0)
-    midJoint.r.set(0, 0, 0)
-    midZero.setParent( container )
-    
-    # Setup mid controller spaces
-    pointSpace = spaceLocator()
-    pointSpace.rename('midPoint_{0}'.format(start))
-    pointSpace.setParent(container)
-    core.dagObj.moveTo(pointSpace, midCtrl)
-    pointConstraint( startJnt, endJnt, pointSpace, mo=True )
-    hide(pointSpace)
-    space.add( midCtrl, pointSpace, spaceName='midPoint')
-    
-    childSpace = spaceLocator()
-    childSpace.rename('midChild_{0}'.format(start))
-    childSpace.setParent(container)
-    core.dagObj.matchTo(childSpace, midCtrl)
-    parentConstraint( startJnt, endJnt, childSpace, mo=True )
-    hide(childSpace)
-    space.add( midCtrl, childSpace, spaceName='midChild')
-    
-    pntRotSpace = spaceLocator()
-    pntRotSpace.rename('midPntRot_{0}'.format(start))
-    pntRotSpace.setParent(container)
-    core.dagObj.matchTo(pntRotSpace, midCtrl)
-    pointConstraint( startJnt, endJnt, pntRotSpace, mo=True )
-    orientConstraint( startJnt, endJnt, pntRotSpace, mo=True )
-    hide(pntRotSpace)
-    space.add( midCtrl, pntRotSpace, spaceName='midPointRot')
-    
-    aimer = midAimer(startJnt, endJnt, midCtrl)
-    aimer.setParent(container)
-    hide(aimer)
-    space.add( midCtrl, aimer, spaceName='mid_aim')
-    
-    # Build Start and end controllers
-    
-    skinCluster(startJnt, endJnt, midJoint, crv, tsb=True)
-    
-    startCtrl = controller.control.build( name + '_Start', controlSpec['start'], controller.control.SPLINE )
-    lockScale(startCtrl)
-    core.dagObj.matchTo( startCtrl, startJnt )
-    startSpace = core.dagObj.zero(startCtrl)
-    startSpace.setParent(container)
-    
-    endCtrl = controller.control.build( name + '_End', controlSpec['main'], controller.control.SPLINE )
-    lockScale(endCtrl)
-    
-    #core.dagObj.moveTo( endCtrl, end )
-    #core.dagObj.zero( endCtrl ).setParent( container )
-    
-    """
-    ORIGINAL matchEndOrient code
-    if not matchEndOrient:
-        core.dagObj.matchTo( endCtrl, endJnt )
-        print('WHAT THE FUCK?')
-    else:
-        print( 'JUST MOVING' )
-        core.dagObj.moveTo( endCtrl, endJnt )
-    
-    core.dagObj.zero(endCtrl).setParent(container)
-    
-    if matchEndOrient:
-        rot = determineClosestWorldOrient(end)
-        endCtrl.r.set( rot )
-        storeTrueZero(endCtrl, rot)
-    """
-    
-    # Begin new endOrient enum code (replacing matchEndOrient)
-    # matchEndOrient=False == TRUE_ZERO
-    # matchEndOrient=True  == JOINT
-    if endOrient == EndOrient.WORLD:
-        core.dagObj.moveTo( endCtrl, endJnt )
-        
-    elif endOrient == EndOrient.JOINT:
-        core.dagObj.matchTo( endCtrl, endJnt )
-        
-    elif endOrient == EndOrient.TRUE_ZERO:
-        core.dagObj.moveTo( endCtrl, endJnt )
-    
-    core.dagObj.zero(endCtrl).setParent(container)
-    
-    if endOrient == EndOrient.TRUE_ZERO:
-        rot = determineClosestWorldOrient(end)
-        endCtrl.r.set( rot )
-        storeTrueZero(endCtrl, rot)
-    
-    # End new endOrient enum code
-    
-    makeStretchySpline( endCtrl, mainIk )
-    
-    # Constraint to endJnt, which has the same orientation as end instead of endCtrl
-    endJnt.setParent( endCtrl )
-    endConstraints = constrainAtoB( [end], [endJnt] )
-    
-    driveConstraints( constraints, endConstraints )
-    hide( startJnt, endJnt, midJoint )
-    
-    space.addWorld(endCtrl)
-    space.add( endCtrl, start.getParent(), 'parent' )
-    space.add( endCtrl, startCtrl, 'start' )
-    
-    space.add( startCtrl, start.getParent(), 'parent' )
-    
-    startJnt.setParent( startCtrl )
-    
-    orientConstraint( endCtrl, controlChain[-1], mo=True )
-    
-#    ctrls = addControlsToCurve('Blah', crv)
-
-#    startCtrl.setParent( ctrls[0] )
-#    endCtrl.setParent( ctrls[3] )
-    
-#    parentConstraint( ctrls[0], midCtrl, ctrls[1], mo=True )
-#    parentConstraint( ctrls[3], midCtrl, ctrls[2], mo=True )
-    
-    #hide( ctrls[1:3] )
-    
-    
-    # Setup matchers for easy ik switching later
-    endMatch = createMatcher(endCtrl, end)
-    endMatch.setParent(container)
-    
-    startMatch = createMatcher(startCtrl, start)
-    startMatch.setParent(container)
-    
-    distances = {}
-    jointChain = getChain(start, end)
-        
-    for j in jointChain:
-        distances[ core.dagObj.distanceBetween(j, midCtrl) ] = j
-    
-    for dist, j in sorted(distances.items()):
-        # Make a matcher here
-        midMatch = createMatcher(midCtrl, j)
-        midMatch.setParent(container)
-        break
-    
-    # Setup the endControl as the leader
-    
-    endCtrl = nodeApi.RigController.convert(endCtrl)
-    endCtrl.container = container
-    endCtrl.subControl['mid'] = midCtrl
-    endCtrl.subControl['start'] = startCtrl
-
-    # Since the chain might have reversed, use the control chain for the twist axes.
-    advancedTwist(controlChain[0], controlChain[1], startCtrl, endCtrl, mainIk)
-    # Since adding the advanced twist can slightly alter things (sometimes),
-    # put the offset joints in as the last step
-    for ctrl, offset in zip(controlChain, offsetChain):
-        offset.setParent(ctrl)
-    
-    return endCtrl, constraints
-
-
 @adds()  # ??? adds
 def splineEndTwist(start, end, name):
 
@@ -2095,7 +1134,7 @@ def splineEndTwist(start, end, name):
 
 
 @adds('AutoTwistPower')
-@defaultspec( {'shape': controller.control.disc, 'color': 'blue 0.22', 'size': 5, 'align': 'x'} )
+@defaultspec( {'shape': 'disc', 'color': 'blue 0.22', 'size': 5, 'align': 'x'} )
 def twist(twist, twistDriver, twistLateralAxis=[0, 1, 0], driverLateralAxis=[0, 1, 0], defaultPower=0.5, controlSpec={}):
     '''
     Twist bone's aim axis = the lateral axis
@@ -2133,7 +1172,7 @@ def twist(twist, twistDriver, twistLateralAxis=[0, 1, 0], driverLateralAxis=[0, 
                     wu=driverLateralAxis,
                 )
     
-    ctrl = controller.control.build( trimName(twistDriver) + "Twist", controlSpec['main'], controller.control.ROTATE)
+    ctrl = controllerShape.build( trimName(twistDriver) + "Twist", controlSpec['main'], controllerShape.ControlType.ROTATE)
 
     ctrl.setParent(space)
     ctrl.t.set( 0, 0, 0 )
@@ -2160,9 +1199,9 @@ def twist(twist, twistDriver, twistLateralAxis=[0, 1, 0], driverLateralAxis=[0, 
 
 
 @adds('stretch')
-@defaultspec( {'shape': controller.control.box,    'color': 'orange 0.22', 'size': 10 },
-     shoulder={'shape': controller.control.box,    'color': 'orange 0.22', 'size': 10 },  # noqa e128
-         neck={'shape': controller.control.pin,    'color': 'orange 0.22', 'size': 10, 'align': 'z'} )
+@defaultspec( {'shape': 'box',    'color': 'orange 0.22', 'size': 10 },
+     shoulder={'shape': 'box',    'color': 'orange 0.22', 'size': 10 },  # noqa e128
+         neck={'shape': 'pin',    'color': 'orange 0.22', 'size': 10, 'align': 'z'} )
 def splineChestFourJoint(start, end, name='Chest', groupName='', controlSpec={}):
     '''
     Simplified version of splineChest but with only 3 joints and no mid section.
@@ -2184,13 +1223,13 @@ def splineChestFourJoint(start, end, name='Chest', groupName='', controlSpec={})
     constraints = constrainAtoB( chain, controlChain )
     
     # Chest controller
-    chestCtrl = controller.control.build( name, controlSpec['main'], type=controller.control.IK )
+    chestCtrl = controllerShape.build( name, controlSpec['main'], type=controllerShape.ControlType.IK )
     chestCtrl.setParent(container)
     core.dagObj.moveTo( chestCtrl, chain[1] )
     core.dagObj.zero(chestCtrl)
     trueZeroSetup(chain[1], chestCtrl)
     lockScale(chestCtrl)
-
+    
     space.add( chestCtrl, start.getParent(), 'local' )
     space.add( chestCtrl, start.getParent(), 'local_posOnly', mode=space.Mode.TRANSLATE )
     space.addWorld( chestCtrl )
@@ -2217,7 +1256,7 @@ def splineChestFourJoint(start, end, name='Chest', groupName='', controlSpec={})
     #parentConstraint(controlChain[1], chestFollow)
     parentConstraint(chestCtrl, chestFollow)
     
-    shoulderCtrl = controller.control.build( name + '_Shoulder', controlSpec['shoulder'], type=controller.control.IK )
+    shoulderCtrl = controllerShape.build( name + '_Shoulder', controlSpec['shoulder'], type=controllerShape.ControlType.IK )
     core.dagObj.matchTo(shoulderCtrl, controlChain[-1])
     shoulderCtrl.setParent(chestFollow)
     core.dagObj.zero(shoulderCtrl)
@@ -2235,7 +1274,7 @@ def splineChestFourJoint(start, end, name='Chest', groupName='', controlSpec={})
     
     #
     # Neck controller
-    neckCtrl = controller.control.build( name + '_Neck', controlSpec['neck'], type=controller.control.IK )
+    neckCtrl = controllerShape.build( name + '_Neck', controlSpec['neck'], type=controllerShape.ControlType.IK )
     core.dagObj.matchTo(neckCtrl, controlChain[-1])
     core.dagObj.zero(neckCtrl).setParent(shoulderCtrl)
     orientConstraint(neckCtrl, controlChain[-1], mo=True)
@@ -2244,7 +1283,8 @@ def splineChestFourJoint(start, end, name='Chest', groupName='', controlSpec={})
     aimConstraint(chestBaseAim, orientTarget, aim=[1, 0, 0], u=[0, 1, 0], wut='objectrotation', wuo=chestCtrl, mo=True)
     aimConstraint(shoulderCtrl, controlChain[-2], aim=[1, 0, 0], u=[0, 1, 0], wut='objectrotation', wuo=chestCtrl, mo=True)
     
-    makeStretchySpline(chestCtrl, mainIk)
+    #makeStretchySpline(chestCtrl, mainIk)
+    makeStretchyNonSpline(chestCtrl, mainIk)
     # It's easier to lock and hide to ignore this than not add the length attr at all.
     chestCtrl.length.set(k=False)
     chestCtrl.length.lock()
@@ -2259,8 +1299,8 @@ def splineChestFourJoint(start, end, name='Chest', groupName='', controlSpec={})
 
 
 @adds('stretch')
-@defaultspec( {'shape': controller.control.box,    'color': 'orange 0.22', 'size': 10 },
-         neck={'shape': controller.control.pin,    'color': 'orange 0.22', 'size': 10, 'align': 'z'} )  # noqa e128
+@defaultspec( {'shape': 'box',    'color': 'orange 0.22', 'size': 10 },
+         neck={'shape': 'pin',    'color': 'orange 0.22', 'size': 10, 'align': 'z'} )  # noqa e128
 def splineChestThreeJoint(start, end, name='Chest', groupName='', controlSpec={}):
     '''
     Simplified version of splineChest but with only 3 joints and no mid section.
@@ -2282,7 +1322,7 @@ def splineChestThreeJoint(start, end, name='Chest', groupName='', controlSpec={}
     constraints = constrainAtoB( chain, controlChain )
     
     # Chest controller
-    chestCtrl = controller.control.build( name, controlSpec['main'], type=controller.control.IK )
+    chestCtrl = controllerShape.build( name, controlSpec['main'], type=controllerShape.ControlType.IK )
     chestCtrl.setParent(container)
     core.dagObj.moveTo( chestCtrl, chain[1] )
     core.dagObj.zero(chestCtrl)
@@ -2312,7 +1352,7 @@ def splineChestThreeJoint(start, end, name='Chest', groupName='', controlSpec={}
     
     # Neck
     chestFollow = group(em=True, n='chestFollow', p=container)
-    neckCtrl = controller.control.build( name + '_Neck', controlSpec['neck'], type=controller.control.IK )
+    neckCtrl = controllerShape.build( name + '_Neck', controlSpec['neck'], type=controllerShape.ControlType.IK )
     core.dagObj.matchTo(neckCtrl, controlChain[-1])
     core.dagObj.zero(neckCtrl).setParent(chestFollow)
     parentConstraint(controlChain[1], chestFollow, mo=True)
@@ -2334,10 +1374,10 @@ def splineChestThreeJoint(start, end, name='Chest', groupName='', controlSpec={}
 
 
 @adds('stretch')
-@defaultspec( {'shape': controller.control.box,    'color': 'orange 0.22', 'size': 10 },
-       middle={'shape': controller.control.sphere, 'color': 'green  0.22', 'size': 7  },   # noqa e128
-          end={'shape': controller.control.box,    'color': 'orange 0.22', 'size': 10 },
-         neck={'shape': controller.control.pin,    'color': 'orange 0.22', 'size': 10, 'align': 'z'},)
+@defaultspec( {'shape': 'box',    'color': 'orange 0.22', 'size': 10 },
+       middle={'shape': 'sphere', 'color': 'green  0.22', 'size': 7  },   # noqa e128
+          end={'shape': 'box',    'color': 'orange 0.22', 'size': 10 },
+         neck={'shape': 'pin',    'color': 'orange 0.22', 'size': 10, 'align': 'z'},)
 def splineChest(start, end, name='Chest', numChestJoints=3, useTrueZero=True, groupName='', controlSpec={}):
     '''
     Makes a spline which considers the last 3 joints the "chest/neck".  A chest
@@ -2384,7 +1424,7 @@ def splineChest(start, end, name='Chest', numChestJoints=3, useTrueZero=True, gr
     hide(base)
         
     # -- Chest control --
-    chestCtrl = controller.control.build( name + '_main', controlSpec['main'], controller.control.SPLINE )
+    chestCtrl = controllerShape.build( name + '_main', controlSpec['main'], controllerShape.ControlType.SPLINE )
     chestCtrl.setParent(container)
     makeStretchySpline( chestCtrl, mainIk )
     chestCtrl.stretch.set(1)
@@ -2424,7 +1464,7 @@ def splineChest(start, end, name='Chest', numChestJoints=3, useTrueZero=True, gr
     chestMatcher.setParent(container)
     
     # -- Mid --
-    midCtrl = controller.control.build( name + '_mid', controlSpec['middle'], controller.control.SPLINE )
+    midCtrl = controllerShape.build( name + '_mid', controlSpec['middle'], controllerShape.ControlType.SPLINE )
     core.dagObj.matchTo( midCtrl, midPoint )
     lockScale(midCtrl)
     midCtrl.setParent( container )
@@ -2474,10 +1514,10 @@ def splineChest(start, end, name='Chest', numChestJoints=3, useTrueZero=True, gr
 
     # -- Shoulders --
     if numChestJoints > 2: # The shoulder control is skipped if there aren't enough joints
-        shoulderCtrl = controller.control.build( name + '_shoulders', controlSpec['end'], controller.control.SPLINE )
+        shoulderCtrl = controllerShape.build( name + '_shoulders', controlSpec['end'], controllerShape.ControlType.SPLINE )
         core.dagObj.matchTo( shoulderCtrl, srcChain[-2])  # We want to use the penultimate joint orientation
         core.dagObj.moveTo( shoulderCtrl, end)
-        controller.control.scale( shoulderCtrl, x=0.15 )
+        controllerShape.scaleAllCVs( shoulderCtrl, [0.15, 1, 1] )
         shoulderZero = core.dagObj.zero(shoulderCtrl)
         shoulderZero.setParent(chestCtrl)
         lockScale(lockTrans(shoulderCtrl))
@@ -2489,7 +1529,7 @@ def splineChest(start, end, name='Chest', numChestJoints=3, useTrueZero=True, gr
         hide(neck)
     
     # -- Neck --
-    neckCtrl = controller.control.build( name + '_neck', controlSpec['neck'], controller.control.ROTATE )
+    neckCtrl = controllerShape.build( name + '_neck', controlSpec['neck'], controllerShape.ControlType.ROTATE )
     core.dagObj.matchTo( neckCtrl, end)
     if numChestJoints > 2: # The shoulder control is skipped if there aren't enough joints
         core.dagObj.zero(neckCtrl).setParent( shoulderCtrl )
@@ -2587,9 +1627,9 @@ def splineChest(start, end, name='Chest', numChestJoints=3, useTrueZero=True, gr
 
 
 @adds('stretch', 'length')
-@defaultspec( {'shape': controller.control.box,    'size': 10, 'color': 'green 0.22' },  # noqa e231
-           pv={'shape': controller.control.sphere, 'size': 5,  'color': 'green 0.22' },
-       socket={'shape': controller.control.sphere, 'size': 5,  'color': 'green 0.22', 'visGroup': 'socket' } )
+@defaultspec( {'shape': 'box',    'size': 10, 'color': 'green 0.22' },  # noqa e231
+           pv={'shape': 'sphere', 'size': 5,  'color': 'green 0.22' },
+       socket={'shape': 'sphere', 'size': 5,  'color': 'green 0.22', 'visGroup': 'socket' } )
 def ikChain(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.TRUE_ZERO, name='', groupName='', controlSpec={}):
     '''
     
@@ -2629,7 +1669,7 @@ def ikChain(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.TR
     if not name:
         name = trimName(start) + '_Ik'
     
-    ctrl = controller.control.build( name, controlSpec['main'], type=controller.control.IK )
+    ctrl = controllerShape.build( name, controlSpec['main'], type=controllerShape.ControlType.IK )
     
     container = group( n=name + '_grp' )
     container.setParent( lib.getNodes.mainGroup() )
@@ -2670,16 +1710,16 @@ def ikChain(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.TR
     if not pvLen or pvLen < 0:
         pvLen = chainLength(controlChain) * 0.5
     pvPos = out * pvLen + dt.Vector(xform(controlChain[1], q=True, ws=True, t=True))
-    pvCtrl = controller.control.build( name + '_pv', controlSpec['pv'], type=controller.control.POLEVECTOR )
+    pvCtrl = controllerShape.build( name + '_pv', controlSpec['pv'], type=controllerShape.ControlType.POLEVECTOR )
     
     lockScale(lockRot(pvCtrl))
     xform(pvCtrl, ws=True, t=pvPos)
-    controller.control.line(pvCtrl, controlChain[1] )
+    controllerShape.connectingLine(pvCtrl, controlChain[1] )
     poleVectorConstraint( pvCtrl, mainIk )
     core.dagObj.zero(pvCtrl).setParent(container)
     
     # Socket offset control
-    socketOffset = controller.control.build( name + '_socket', controlSpec['socket'], type=controller.control.TRANSLATE )
+    socketOffset = controllerShape.build( name + '_socket', controlSpec['socket'], type=controllerShape.ControlType.TRANSLATE )
     socketContainer = parentGroup( start )
     socketContainer.setParent( container )
     
@@ -2723,10 +1763,10 @@ def ikChain(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.TR
 
 
 @adds('stretch', 'length')
-@defaultspec( {'shape': controller.control.box,    'size': 10, 'color': 'green 0.22' },  # noqa e231
-           pv={'shape': controller.control.sphere, 'size': 5,  'color': 'green 0.22' },
-       socket={'shape': controller.control.sphere, 'size': 5,  'color': 'green 0.22', 'visGroup': 'socket' } )
-def ikChain2(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.TRUE_ZERO, twists={}, name='', groupName='', controlSpec={}):
+@defaultspec( {'shape': 'box',    'size': 10, 'color': 'green 0.22' },  # noqa e231
+           pv={'shape': 'sphere', 'size': 5,  'color': 'green 0.22' },
+       socket={'shape': 'sphere', 'size': 5,  'color': 'green 0.22', 'visGroup': 'socket' } )
+def ikChain2(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.TRUE_ZERO, twists={}, makeBendable=False, name='', groupName='', controlSpec={}):
     '''
     
     :param int pvLen: How far from the center joint to be, defaults to half the length of the chain.
@@ -2785,7 +1825,7 @@ def ikChain2(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.T
     if not name:
         name = trimName(start) + '_Ik'
     
-    ctrl = controller.control.build( name, controlSpec['main'], type=controller.control.IK )
+    ctrl = controllerShape.build( name, controlSpec['main'], type=controllerShape.ControlType.IK )
     
     container = group( n=name + '_grp' )
     container.setParent( lib.getNodes.mainGroup() )
@@ -2829,15 +1869,35 @@ def ikChain2(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.T
     attr, jointLenMultiplier = makeStretchyNonSpline(ctrl, mainIk, stretchDefault)
     # &&& Need to do the math for all the
     
-    # Make the offset joints and setup all the parenting of twists (last joint can't logically have twists)
+    # Make the offset joints and setup all the parenting of twists
     subArmature = []
     rotationOffsetCtrls = []
-    for i, j in enumerate(mainArmature[:-1]):
+    bendCtrls = []
+    for i, j in enumerate(mainArmature[:-1]):  # [:-1] Since last joint can't logically have twists
+        if makeBendable:
+            j.drawStyle.set(2)  # Probably should make groups but not drawing bones works for now.
         offset = duplicate(j, po=True)[0]
         offset.setParent(j)
         offset.rename( simpleName(j, '{}_Twist') )
-        subArmature.append(offset)
-        rotationOffsetCtrls.append(offset)
+        
+        #subArmature.append(offset)  ### OLD
+        if True: ### NEW
+            if not makeBendable:
+                subArmature.append(offset)
+            else:
+                if i == 0:
+                    subArmature.append(offset)
+                else:
+                    offsetCtrl = controllerShape.build('Bend%i' % (len(bendCtrls) + 1),
+                        {'shape': 'band', 'size': 10, 'color': 'green 0.22', 'align': 'x' })
+                    core.dagObj.matchTo(offsetCtrl, offset)
+                    offsetCtrl.setParent(offset)
+                    showHidden(offsetCtrl, a=True)
+                    subArmature.append(offsetCtrl)
+                    bendCtrls.append(offsetCtrl)
+                
+        
+        rotationOffsetCtrls.append(offset)  # &&& Deprectated?
         
         attrName = simpleName(j, '{}_Twist')
         ctrl.addAttr( attrName, at='double', k=True )
@@ -2846,11 +1906,24 @@ def ikChain2(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.T
         if i in twists:
             for subTwist in subTwists[j]:
                 subTwist.setParent(j)
-                subArmature.append(subTwist)
+                #subArmature.append(subTwist) ### NEW comment out
                 
                 attrName = simpleName(subTwist)
                 ctrl.addAttr( attrName, at='double', k=True )
                 ctrl.attr(attrName) >> subTwist.rx
+                
+                if not makeBendable:
+                    subArmature.append(subTwist)
+                else:
+                    if True: ### NEW
+                        offsetCtrl = controllerShape.build('Bend%i' % (len(bendCtrls) + 1),
+                            {'shape': 'band', 'size': 10, 'color': 'green 0.22', 'align': 'x' })
+                        core.dagObj.matchTo(offsetCtrl, subTwist)
+                        offsetCtrl.setParent(subTwist)
+                        subTwist.drawStyle.set(2)  # Probably should make groups but not drawing bones works fine for now.
+                        showHidden(offsetCtrl, a=True)
+                        subArmature.append(offsetCtrl)
+                        bendCtrls.append(offsetCtrl)
                 
                 #offset.rename( simpleName(j, '{0}_0ffset') )
                 
@@ -2863,7 +1936,7 @@ def ikChain2(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.T
     for startSegment, endSegment in zip( mainArmature, mainArmature[1:] ):
         #print( 'HAS SUB TWISTS', startSegment in subTwists )
         if startSegment in subTwists:
-            twistSetup(ctrl, subTwists[startSegment], startSegment, endSegment)
+            twistSetup(ctrl, subTwists[startSegment], startSegment, endSegment, jointLenMultiplier)
             
             
     '''
@@ -2885,8 +1958,8 @@ def ikChain2(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.T
                 
                 dist = core.dagObj.distanceBetween(j, subTwist)
                 
-                #disc = controller.control.disc()
-                disc = controller.control.build('Twist', {'shape': controller.control.disc, 'align': 'x', 'size': 3})
+                #disc = 'disc'()
+                disc = controllerShape.build('Twist', {'shape': 'disc', 'align': 'x', 'size': 3})
                 disc.setParent(g)
                 disc.t.set( 0, 0, 0 )
                 disc.r.set( 0, 0, 0 )
@@ -2911,16 +1984,16 @@ def ikChain2(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.T
         pvLen = chainLength(mainArmature) * 0.5
     out = calcOutVector(mainArmature[0], mainArmature[1], mainArmature[-1])
     pvPos = out * pvLen + dt.Vector(xform(mainArmature[1], q=True, ws=True, t=True))
-    pvCtrl = controller.control.build( name + '_pv', controlSpec['pv'], type=controller.control.POLEVECTOR )
+    pvCtrl = controllerShape.build( name + '_pv', controlSpec['pv'], type=controllerShape.ControlType.POLEVECTOR )
     
     lockScale(lockRot(pvCtrl))
     xform(pvCtrl, ws=True, t=pvPos)
-    controller.control.line(pvCtrl, mainArmature[1] )
+    controllerShape.connectingLine(pvCtrl, mainArmature[1] )
     poleVectorConstraint( pvCtrl, mainIk )
     core.dagObj.zero(pvCtrl).setParent(container)
     
     # Socket offset control
-    socketOffset = controller.control.build( name + '_socket', controlSpec['socket'], type=controller.control.TRANSLATE )
+    socketOffset = controllerShape.build( name + '_socket', controlSpec['socket'], type=controllerShape.ControlType.TRANSLATE )
     socketContainer = parentGroup( start )
     socketContainer.setParent( container )
     
@@ -2945,11 +2018,50 @@ def ikChain2(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.T
     core.math.condition( mainIk.twist, '!=', 0, 0, 1 ) >> mainIk.twistType # Force updating??
     '''
     
+    if True: # &&& LOCKABLE
+        endToMidDist, g1 = core.dagObj.measure(ctrl, pvCtrl, 'end_to_mid')
+        startToMidDist, g2 = core.dagObj.measure(socketOffset, pvCtrl, 'start_to_mid')
+        parent(endToMidDist, g1, startToMidDist, g2, container)
+        
+        #ctrl.addAttr( 'lockPV', at='double', min=0.0, dv=0.0, max=1.0, k=True )
+        
+        #switcher.input[0].set(1)
+        
+        #print('--'* 20)
+        #print(mainArmature)
+
+        for jnt, dist in zip(mainArmature[1:], [startToMidDist, endToMidDist]):
+            axis = identifyAxis(jnt)
+            lockSwitch = jnt.attr('t' + axis).listConnections(s=True, d=False)[0]
+            if jnt.attr('t' + axis).get() < 0:
+                core.math.multiply( dist.distance, -1) >> lockSwitch.input[1]
+            else:
+                dist.distance >> lockSwitch.input[1]
+            
+            drive(ctrl, 'lockPV', lockSwitch.attributesBlender, 0, 1)
+            
+        """
+        axis = identifyAxis(mainArmature[-1])
+        lockSwitchA = mainArmature[-1].attr('t' + axis).listConnections(s=True, d=False)[0]
+        if mainArmature[-1].attr('t' + axis).get() < 0:
+            core.math.multiply( endToMidDist.distance, -1) >> lockSwitchA.input[1]
+        else:
+            endToMidDist.distance, -1 >> lockSwitchA.input[1]
+        
+        lockSwitchB = mainArmature[-2].attr('t' + axis).listConnections(s=True, d=False)[0]
+        startToMidDist.distance >> lockSwitchB.input[1]
+        #print(lockSwitchA, lockSwitchB, '-'* 20)
+        drive(ctrl, 'lockPV', lockSwitchA.attributesBlender, 0, 1)
+        drive(ctrl, 'lockPV', lockSwitchB.attributesBlender, 0, 1)
+        """
+    
     # Register all the parts of the control for easy identification at other times.
     ctrl = nodeApi.RigController.convert(ctrl)
     ctrl.container = container
     ctrl.subControl['pv'] = pvCtrl
     ctrl.subControl['socket'] = socketOffset
+    for i, bend in enumerate(bendCtrls):
+        ctrl.subControl['bend%i' % i] = bend
 
     # Add default spaces
     space.addWorld( pvCtrl )
@@ -2959,222 +2071,6 @@ def ikChain2(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.T
     space.add( pvCtrl, ctrl, mode=space.Mode.TRANSLATE)
     
     return ctrl, constraints
-
-
-@adds('stretch', 'bend', 'length')
-@defaultspec( {'shape': controller.control.box,    'size': 10, 'color': 'green 0.22' },
-           pv={'shape': controller.control.sphere, 'size': 5,  'color': 'green 0.22' },
-       socket={'shape': controller.control.sphere, 'size': 5,  'color': 'green 0.22', 'visGroup': 'socket' } )
-def dogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=EndOrient.TRUE_ZERO_FOOT, groupName='', controlSpec={}):
-    '''
-    ..  todo::
-        * Specify toe joint instead to remove ambiguity in case of twist joints.
-        * For some reason, sometimes, twist must be introduced because some flippin
-            occurs.  For some reason the poleVector doesn't come in straight on.
-            * Need to determine if a 180 twist is needed as the minotaur did.
-        * Need to figure out the best way to constrain the last joint to the controller
-    '''
-
-    boundChain = getChain(hipJoint, end)
-
-    container = group(n=name + '_dogHindleg', em=True, p=lib.getNodes.mainGroup())
-    
-    # &&& I think I want to turn this into the container for all extra stuff related to a given control
-    chainGrp = group( p=container, n=name + "_ikChain", em=True )
-    parentConstraint( hipJoint.getParent(), chainGrp, mo=True )
-    
-    # Make the control to translate/offset the limb's socket.
-    socketOffset = controller.control.build( name + '_socket', controlSpec['socket'], type=controller.control.TRANSLATE )
-    lockScale(socketOffset)
-    lockRot(socketOffset)
-    core.dagObj.moveTo( socketOffset, hipJoint )
-    socketZero = core.dagObj.zero(socketOffset)
-    socketZero.setParent( chainGrp )
-    
-    footCtrl = controller.control.build( name, controlSpec['main'], type=controller.control.IK)
-    lockScale(footCtrl)
-    footCtrl.addAttr( 'bend', at='double', k=True )
-    core.dagObj.moveTo( footCtrl, end )
-    
-    if endOrientType == EndOrient.TRUE_ZERO:
-        trueZeroSetup(end, footCtrl)
-    elif endOrientType == EndOrient.TRUE_ZERO_FOOT:
-        trueZeroFloorPlane(end, footCtrl)
-    elif endOrientType == EndOrient.JOINT:
-        core.dagObj.matchTo(footCtrl, end)
-        
-        footCtrl.rx.set( shortestAxis(footCtrl.rx.get()) )
-        footCtrl.ry.set( shortestAxis(footCtrl.ry.get()) )
-        footCtrl.rz.set( shortestAxis(footCtrl.rz.get()) )
-        
-        core.dagObj.zero(footCtrl)
-    elif endOrientType == EndOrient.WORLD:
-        # Do nothing, it's built world oriented
-        pass
-    
-    createMatcher(footCtrl, end).setParent(container)
-
-    # Make the main ik chain which gives overall compression
-    masterChain = dupChain(hipJoint, end)
-    masterChain[0].rename( simpleName(hipJoint, '{0}_OverallCompression') )
-
-    mainIk = ikHandle( sol='ikRPsolver', sj=masterChain[0], ee=masterChain[-1] )[0]
-    PyNode('ikSpringSolver').message >> mainIk.ikSolver
-    
-    mainIk.rename('mainIk')
-    hide(mainIk)
-    
-    springFixup = group(em=True, n='SprinkIkFix')
-    springFixup.inheritsTransform.set(False)
-    springFixup.inheritsTransform.lock()
-    springFixup.setParent( socketOffset )
-    pointConstraint( socketOffset, springFixup )
-    masterChain[0].setParent( springFixup )
-    
-    #pointConstraint( socketOffset, hipJoint )
-    
-    # Create the polevector.  This needs to happen first so things don't flip out later
-    out = calcOutVector(masterChain[0], masterChain[1], masterChain[-1])
-    if not pvLen or pvLen < 0:
-        pvLen = chainLength(masterChain[1:]) * 0.5
-    pvPos = out * pvLen + dt.Vector(xform(boundChain[1], q=True, ws=True, t=True))
-    
-    pvCtrl = controller.control.build( name + '_pv', controlSpec['pv'], type=controller.control.POLEVECTOR )
-    lockScale(pvCtrl)
-    lockRot(pvCtrl)
-    xform(pvCtrl, ws=True, t=pvPos)
-    poleVectorConstraint( pvCtrl, mainIk )
-    
-    # Verify the knees are in the same place
-    delta = boundChain[1].getTranslation('world') - masterChain[1].getTranslation('world')
-    if delta.length() > 0.1:
-        mainIk.twist.set(180)
-    
-    # Make sub IKs so the chain can be offset
-    offsetChain = dupChain(hipJoint, end)
-    hide(offsetChain[0])
-    offsetChain[0].rename( 'OffsetChain' )
-    offsetChain[0].setParent(container)
-    controller.control.line(pvCtrl, offsetChain[1] )
-    constraints = constrainAtoB( getChain(hipJoint, end), offsetChain, mo=False )
-    
-    pointConstraint( masterChain[0], offsetChain[0] )
-    ankleIk = ikHandle( sol='ikRPsolver', sj=offsetChain[0], ee=offsetChain[-2])[0]
-    offsetIk = ikHandle( sol='ikRPsolver', sj=offsetChain[-2], ee=offsetChain[-1])[0]
-    offsetIk.rename('metatarsusIk')
-    
-    offsetControl = group(em=True, n='OffsetBend')
-    offsetContainer = group(offsetControl, n='OffsetSpace')
-    offsetContainer.setParent(footCtrl)
-        
-    # Setup the offsetContainer so it is properly aligned to bend on z
-    offsetContainer.setParent( masterChain[-1] )
-    offsetContainer.t.set(0, 0, 0)
-    #temp = aimConstraint( pvCtrl, offsetContainer, aim=[1, 0, 0], wut='object', wuo=hipJoint, u=[0, 1, 0])
-    #delete( temp )
-    
-    '''
-    NEED TO CHANGE THE ORIENTATION
-    
-    Must perfectly align with ankle segment so the offset ikhandle can translate
-    according to how much things are scaled
-    
-    '''
-    lib.anim.orientJoint(offsetContainer, boundChain[-2], upTarget=boundChain[-3], aim='y', up='x')
-    #mimic old way lib.anim.orientJoint(offsetContainer, pvCtrl, upTarget=hipJoint, aim='x', up='y')
-    #lib.anim.orientJoint(offsetContainer, pvCtrl, upTarget=hipJoint, aim='x', up='y')
-    
-    
-    offsetControl.t.set(0, 0, 0)
-    offsetControl.t.lock()
-    offsetControl.r.set(0, 0, 0)
-    footCtrl.bend >> offsetControl.rz
-    
-    '''
-    This is really dumb.
-    Sometimes maya will rotate everything by 180 but I'm not sure how to
-    calculate the proper offset, which normally results in one axis being off
-    by 360, so account for that too.
-    '''
-    temp = orientConstraint( footCtrl, offsetChain[-1], mo=True)
-    
-    if not core.math.isClose( offsetChain[-1].r.get(), [0, 0, 0] ):
-
-        badVals = offsetChain[-1].r.get()
-        delete(temp)
-        offsetChain[-1].r.set( -badVals )
-        temp = orientConstraint( footCtrl, offsetChain[-1], mo=True)
-
-        for a in 'xyz':
-            val = offsetChain[-1].attr('r' + a).get()
-            if abs(val - 360) < 0.00001:
-                attr = temp.attr( 'offset' + a.upper() )
-                attr.set( attr.get() - 360 )
-                
-            elif abs(val + 360) < 0.00001:
-                attr = temp.attr( 'offset' + a.upper() )
-                attr.set( attr.get() + 360 )
-    # Hopefully the end of dumbness
-
-
-    
-    ankleIk.setParent( offsetControl )
-    
-    # Adjust the offset ikHandle according to how long the final bone is.
-
-    if masterChain[-1].tx.get() > 0:
-        masterChain[-1].tx >> ankleIk.ty
-    else:
-        core.math.multiply(masterChain[-1].tx, -1.0) >> ankleIk.ty
-    
-    ankleIk.tx.lock()
-    ankleIk.tz.lock()
-    
-    #ankleIk.t.lock()
-    
-    
-    
-    
-    
-    mainIk.setParent( footCtrl )
-    offsetIk.setParent( footCtrl )
-    
-    core.dagObj.zero(footCtrl).setParent( container )
-    
-    hide(masterChain[0], ankleIk, offsetIk)
-    poleVectorConstraint( pvCtrl, ankleIk )
-    poleVectorConstraint( pvCtrl, offsetIk )
-    
-    # Adding the pv constraint might require a counter rotation of the offsetIk
-    counterTwist = offsetChain[-2].rx.get() * (1.0 if offsetChain[-2].tx.get() < 0 else -1.0)
-    offsetIk.twist.set( counterTwist )
-    
-    core.dagObj.zero(pvCtrl).setParent( container )
-    
-    # Make stretchy ik, but the secondary chain needs the stretch hooked up too.
-    makeStretchyNonSpline(footCtrl, mainIk)
-    #for src, dest in zip( getChain(masterChain, masterEnd)[1:], getChain( hipJoint, getDepth(hipJoint, 4) )[1:] ):
-        #src.tx >> dest.tx
-        
-    for src, dest in zip( masterChain[1:], offsetChain[1:] ):
-        src.tx >> dest.tx
-    
-    footCtrl = nodeApi.RigController.convert(footCtrl)
-    footCtrl.container = container
-    footCtrl.subControl['pv'] = pvCtrl
-    footCtrl.subControl['socket'] = socketOffset
-    
-    # Add default spaces
-    space.addWorld( pvCtrl )
-    space.add( pvCtrl, footCtrl )
-    space.add( pvCtrl, footCtrl, mode=space.Mode.TRANSLATE)
-    if hipJoint.getParent():
-        space.add( pvCtrl, hipJoint.getParent())
-    
-        space.addWorld( footCtrl )
-        space.add( footCtrl, hipJoint.getParent() )
-    
-    return footCtrl, constraints
 
 
 class TwistStyle:
@@ -3204,7 +2100,7 @@ class TwistStyle:
 
 
 @adds('twist', 'stretch')
-@defaultspec( {'shape': controller.control.sphere, 'size': 10, 'color': 'blue 0.22'} )
+@defaultspec( {'shape': 'sphere', 'size': 10, 'color': 'blue 0.22'} )
 def splineIk(start, end, controlCountOrCrv=4, twistInfDist=0, simplifyCurve=False,
     tipBend=True, sourceBend=True, matchOrient=True, allowOffset=False,  # noqa e128
     useLeadOrient=False,  # This is an backwards compatible option, mutually exclusive with matchOrient
@@ -3340,8 +2236,8 @@ def splineIk(start, end, controlCountOrCrv=4, twistInfDist=0, simplifyCurve=Fals
         #core.dagObj.zero(controls[-2]).setParent(controls[-1])
         #channels = [t + a for t in 'trs' for a in 'xyz']
         #for channel in channels:
-            #controls[-2].attr( channel ).setKeyable(False)
-            #controls[-2].attr( channel ).lock()
+        #    controls[-2].attr( channel ).setKeyable(False)
+        #    controls[-2].attr( channel ).lock()
            
     if sourceBend:
         names = []
@@ -3414,7 +2310,7 @@ def splineIk(start, end, controlCountOrCrv=4, twistInfDist=0, simplifyCurve=Fals
     constraints.point >> core.constraints.pointConst( endProxy, end )
     
     hide(twists)
-    indicies = []
+    
     numControls = len(controls)
     numTwists = len(twists)
     for i, ctrl in enumerate(controls):
@@ -3502,85 +2398,7 @@ def splineIk(start, end, controlCountOrCrv=4, twistInfDist=0, simplifyCurve=Fals
 
 
 @adds()
-@defaultspec( {'shape': controller.control.box,    'size': 10, 'color': 'blue  0.22'},
-       manual={'shape': controller.control.sphere, 'size':  5, 'color': 'green 0.22'}
- )
-def squashAndStretch(joints, squashCenter, orientAsParent=True, rangeMin=-5, rangeMax=5, scaleMin=0.5, scaleMax=2, controlSpec={}):
-    '''
-    :param joints: List of joints that will scale
-    :param squashCenter: The worldspace center point to place the master squash control.
-    :param orientAsParent: Weather the control should be oriented ?? Does this make sense?... Probably not
-    '''
-    
-    squashCenter = dt.Vector(squashCenter)
-    container = parentGroup(joints[0])
-    container.setParent( lib.getNodes.mainGroup() )
-    
-    mainCtrl = controller.control.build(   trimName(joints[0].getParent()) + "SquashMain_ctrl",
-                                controlSpec['main'],
-                                type=controller.control.TRANSLATE )
-    mainCtrl = nodeApi.RigController.convert(mainCtrl)
-    mainCtrl.setParent(container)
-    
-    mainCtrl.addAttr( 'size', at='double', min=rangeMin, max=rangeMax, dv=0.0, k=True )
-    
-    lockScale(mainCtrl)
-    
-    if orientAsParent:
-        core.dagObj.matchTo( mainCtrl, joints[0].getParent() )
-                            
-    xform(mainCtrl, ws=True, t=squashCenter)
-    
-    core.dagObj.zero(mainCtrl)
-    
-    subControls = []
-    for i, j in enumerate(joints):
-        subCtrl = controller.control.build(trimName(j) + "_ctrl",
-                                controlSpec['manual'],
-                                type=controller.control.TRANSLATE )
-        subControls.append(subCtrl)
-        core.dagObj.matchTo(subCtrl, j)
-        subCtrl.setParent(container)
-        core.dagObj.zero(subCtrl)
-        lockRot(subCtrl)
-        lockScale(subCtrl)
-        
-        scalingLoc = spaceLocator()
-        scalingLoc.rename( trimName(j) + '_squasher' )
-        core.dagObj.matchTo(scalingLoc, j)
-        hide(scalingLoc)
-        scalingLoc.setParent(mainCtrl)
-        
-        space.add(subCtrl, scalingLoc)
-                
-        ctrlPos = dt.Vector(xform(subCtrl, q=True, ws=True, t=True))
-        
-        setDrivenKeyframe( scalingLoc, at=['tx', 'ty', 'tz'], cd=mainCtrl.size )
-        
-        mainCtrl.size.set(rangeMin)
-        lower = (ctrlPos - squashCenter) * scaleMin + squashCenter
-        xform(scalingLoc, ws=True, t=lower)
-        setDrivenKeyframe( scalingLoc, at=['tx', 'ty', 'tz'], cd=mainCtrl.size )
-        
-        mainCtrl.size.set(rangeMax)
-        upper = (ctrlPos - squashCenter) * scaleMax + squashCenter
-        xform(scalingLoc, ws=True, t=upper)
-        setDrivenKeyframe( scalingLoc, at=['tx', 'ty', 'tz'], cd=mainCtrl.size )
-        
-        mainCtrl.size.set(0.0)
-        xform(scalingLoc, ws=True, t=(ctrlPos))
-        
-        mainCtrl.subControl[str(i)] = subCtrl
-        
-    constraints = constrainAtoB(joints, subControls)
-    
-    mainCtrl.container = container
-    
-    return mainCtrl, constraints
-
-
-@adds()
-@defaultspec( {'shape': controller.control.box,    'size': 10, 'color': 'blue 0.22'} )
+@defaultspec( {'shape': 'box',    'size': 10, 'color': 'blue 0.22'} )
 def chainedIk(start, end, driveChain, handleInfo, splineOptions={}, controlSpec={}):
     '''
     driveChain will get the spline control to drive the start->end chain.
@@ -3640,85 +2458,5 @@ def chainedIk(start, end, driveChain, handleInfo, splineOptions={}, controlSpec=
     return mainCtrl, constraints
 
 
-@adds()
-@defaultspec(      {'shape': controller.control.box,       'size': 4, 'color': 'blue 0.22'},
-        toeControl={'shape': controller.control.box,       'size': 3, 'color': 'blue 0.22'},
-         ballPivot={'shape': controller.control.sphere,    'size': 3, 'color': 'green 0.22'},
-            toeTap={'shape': controller.control.pin,       'size': 3, 'color': 'green 0.22'},
-         heelRaise={'shape': controller.control.pin,       'size': 3, 'color': 'red 0.22'},
-            )
-def foot(ballJnt, toePos, heelPos, legControl, side, controlSpec={}):
-    # The foot container
-    container = group(n='Foot_Deal', em=True, p=lib.getNodes.mainGroup())
-    
-    if not side:
-        side = ''
-    
-    # Fake joints for IK/FK switching tech
-    ankle = joint(None, n='FakeAnkle')
-    ball = joint(n='FakeBall')
-    toe = joint(n='FakeToe')
-    
-    # IK gathering
-    ballIk, effector = ikHandle(solver='ikSCsolver', sj=ankle, ee=ball)
-    toeIk, effector = ikHandle(solver='ikSCsolver', sj=ball, ee=toe)
-    
-    # Place the "Fake" joints
-    core.dagObj.moveTo(ankle, legControl)
-    core.dagObj.moveTo(ball, ballJnt)
-    core.dagObj.moveTo(toe, toePos)
-    
-    #Foot Control
-    footCtrl = controller.control.build( "Foot_" + side + "_ctrl", controlSpec['main'], type=controller.control.TRANSLATE )
-    core.dagObj.moveTo(footCtrl, heelPos)
-    footCtrl.setParent(container)
-    core.dagObj.zero(footCtrl)
-        
-    # Toe Control
-    toeCtrl = controller.control.build( "Toe_" + side + "_ctrl", controlSpec['toeControl'], type=controller.control.TRANSLATE )
-    core.dagObj.matchTo(toeCtrl, toe)
-    toeCtrl.setRotation( legControl.getRotation(space='world'), space='world' )
-    toeCtrl.setParent(footCtrl)
-    ankle.setParent(toeCtrl)
-    core.dagObj.zero(toeCtrl)
-    
-    # BaLL Control
-    ballCtrl = controller.control.build( "Ball_" + side + "_ctrl", controlSpec['ballPivot'], type=controller.control.TRANSLATE )
-    core.dagObj.moveTo(ballCtrl, ballJnt)
-    ballIk.setParent(ballCtrl)
-    ballCtrl.setParent(toeCtrl)
-    core.dagObj.zero(ballCtrl)
-    
-    # Toe Tap Control
-    toeTapCtrl = controller.control.build( "ToeTap_" + side + "_ctrl", controlSpec['toeTap'], type=controller.control.ROTATE )
-    core.dagObj.moveTo(toeTapCtrl, toePos)
-    toeIk.setParent(toeTapCtrl)
-    toeTapCtrl.setParent(ballCtrl)
-    core.dagObj.zero(toeTapCtrl)
-    xform(toeTapCtrl, ws=True, rp=xform(ballJnt, q=True, ws=True, t=True))
-    
-    # Heel Raise Control
-    heelRaiseCtrl = controller.control.build( "HeelRaise_" + side + "_ctrl", controlSpec['heelRaise'], type=controller.control.ROTATE )
-    core.dagObj.moveTo(heelRaiseCtrl, heelPos)
-    xform(heelRaiseCtrl, ws=True, rp=xform(ballJnt, q=True, ws=True, t=True))
-    
-    select(d=True)
-    space.add(legControl, heelRaiseCtrl)
-    heelRaiseCtrl.setParent(ballCtrl)
-    core.dagObj.zero(heelRaiseCtrl)
-    
-    # Set the leg control Pivot to the heel
-    xform(legControl, ws=True, rp=heelPos)
-    
-    # Set up the Ctrl object
-    ctrl = nodeApi.RigController.convert(toeCtrl)
-    ctrl.container = container
-    ctrl.subControl['ballPivot'] = ballCtrl
-    ctrl.subControl['toeTap'] = toeTapCtrl
-    ctrl.subControl['heelRaise'] = heelRaiseCtrl
-    ctrl.subControl['toeControl'] = toeCtrl
-    
-    constraints = constrainAtoB( [ballJnt], [ball], mo=True )
-    #constraints = []
-    
-    return ctrl, constraints
+
+

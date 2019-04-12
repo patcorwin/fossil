@@ -1,6 +1,7 @@
 from __future__ import print_function, absolute_import
 
 from functools import partial
+import logging
 import math
 
 from pymel.core import dt, delete, keyframe, PyNode, xform, currentTime, setKeyframe, warning, setAttr, refresh, orientConstraint, listConnections, group
@@ -9,8 +10,11 @@ from ... import core
 
 from ...nodeApi import fossilNodes
 
-from . import controller
+from . import controllerShape
 from . import rig
+
+
+switch_logger = logging.getLogger('IK_FK_Switch')
 
 
 def _getSwitchPlug(obj):  # WTF IS THIS??
@@ -82,7 +86,7 @@ def ikFkRange(control, start=None, end=None):
 
     otherObj = control.getOtherMotionType()
     
-    drivePlug = controller.getSwitcherPlug(control)
+    drivePlug = controllerShape.getSwitcherPlug(control)
     if drivePlug:
         driver = lambda: setAttr(drivePlug, 1)  # noqa E731
     else:
@@ -174,6 +178,11 @@ def ikFkSwitch(obj, start, end):
         activateIk( otherCtrl, start, end )
 
 
+def multiSwitch(objs, start, end):
+    for obj in objs:
+        ikFkSwitch(obj, start, end)
+
+
 class ActivateIkDispatch(object):
     '''
     Ik matching is complex enough to be grouped but not so large yet to merit
@@ -196,7 +205,7 @@ class ActivateIkDispatch(object):
         if card.rigCommand == 'DogHindleg':
             switchCmd = partial(self.activate_dogleg, ikControl)
 
-        elif card.rigCommand == 'SplineChest':
+        elif card.rigCommand in ['SplineChest', 'SplineChestV2']:
             switchCmd = partial(self.active_splineChest, ikControl)
 
         elif card.rigCommand == 'SplineNeck':
@@ -208,7 +217,7 @@ class ActivateIkDispatch(object):
         print( 'Switch called on', ikController, switchCmd.func )
         
         # Get the plug that controls the kinematic mode.
-        switcherPlug = controller.getSwitcherPlug(ikControl)
+        switcherPlug = controllerShape.getSwitcherPlug(ikControl)
             
         # Gather the times
         if start is not None and end is not None and start == end:
@@ -306,8 +315,13 @@ class ActivateIkDispatch(object):
         boundJoints = getConstraineeChain(chain)
 
         if len(boundJoints) % 2 == 1:
+            switch_logger.debug('Mid point ODD moved, # bound = {}'.format(len(boundJoints)))
             i = int(len(boundJoints) / 2) + 1
             xform( chestCtrl.subControl['mid'], ws=True, t=xform(boundJoints[i], q=True, ws=True, t=True) )
+        else:
+            i = int(len(boundJoints) / 2)
+            xform( chestCtrl.subControl['mid'], ws=True, t=xform(boundJoints[i], q=True, ws=True, t=True) )
+            switch_logger.debug('Mid point EVEN moved, # bound = {}'.format(len(boundJoints)))
 
     @classmethod
     def activate_dogleg(cls, ctrl):
@@ -397,11 +411,18 @@ class ActivateIkDispatch(object):
 
 
         ..  todo::
-            Update to use a percentage of the length of the parm to offset the polevector length, probably .5 the length of the arm
+            Update to use a percentage of the length of the palm to offset the polevector length, probably .5 the length of the arm
         '''
 
         midJnt = chainEndTarget.getParent()
+        while rig.getBPJoint(midJnt).info.get('twist'):
+            midJnt = midJnt.getParent()
+        
         startJnt = midJnt.getParent()
+        while rig.getBPJoint(startJnt).info.get('twist'):
+            startJnt = startJnt.getParent()
+
+        switch_logger.debug( 'ikCtrl={}\nikJnt={}\nmidJnt={}\nstartJnt={}\nchainEndTarget={}'.format(ikCtrl, ikJnt, midJnt, startJnt, chainEndTarget) )
 
         # Draw a line from the start to end using the lengths to calc the elbow's projected midpoint
         startPos = core.dagObj.getPos( startJnt )

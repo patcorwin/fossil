@@ -16,10 +16,17 @@ class CardRow(QtWidgets.QTreeWidgetItem):
     
     options = ['-'] + cardRigging.availableControlTypeNames()
     mirrorOptions = ['-', 'Yes', 'Inherited', 'Skip', 'Yes:Twin']
+    sideOptions = ['-', '<', '>']
+
+    CARD_NAME   = 0
     
-    NAME_HEAD = 3
+    NAME_HEAD   = 3
     NAME_REPEAT = 4
-    NAME_TAIL = 5
+    NAME_TAIL   = 5
+    
+    MIRROR_COL  = 6
+    SIDE_COL    = 7
+    
     
     def __init__(self, card):
         
@@ -40,11 +47,13 @@ class CardRow(QtWidgets.QTreeWidgetItem):
         self.setCheckState( 1, Qt.Checked if card.visibility.get() else Qt.Unchecked )
         self.setFlags( Qt.ItemIsEnabled | Qt.ItemIsEditable | Qt.ItemIsSelectable )
     
+    
     def rigTypeChanged(self, index):
         #print( self.options[index], self.card )
         rigData = self.card.rigData
         rigData['rigCmd'] = self.options[index]
         self.card.rigData = rigData
+    
     
     def mirrorChanged(self, index):
         print( self.mirrorOptions[index], self.card )
@@ -64,14 +73,36 @@ class CardRow(QtWidgets.QTreeWidgetItem):
         elif self.mirrorOptions[index] == 'Yes:Twin':
             self.card.mirror = 'twin'
     
+    
+    def sideChanged(self, index):
+        rigData = self.card.rigData
+        
+        if self.sideOptions[index] == '-':
+            rigData['mirrorCode'] = ''
+    
+        elif self.sideOptions[index] == '<':
+            rigData['mirrorCode'] = 'left'
+        
+        elif self.sideOptions[index] == '>':
+            rigData['mirrorCode'] = 'right'
+        
+        self.card.rigData = rigData
+        
+        self.card.setTempNames()
+            
+        self.treeWidget().namesChanged.emit()
+    
+    
     def buildControls(self):
         # Make the rig type option
         self.type = QtWidgets.QComboBox()
         self.type.addItems( self.options )
         self.treeWidget().setItemWidget(self, 2, self.type)
         
+        rigData = self.card.rigData
+        
         # Set the rig type value
-        cmd = self.card.rigData.get('rigCmd', '')
+        cmd = rigData.get('rigCmd', '')
         if not cmd:
             cmd = '-'
         index = self.options.index(cmd) if cmd in self.options else -1
@@ -83,7 +114,7 @@ class CardRow(QtWidgets.QTreeWidgetItem):
         # Make the mirror options
         self.mirror = QtWidgets.QComboBox()
         self.mirror.addItems( self.mirrorOptions )
-        self.treeWidget().setItemWidget(self, 6, self.mirror)
+        self.treeWidget().setItemWidget(self, self.MIRROR_COL, self.mirror)
         
         if self.card.mirror is None:
             if self.card.isCardMirrored():
@@ -102,6 +133,26 @@ class CardRow(QtWidgets.QTreeWidgetItem):
             self.mirror.setCurrentIndex(1)
         
         self.mirror.currentIndexChanged.connect( self.mirrorChanged )
+        
+        # Make the side option
+        self.side = QtWidgets.QComboBox()
+        self.side.addItems( self.sideOptions )
+        self.treeWidget().setItemWidget(self, self.SIDE_COL, self.side)
+        
+        if rigData['mirrorCode'] == '':
+            self.side.setCurrentIndex( self.sideOptions.index('-') )
+            
+        elif rigData['mirrorCode'] == 'left':
+            self.side.setCurrentIndex( self.sideOptions.index('<') )
+            
+        elif rigData['mirrorCode'] == 'right':
+            self.side.setCurrentIndex( self.sideOptions.index('>') )
+        
+        else:
+            # &&& Offer to run the update script since rigData is out of date or corrupt.
+            pass
+        
+        self.side.currentIndexChanged.connect( self.sideChanged )
 
 
 def cardJointBuildOrder():
@@ -330,7 +381,12 @@ class CardLister(QtWidgets.QTreeWidget):
         else:
             return
         
-        if (3 <= column <= 5) or column == 7:
+        if column == CardRow.CARD_NAME:
+            cardName = item.text(column).strip()
+            item.card.rename(cardName)
+            item.setText(CardRow.CARD_NAME, item.card.shortName())
+        
+        if (CardRow.NAME_HEAD <= column <= CardRow.NAME_TAIL):  # or column == CardRow.SIDE_COL:
             rigData = item.card.rigData
             names = rigData.get( 'nameInfo', {'head': [], 'repeat': '', 'tail': []} )
             if column == 3:
@@ -342,7 +398,7 @@ class CardLister(QtWidgets.QTreeWidget):
             elif column == 5:
                 names['tail'] = item.text(column).strip().split()
             
-            elif column == 7:
+            elif column == CardRow.SIDE_COL:
                 rigData['mirrorCode'] = item.text(column).strip()
                 print( 'setting', rigData['mirrorCode'] )
             

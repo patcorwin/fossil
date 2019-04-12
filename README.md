@@ -1,11 +1,11 @@
 # fossil
 Rigging and animation tools for Maya
 
-Tested in Maya 2016 and 2017
+Tested in Maya 2016, 2017 and 2019.  Developed in 2019 so hopefully nothing breaks in previous versions.
 
 ## Requirements
 
-None.  Previously it required https://github.com/mottosso/Qt.py/blob/master/Qt.py but it is now integrated.
+None.
 
 ## Installation
 Download, unzip and put the "pdil" folder in one of your Maya script folders.
@@ -26,13 +26,6 @@ import pdil.tool.fossil.main
 pdil.tool.fossil.main.RigTool()
 ```
 
-## Utilities
-```python
-import pdil.tool.rigTools
-
-# This toggles isolating the selected controls.  Note - parents of selected controls will remain visible.
-pdil.core.alt.call('Quick Hide Controls')()
-```
 
 ### Simple Walkthrough
 
@@ -52,5 +45,10 @@ Here is a walkthrough just to get an idea of how to start making rigs.
 ### Ik/Fk
 This is managed through an instanced shape on all the controls made by a card instead of putting it on one control, the might get hidden.  In the channel box will be a shape with a name ending in `FKIK_SWITCH`
 
+Or got to "Artist Tools" tab and hit the button with the two encircling arrows.  Hover over any of the shelf buttons to see their name.
+
+Drag them off the shelf onto yours.  Don't worry, they are regenerated on this shelf whenever fossil is opened.
 
 ### There are many more features, documentation coming soon.
+
+Check the wiki

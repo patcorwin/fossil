@@ -100,7 +100,7 @@ class SquashStretch(MetaControl):
     ''' Special controller providing translating bones simulating squash and stretch. '''
     displayInUI = False
 
-    ik_ = 'pdil.tool.fossil.riging.buildSquashAndStretch'
+    ik_ = 'pdil.tool.fossil.rigging.buildSquashAndStretch'
     ikInput = OrderedDict( [
         ('rangeMin', ParamInfo( 'Min Range', 'Lower bounds of the keyable attr.', ParamInfo.FLOAT, -5.0)),
         ('rangeMax', ParamInfo( 'Max Range', 'Upper bounds of the keyable attr.', ParamInfo.FLOAT, 5.0)),

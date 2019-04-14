@@ -36,7 +36,7 @@ MAYA_UP = upAxis(q=True, ax=True)
                 toeTap={'shape': 'cuff',      'size': 10, 'color': 'green 0.22'},
              heelRaise={'shape': 'cuff',      'size': 10, 'color': 'red 0.22', 'align': MAYA_UP},
                 )
-def foot(ballJnt, toePos, heelPos, legControl, side, controlSpec={}):
+def buildFoot(ballJnt, toePos, heelPos, legControl, side, controlSpec={}):
     if not side:
         side = ''
     

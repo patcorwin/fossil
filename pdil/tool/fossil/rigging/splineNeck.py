@@ -40,7 +40,7 @@ def findClosest(obj, targets):
 @util.defaultspec( {'shape': 'box',    'color': 'blue 0.22', 'size': 10},
             middle={'shape': 'sphere', 'color': 'blue 0.22', 'size': 10},
              start={'shape': 'box',    'color': 'blue 0.22', 'size': 10},)
-def splineNeck(start, end, name='', matchEndOrient=False, endOrient=util.EndOrient.TRUE_ZERO, curve=None, duplicateCurve=True, groupName='', controlSpec={} ):
+def buildSplineNeck(start, end, name='', matchEndOrient=False, endOrient=util.EndOrient.TRUE_ZERO, curve=None, duplicateCurve=True, groupName='', controlSpec={} ):
     '''
     Makes a spline with a middle control point constrained between the endpoints.
     
@@ -267,7 +267,7 @@ def splineNeck(start, end, name='', matchEndOrient=False, endOrient=util.EndOrie
 
 class SplineNeck(MetaControl):
     ''' Spline controller with a center control to provide arcing. '''
-    ik_ = 'pdil.tool.fossil.rig.splineNeck'
+    ik_ = 'pdil.tool.fossil.rigging.splineNeck.buildSplineNeck'
     ikInput = OrderedDict( [
         ('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, '')),
         ('matchEndOrient', ParamInfo( 'DEP-Match Orient', 'Ik Control will match the orientation of the joint last joint', ParamInfo.BOOL, default=False)),

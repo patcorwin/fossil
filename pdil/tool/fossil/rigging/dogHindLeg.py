@@ -23,7 +23,7 @@ from . import _util as util
 @util.defaultspec( {'shape': 'box',    'size': 10, 'color': 'green 0.22' },
                 pv={'shape': 'sphere', 'size': 5,  'color': 'green 0.22' },
             socket={'shape': 'sphere', 'size': 5,  'color': 'green 0.22', 'visGroup': 'socket' } )
-def dogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.EndOrient.TRUE_ZERO_FOOT, groupName='', controlSpec={}):
+def buildDogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.EndOrient.TRUE_ZERO_FOOT, groupName='', controlSpec={}):
     '''
     ..  todo::
         * Specify toe joint instead to remove ambiguity in case of twist joints.
@@ -237,7 +237,7 @@ def dogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.EndOrien
 
 class DogHindleg(MetaControl):
     ''' 4 joint dog hindleg. '''
-    ik_ = 'pdil.tool.fossil.rig.dogleg'
+    ik_ = 'pdil.tool.fossil.rigging.dogHindLeg.buildDogleg'
 
     ikInput = OrderedDict( [
         ('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, 'Leg')),

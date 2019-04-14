@@ -223,6 +223,9 @@
                   <property name="selectionMode">
                    <enum>QAbstractItemView::ExtendedSelection</enum>
                   </property>
+                  <attribute name="headerStretchLastSection">
+                   <bool>false</bool>
+                  </attribute>
                   <column>
                    <property name="text">
                     <string>Name</string>

@@ -446,13 +446,13 @@ def advancedTwist(start, end, baseCtrl, endCtrl, ik):
     startAxis = duplicate( start, po=True )[0]
     startAxis.rename( 'startAxis' )
     startAxis.setParent( baseCtrl )
-    core.dagObj.lockTrans(core.dagObj.lockRot(core.dagobj.lockScale(startAxis)))
+    core.dagObj.lockTrans(core.dagObj.lockRot(core.dagObj.lockScale(startAxis)))
     
     endAxis = duplicate( start, po=True )[0]
     endAxis.rename( 'endAxis' )
     endAxis.setParent( endCtrl )
     endAxis.t.set(0, 0, 0)
-    core.dagObj.lockTrans(core.dagObj.lockRot(core.dagobj.lockScale(endAxis)))
+    core.dagObj.lockTrans(core.dagObj.lockRot(core.dagObj.lockScale(endAxis)))
     
     hide(startAxis, endAxis)
     

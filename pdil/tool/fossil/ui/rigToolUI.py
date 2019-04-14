@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'C:\MAYA_APP_DIR\fossil\pdil\tool\fossil/ui/rigToolUI.ui'
 #
-# Created: Fri Apr 12 01:32:48 2019
+# Created: Sat Apr 13 19:03:51 2019
 #      by: pyside2-uic  running on PySide2 2.0.0~alpha0
 #
 # WARNING! All changes made in this file will be lost!
@@ -89,6 +89,7 @@ class Ui_MainWindow(object):
         self.cardLister = CardLister(self.widget_4)
         self.cardLister.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
         self.cardLister.setObjectName("cardLister")
+        self.cardLister.header().setStretchLastSection(False)
         self.verticalLayout.addWidget(self.cardLister)
         self.widget_5 = QtWidgets.QWidget(self.splitter)
         self.widget_5.setObjectName("widget_5")

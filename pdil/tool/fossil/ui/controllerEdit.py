@@ -257,25 +257,12 @@ class ShapeEditor(object):
                 if shapeName in shapeNames:
                     button = Qt.QtWidgets.QPushButton()
                     button.setFixedSize(64, 64)
-                    #button.iconSize().setHeight(31)
-                    #button.iconSize().setWidth(31)
-                    
-                    #icon = Qt.QtGui.QIcon(shapeFolder + '/' + f)
-                    #button.setIcon(icon)
-                    #button.setProperty('background-image', "url('{}')".format(shapeFolder + '/' + f) )
-                    
-                    #button.setProperty('background-color', '#000' )
                     
                     button.setObjectName(f[:-4])
-                    #button.setProperty('border', '20px solid black')
-                    
-                    #button.setStyle( button.style() )
-                    #print(button.style())
                     
                     button.clicked.connect( Callback(self.changeShape, shapeName) )
                     
                     self.shape_chooser.addWidget(button, row, col)
-                    #return
                     
                     col += 1
                     if col >= self.NUM_COLS:

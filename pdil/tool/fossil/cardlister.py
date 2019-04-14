@@ -20,6 +20,7 @@ class CardRow(QtWidgets.QTreeWidgetItem):
 
     CARD_NAME   = 0
     
+    VIS_COL     = 1
     NAME_HEAD   = 3
     NAME_REPEAT = 4
     NAME_TAIL   = 5
@@ -252,7 +253,7 @@ def cardHierarchy():
 
 class CardLister(QtWidgets.QTreeWidget):
 
-    cardListerColumnWidths = [220, 30, 120, 160, 100, 100, 75, 30]
+    cardListerColumnWidths = [220, 30, 120, 160, 100, 100, 75, 40]
     
     namesChanged = Signal()
     
@@ -274,6 +275,8 @@ class CardLister(QtWidgets.QTreeWidget):
         self.cardOrder = []
         self.allCards = []
         self.cardItems = {None: None}
+        
+        self.header().setSectionResizeMode(CardRow.NAME_HEAD, QtWidgets.QHeaderView.Stretch)
         
         # Use disableUI context manager to prevent callbacks, and use self.uiActive in said callbacks
         self._uiStateStack = []
@@ -359,8 +362,16 @@ class CardLister(QtWidgets.QTreeWidget):
             
     def cardListerItemClicked(self, item, col):
         if self.uiActive:
-            if 3 <= col <= 5:
+            if CardRow.NAME_HEAD <= col <= CardRow.NAME_TAIL:
                 self.editItem(item, col)
+            elif col == CardRow.VIS_COL:
+                if item.checkState(CardRow.VIS_COL) == Qt.Checked:
+                    item.setCheckState(CardRow.VIS_COL, Qt.Unchecked)
+                    item.card.visibility.set(0)
+                else:
+                    item.setCheckState(CardRow.VIS_COL, Qt.Checked)
+                    item.card.visibility.set(1)
+                
     
     def cardListerAddRow(self, card, parentItem):
         

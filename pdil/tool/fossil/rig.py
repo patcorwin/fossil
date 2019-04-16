@@ -432,18 +432,6 @@ def makeStretchyNonSpline(controller, ik, stretchDefault=1):
         lockSwitcher.output >> j.attr('t' + jointAxis)
     
     return controller.attr('stretch'), jointLenMultiplier
-
-
-def driveConstraints(srcConstraintResult, destConstraintResult):
-    '''
-    Have the destConstraintResult controlled by the source.
-    
-    Intended use is for chains where some joints, likely the tip, are constrained
-    to the controller instead of the drive chain
-    '''
-    
-    srcConstraintResult.point >> destConstraintResult.point
-    srcConstraintResult.orient >> destConstraintResult.orient
     
 
 # Spline

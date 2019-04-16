@@ -276,7 +276,11 @@ class CardLister(QtWidgets.QTreeWidget):
         self.allCards = []
         self.cardItems = {None: None}
         
-        self.header().setSectionResizeMode(CardRow.NAME_HEAD, QtWidgets.QHeaderView.Stretch)
+        try:
+            # &&& Look into how to properly do this in pyside 1
+            self.header().setSectionResizeMode(CardRow.NAME_HEAD, QtWidgets.QHeaderView.Stretch)
+        except:
+            pass
         
         # Use disableUI context manager to prevent callbacks, and use self.uiActive in said callbacks
         self._uiStateStack = []

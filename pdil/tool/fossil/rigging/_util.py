@@ -807,3 +807,15 @@ def identifyAxis(jnt, asVector=False):
         jointAxis = {'x': [1, 0, 0], 'y': [0, 1, 0], 'z': [0, 0, 1]}[jointAxis]
         
     return jointAxis
+    
+    
+def driveConstraints(srcConstraintResult, destConstraintResult):
+    '''
+    Have the destConstraintResult controlled by the source.
+    
+    Intended use is for chains where some joints, likely the tip, are constrained
+    to the controller instead of the drive chain
+    '''
+    
+    srcConstraintResult.point >> destConstraintResult.point
+    srcConstraintResult.orient >> destConstraintResult.orient

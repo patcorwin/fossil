@@ -10,7 +10,7 @@ def toolShelf():
     
     shelfButton(image1='zeropose.png',
                 annotation='Zero Controllers',
-                command="import pdil.tool.fossil.userTools;core.alt.call('Zero Controllers')()")
+                command="import pdil.tool.fossil.userTools;pdil.core.alt.call('Zero Controllers')()")
     
     shelfButton(image1='skeletonTool.png',
                 annotation='Open Fossil',

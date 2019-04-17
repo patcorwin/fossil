@@ -60,6 +60,9 @@ def customMenu(objectName):
     
 def find_dagMenuProcMel():
     for path in os.environ['maya_script_path'].split(';'):
+        if not os.path.isdir(path):
+            continue
+        
         for f in os.listdir(path):
             if f.lower() == 'dagmenuproc.mel':
                 return path + '/' + f

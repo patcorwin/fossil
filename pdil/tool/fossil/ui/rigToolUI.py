@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'C:\MAYA_APP_DIR\fossil\pdil\tool\fossil/ui/rigToolUI.ui'
 #
-# Created: Sat Apr 13 19:03:51 2019
+# Created: Fri May  3 08:58:24 2019
 #      by: pyside2-uic  running on PySide2 2.0.0~alpha0
 #
 # WARNING! All changes made in this file will be lost!
@@ -123,12 +123,12 @@ class Ui_MainWindow(object):
         self.splitCardBtn = QtWidgets.QPushButton(self.widget_6)
         self.splitCardBtn.setGeometry(QtCore.QRect(220, 2, 75, 23))
         self.splitCardBtn.setObjectName("splitCardBtn")
-        self.pushButton_15 = QtWidgets.QPushButton(self.widget_6)
-        self.pushButton_15.setGeometry(QtCore.QRect(320, 2, 75, 23))
-        self.pushButton_15.setObjectName("pushButton_15")
-        self.pushButton_16 = QtWidgets.QPushButton(self.widget_6)
-        self.pushButton_16.setGeometry(QtCore.QRect(400, 2, 75, 23))
-        self.pushButton_16.setObjectName("pushButton_16")
+        self.addCardIkButton = QtWidgets.QPushButton(self.widget_6)
+        self.addCardIkButton.setGeometry(QtCore.QRect(320, 2, 75, 23))
+        self.addCardIkButton.setObjectName("addCardIkButton")
+        self.remCardIkButton = QtWidgets.QPushButton(self.widget_6)
+        self.remCardIkButton.setGeometry(QtCore.QRect(400, 2, 75, 23))
+        self.remCardIkButton.setObjectName("remCardIkButton")
         self.label = QtWidgets.QLabel(self.widget_6)
         self.label.setGeometry(QtCore.QRect(10, 10, 46, 13))
         self.label.setObjectName("label")
@@ -352,7 +352,7 @@ class Ui_MainWindow(object):
         self.surfaceColorLayout.setContentsMargins(0, 0, 0, 0)
         self.surfaceColorLayout.setObjectName("surfaceColorLayout")
         self.widget_13 = QtWidgets.QWidget(self.controller_edit)
-        self.widget_13.setGeometry(QtCore.QRect(350, 150, 201, 131))
+        self.widget_13.setGeometry(QtCore.QRect(350, 180, 201, 131))
         self.widget_13.setObjectName("widget_13")
         self.label_12 = QtWidgets.QLabel(self.widget_13)
         self.label_12.setGeometry(QtCore.QRect(10, 6, 181, 20))
@@ -445,6 +445,9 @@ class Ui_MainWindow(object):
         self.shapeDebug.setGeometry(QtCore.QRect(10, 690, 841, 231))
         self.shapeDebug.setLineWrapMode(QtWidgets.QTextEdit.NoWrap)
         self.shapeDebug.setObjectName("shapeDebug")
+        self.identifySurfaceColor = QtWidgets.QPushButton(self.controller_edit)
+        self.identifySurfaceColor.setGeometry(QtCore.QRect(360, 140, 181, 23))
+        self.identifySurfaceColor.setObjectName("identifySurfaceColor")
         self.tabWidget.addTab(self.controller_edit, "")
         self.tab_4 = QtWidgets.QWidget()
         self.tab_4.setObjectName("tab_4")
@@ -524,7 +527,7 @@ class Ui_MainWindow(object):
         self.menubar.addAction(self.menuTools.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(1)
+        self.tabWidget.setCurrentIndex(2)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
@@ -553,8 +556,8 @@ class Ui_MainWindow(object):
         self.deleteJointBtn.setText(QtCompat.translate("MainWindow", "Delete", None, -1))
         self.mergeCardBtn.setText(QtCompat.translate("MainWindow", "Merge", None, -1))
         self.splitCardBtn.setText(QtCompat.translate("MainWindow", "Split", None, -1))
-        self.pushButton_15.setText(QtCompat.translate("MainWindow", "Add Card Ik", None, -1))
-        self.pushButton_16.setText(QtCompat.translate("MainWindow", "Rem Card Ik", None, -1))
+        self.addCardIkButton.setText(QtCompat.translate("MainWindow", "Add Card Ik", None, -1))
+        self.remCardIkButton.setText(QtCompat.translate("MainWindow", "Rem Card Ik", None, -1))
         self.label.setText(QtCompat.translate("MainWindow", "Cards", None, -1))
         self.label_2.setText(QtCompat.translate("MainWindow", "Joints", None, -1))
         self.customUpBtn.setText(QtCompat.translate("MainWindow", "Custom Up", None, -1))
@@ -597,6 +600,7 @@ class Ui_MainWindow(object):
         self.select_pin_head.setText(QtCompat.translate("MainWindow", "Pin Head", None, -1))
         self.select_band_edge_1.setText(QtCompat.translate("MainWindow", "Band Edge 1", None, -1))
         self.select_band_edge_2.setText(QtCompat.translate("MainWindow", "Band Edge 2", None, -1))
+        self.identifySurfaceColor.setText(QtCompat.translate("MainWindow", "Identify Surface Color", None, -1))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.controller_edit), QtCompat.translate("MainWindow", "Controller Edit", None, -1))
         self.equipVisControl.setText(QtCompat.translate("MainWindow", "Equip Vis Control", None, -1))
         self.unequipVisControl.setText(QtCompat.translate("MainWindow", "Unequip Vis Control", None, -1))

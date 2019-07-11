@@ -197,6 +197,7 @@ class ActivateIkDispatch(object):
         If start and end are None, it means all keys.  If they are the same
         values, it means a single frame.
         '''
+        #print('start', start, end, key)
         ikControl = rig.getMainController(ikController)
         
         # Determine what type of switching to employ.
@@ -251,18 +252,23 @@ class ActivateIkDispatch(object):
                 
         # Finally, actually switch to ik.
         ikControls = [ctrl for name, ctrl in ikControl.subControl.items()] + [ikControl, switcherPlug]
+        
+        if not finalRange:
+            # Here means a switch range was selected on something with no keys, so just switch it
+            switchCmd()
+            setAttr(switcherPlug, 1)
+        else:
+            with core.ui.NoUpdate():
+                cur = currentTime(q=True)
                 
-        with core.ui.NoUpdate():
-            cur = currentTime(q=True)
-            
-            for t in finalRange:
-                currentTime(t)
-                switchCmd()
-                setAttr(switcherPlug, 1)
-                if key:
-                    setKeyframe(ikControls, shape=False)
-                    
-            currentTime(cur)
+                for t in finalRange:
+                    currentTime(t)
+                    switchCmd()
+                    setAttr(switcherPlug, 1)
+                    if key:
+                        setKeyframe(ikControls, shape=False)
+                        
+                currentTime(cur)
     
     @classmethod
     def active_splineNeck(cls, endControl):

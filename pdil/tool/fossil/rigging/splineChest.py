@@ -272,7 +272,7 @@ class SplineChest(MetaControl):
     ''' Spline control for the chest mass.'''
     ik_ = 'pdil.tool.fossil.rigging.splineChest.buildSplineChest'
     ikInput = OrderedDict( [('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, 'Chest')),
-                            ('useTrueZero', ParamInfo( 'Use True Zero', 'Use True Zero', ParamInfo.BOOL, True)),
+                            ('useTrueZero', ParamInfo( 'Use True Zero', 'Use True Zero', ParamInfo.BOOL, False)),
                             ('indexOfRibCage', ParamInfo( 'Rib Cage Index', 'Index of the bottom of the rib cage.', ParamInfo.INT, -1)),
                             ] )
     

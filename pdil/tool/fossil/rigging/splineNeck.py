@@ -271,7 +271,7 @@ class SplineNeck(MetaControl):
     ikInput = OrderedDict( [
         ('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, '')),
         ('matchEndOrient', ParamInfo( 'DEP-Match Orient', 'Ik Control will match the orientation of the joint last joint', ParamInfo.BOOL, default=False)),
-        ('endOrient', ParamInfo('Control Orient', 'How to orient the last control', ParamInfo.ENUM, default=util.EndOrient.TRUE_ZERO, enum=util.EndOrient.asChoices())),
+        ('endOrient', ParamInfo('Control Orient', 'How to orient the last control', ParamInfo.ENUM, default=util.EndOrient.JOINT, enum=util.EndOrient.asChoices())),
         ('curve', ParamInfo( 'Curve', 'A nurbs curve to use for spline', ParamInfo.NODE_0 ) ),
     ] )
 

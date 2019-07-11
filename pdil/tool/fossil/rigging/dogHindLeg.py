@@ -17,6 +17,7 @@ from ..cardRigging import MetaControl, ParamInfo
 from .. import space
 
 from . import _util as util
+from .. import rig
 
 
 @util.adds('stretch', 'bend', 'length')
@@ -210,7 +211,7 @@ def buildDogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.End
     core.dagObj.zero(pvCtrl).setParent( container )
     
     # Make stretchy ik, but the secondary chain needs the stretch hooked up too.
-    util.makeStretchyNonSpline(footCtrl, mainIk)
+    rig.makeStretchyNonSpline(footCtrl, mainIk)
     #for src, dest in zip( util.getChain(masterChain, masterEnd)[1:], util.getChain( hipJoint, getDepth(hipJoint, 4) )[1:] ):
     #    src.tx >> dest.tx
         

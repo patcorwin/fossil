@@ -32,68 +32,71 @@ class ShapeEditor(object):
 
     def __init__(self, source):
         self.window = source
-        self.source = source.ui
+        self.ui = source.ui
 
         # Not sure this is actually needed yet so keep it hidden.
-        self.controlCardList.hide()
+        self.ui.controlCardList.hide()
         
         if not SHAPE_DEBUG:
-            self.shapeDebug.hide()
+            self.ui.shapeDebug.hide()
             
-        self.hookupSignals()
         self.buildShapeMenu()
 
-        self.surfaceColorLayout.setObjectName(self.SURFACE_NAME)
-        
+        self.ui.surfaceColorLayout.setObjectName(self.SURFACE_NAME)
         setParent( self.SURFACE_NAME )
         self.surfaceColorer = SurfaceColorEditor()
 
 
-        self.curveColorLayout.setObjectName( self.CURVE_NAME )
+        self.ui.curveColorLayout.setObjectName( self.CURVE_NAME )
         setParent( self.CURVE_NAME )
         self.curveColorer = CurveColorEditor()
+        
+        self.hookupSignals()
         
         self.refresh()
         self.refreshCardList()
 
 
-    def __getattr__(self, name):
-        return getattr( self.source, name)
+    #def __getattr__(self, name):
+    #    return getattr( self.source, name)
 
     
     def hookupSignals(self):
         # Scaling
-        self.minus_one.clicked.connect( Callback(self.scaleCvs, 0.99) )
-        self.minus_ten.clicked.connect( Callback(self.scaleCvs, 0.90) )
-        self.plus_ten.clicked.connect( Callback(self.scaleCvs, 1.10) )
-        self.plus_one.clicked.connect( Callback(self.scaleCvs, 1.01) )
+        self.ui.minus_one.clicked.connect( Callback(self.scaleCvs, 0.99) )
+        self.ui.minus_ten.clicked.connect( Callback(self.scaleCvs, 0.90) )
+        self.ui.plus_ten.clicked.connect( Callback(self.scaleCvs, 1.10) )
+        self.ui.plus_one.clicked.connect( Callback(self.scaleCvs, 1.01) )
         
         # Rotating
-        self.rot_local_x.clicked.connect( Callback(self.rotate, 'x', 45, 'local') )
-        self.rot_local_y.clicked.connect( Callback(self.rotate, 'y', 45, 'local') )
-        self.rot_local_z.clicked.connect( Callback(self.rotate, 'z', 45, 'local') )
-        self.rot_world_x.clicked.connect( Callback(self.rotate, 'x', 45, 'world') )
-        self.rot_world_y.clicked.connect( Callback(self.rotate, 'y', 45, 'world') )
-        self.rot_world_z.clicked.connect( Callback(self.rotate, 'z', 45, 'world') )
+        self.ui.rot_local_x.clicked.connect( Callback(self.rotate, 'x', 45, 'local') )
+        self.ui.rot_local_y.clicked.connect( Callback(self.rotate, 'y', 45, 'local') )
+        self.ui.rot_local_z.clicked.connect( Callback(self.rotate, 'z', 45, 'local') )
+        self.ui.rot_world_x.clicked.connect( Callback(self.rotate, 'x', 45, 'world') )
+        self.ui.rot_world_y.clicked.connect( Callback(self.rotate, 'y', 45, 'world') )
+        self.ui.rot_world_z.clicked.connect( Callback(self.rotate, 'z', 45, 'world') )
         
         # Selecting
-        self.select_cvs.clicked.connect( Callback(self.selectCVs) )
-        self.select_pin_head.clicked.connect( Callback(self.selectPinHead) )
-        self.select_band_edge_1.clicked.connect( Callback(self.bandEdge, 1))
-        self.select_band_edge_2.clicked.connect( Callback(self.bandEdge, 2))
+        self.ui.select_cvs.clicked.connect( Callback(self.selectCVs) )
+        self.ui.select_pin_head.clicked.connect( Callback(self.selectPinHead) )
+        self.ui.select_band_edge_1.clicked.connect( Callback(self.bandEdge, 1))
+        self.ui.select_band_edge_2.clicked.connect( Callback(self.bandEdge, 2))
         
         
         # Shapes
-        self.copyShapes.clicked.connect( Callback(self.transferShape) )
-        self.mirrorShapes.clicked.connect( Callback(self.transferShape, mirror=True) )
-        self.mirrorSide.clicked.connect( Callback(lambda: mirrorAllKinematicShapes(selected()[0])) )
+        self.ui.copyShapes.clicked.connect( Callback(self.transferShape) )
+        self.ui.mirrorShapes.clicked.connect( Callback(self.transferShape, mirror=True) )
+        self.ui.mirrorSide.clicked.connect( Callback(lambda: mirrorAllKinematicShapes(selected()[0])) )
         
         #self.mirrorSide.setContextMenuPolicy(Qt.QtCore.Qt.CustomContextMenu)
         #self.mirrorSide.customContextMenuRequested.connect(self.XXXcontextMenuEvent)
         
-        self.copyToCBBtn.clicked.connect( Callback(self.copyToClipboad) )
-        self.pasteLocalBtn.clicked.connect( Callback(self.pasteFromCliboard, 'os') )
-        self.pasteWorldBtn.clicked.connect( Callback(self.pasteFromCliboard, 'ws') )
+        self.ui.copyToCBBtn.clicked.connect( Callback(self.copyToClipboad) )
+        self.ui.pasteLocalBtn.clicked.connect( Callback(self.pasteFromCliboard, 'os') )
+        self.ui.pasteWorldBtn.clicked.connect( Callback(self.pasteFromCliboard, 'ws') )
+        
+        self.ui.identifySurfaceColor.clicked.connect( Callback(self.surfaceColorer.findColor) )
+        
         
     def copyToClipboad(self):
         try:
@@ -262,7 +265,7 @@ class ShapeEditor(object):
                     
                     button.clicked.connect( Callback(self.changeShape, shapeName) )
                     
-                    self.shape_chooser.addWidget(button, row, col)
+                    self.ui.shape_chooser.addWidget(button, row, col)
                     
                     col += 1
                     if col >= self.NUM_COLS:
@@ -278,7 +281,7 @@ class ShapeEditor(object):
         return
         cards = cardlister.cardHierarchy()
 
-        cardToItem = {None: self.controlCardList.invisibleRootItem()}
+        cardToItem = {None: self.ui.controlCardList.invisibleRootItem()}
 
         for parent, children in cards:
             
@@ -314,7 +317,7 @@ class ShapeEditor(object):
                 except Exception:
                     print( traceback.format_exc() )
                 
-                self.shapeDebug.setPlainText(text)
+                self.ui.shapeDebug.setPlainText(text)
             except:
                 pass
         
@@ -364,6 +367,27 @@ class SurfaceColorEditor(object):
             palettePort(self.surfacePalette, e=True, redraw=True)
             return True
         return False
+    
+    def findColor(self):
+        obj = selected()
+        if not obj:
+            return
+        
+        mats = core.shader.getShaders(obj[0])
+        if not mats:
+            return
+        
+        try:
+            color = mats[0].color.get()
+        except Exception:
+            color = mats[0].outColor.get()
+        
+        try:
+            index = core.shader.namedColors.values().index(color)
+            #self.surfacePalette.getSetCurCell(index + 1)
+            palettePort(self.surfacePalette, e=True, setCurCell=index + 1)
+        except ValueError:
+            pass
 
 
 class CurveColorEditor(object):

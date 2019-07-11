@@ -487,9 +487,11 @@ def applyShapeInfo(obj, info, space):
     orientation.
     '''
     
-    surfaceColor = info['colors'].get('color')
-    curveColor = info['colors'].get('curveColor')
-    shapeType = info['colors'].get('shapeType')
+    colorInfo = info.get('colors', {})
+    
+    surfaceColor = colorInfo.get('color')
+    curveColor = colorInfo.get('curveColor')
+    shapeType = colorInfo.get('shapeType')
         
     if shapeType is not None:
         existingShapeType = obj.shapeType.get() if obj.hasAttr('shapeType') else None

@@ -164,6 +164,10 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         self.ui.duplicateCardBtn.clicked.connect(self.duplicateCard)
         self.ui.mergeCardBtn.clicked.connect(self.mergeCard)
         self.ui.splitCardBtn.clicked.connect(self.splitCard)
+
+        self.ui.addCardIkButton.clicked.connect( self.addCardIk )
+        self.ui.remCardIkButton.clicked.connect( self.removeCardIk )
+
         
         self.ui.insertJointBtn.clicked.connect(self.insertJoint)
         self.ui.addTipBtn.clicked.connect(partial(self.insertJoint, True))
@@ -508,3 +512,9 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         if j:
             fossil_card.splitCard(j[0])
     
+    def addCardIk(self):
+        fossil_card.cardIk( selected()[0] )
+        
+    
+    def removeCardIk(self):
+        fossil_card.removeCardIk( selected()[0] )

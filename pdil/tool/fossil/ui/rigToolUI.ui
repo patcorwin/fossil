@@ -18,7 +18,7 @@
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>1</number>
+       <number>2</number>
       </property>
       <widget class="QWidget" name="tab">
        <attribute name="title">
@@ -376,7 +376,7 @@
                     <string>Split</string>
                    </property>
                   </widget>
-                  <widget class="QPushButton" name="pushButton_15">
+                  <widget class="QPushButton" name="addCardIkButton">
                    <property name="geometry">
                     <rect>
                      <x>320</x>
@@ -389,7 +389,7 @@
                     <string>Add Card Ik</string>
                    </property>
                   </widget>
-                  <widget class="QPushButton" name="pushButton_16">
+                  <widget class="QPushButton" name="remCardIkButton">
                    <property name="geometry">
                     <rect>
                      <x>400</x>
@@ -918,7 +918,7 @@
         <property name="geometry">
          <rect>
           <x>350</x>
-          <y>150</y>
+          <y>180</y>
           <width>201</width>
           <height>131</height>
          </rect>
@@ -1173,6 +1173,19 @@
         </property>
         <property name="lineWrapMode">
          <enum>QTextEdit::NoWrap</enum>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="identifySurfaceColor">
+        <property name="geometry">
+         <rect>
+          <x>360</x>
+          <y>140</y>
+          <width>181</width>
+          <height>23</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Identify Surface Color</string>
         </property>
        </widget>
       </widget>

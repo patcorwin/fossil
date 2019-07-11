@@ -1754,7 +1754,7 @@ def ikChain(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.TR
 @defaultspec( {'shape': 'box',    'size': 10, 'color': 'green 0.22' },  # noqa e231
            pv={'shape': 'sphere', 'size': 5,  'color': 'green 0.22' },
        socket={'shape': 'sphere', 'size': 5,  'color': 'green 0.22', 'visGroup': 'socket' } )
-def ikChain2(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.TRUE_ZERO, twists={}, makeBendable=False, name='', groupName='', controlSpec={}):
+def ikChain2(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.JOINT, twists={}, makeBendable=False, name='', groupName='', controlSpec={}):
     '''
     
     :param int pvLen: How far from the center joint to be, defaults to half the length of the chain.
@@ -1772,7 +1772,7 @@ def ikChain2(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.T
     # Simplify the names
     controlChain = dupChain(start, end)
     for j, orig in zip(controlChain, chain):
-        j.rename( trimName(orig) )
+        j.rename( trimName(orig) + '_proxy' )
     
     mainJointCount = len(chain) - sum( twists.values() )
     

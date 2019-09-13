@@ -989,10 +989,7 @@ class Card(nt.Transform):
                 m[12] *= -1
                 
                 jo = core.math.eulerFromMatrix(dt.Matrix(m), degrees=True)
-                pos = j.getTranslation(space='world')
-                pos.x *= -1
-                
-                mj = joint(None, n=mirrorName, p=pos, relative=False)  # &&& Maya weirdness, matrix is always in centimeters
+                mj = joint(None, n=mirrorName, p=m[12:15], relative=False)
                 mj.jointOrient.set(jo)
                 
                 # Hard link of output joint to blueprint joint to avoid any ambiguity

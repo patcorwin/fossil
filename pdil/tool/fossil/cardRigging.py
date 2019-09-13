@@ -725,58 +725,6 @@ class IkChain(MetaControl):
 
 
 
-class SplineTwist(MetaControl):
-    ''' Spline IK that provides control to twist individual sections. '''
-    ik_ = 'pdil.tool.fossil.rig.splineIk'
-    ikInput = OrderedDict( [
-        ('controlCountOrCrv', [
-            ParamInfo( 'CV count', 'How many cvs to use in auto generated curve', ParamInfo.INT, default=4, min=4 ),
-            ParamInfo( 'Curve', 'A nurbs curve to use for spline', ParamInfo.NODE_0 ),
-        ] ),
-        ('simplifyCurve',
-            ParamInfo( 'Simplify Curve', 'If True, the curve cvs will space out evenly, possibly altering the postions', ParamInfo.BOOL, default=True) ),
-        ('twistInfDist',
-            ParamInfo( 'Twist influence', 'How many joints on one side are influenced by the twisting, zero means it is done automatically.', ParamInfo.INT, default=0, min=0) ),
-        ('tipBend',
-            ParamInfo( 'Tip Bend', 'The tip control should influence the ease out bend', ParamInfo.BOOL, default=True) ),
-        ('sourceBend',
-            ParamInfo( 'Source Bend', 'The source control should influence the ease in bend', ParamInfo.BOOL, default=True) ),
-        ('matchOrient',
-            ParamInfo( 'Match Orient', "First and last controller are set to TrueZero'd", ParamInfo.BOOL, default=True) ),
-        ('useLeadOrient',
-            ParamInfo( 'Lead Orient', 'The controls have the same orientation as the first joint', ParamInfo.BOOL, default=False) ),
-        ('allowOffset',
-            ParamInfo( 'Allow Offset', 'If you Simplyify Curve, the joints will slightly shift unless you Allow Offset or the joints are straight', ParamInfo.BOOL, default=False) ),
-        ('twistStyle',
-            ParamInfo( 'Twist Style', '0 = advanced, 1=x, 2=-x 3=y ...', ParamInfo.ENUM, enum=rig.TwistStyle.asChoices(), default=rig.TwistStyle.ADVANCED ) ),
-        
-        ('name',
-            ParamInfo( 'Name', 'Name', ParamInfo.STR, '')),
-    ] )
-    
-    fkArgs = {'translatable': True}
-    
-    @classmethod
-    def readIkKwargs(cls, card, isMirroredSide, sideAlteration=lambda **kwargs: kwargs, kinematicType='ik'):
-        '''
-        Overriden to handle if a custom curve was given, which then needs to be duplicated, mirrored and
-        fed directly into the splineTwist.
-        '''
-
-        kwargs = cls.readKwargs(card, isMirroredSide, sideAlteration, kinematicType='ik')
-        if isMirroredSide:
-            if 'controlCountOrCrv' in kwargs and not isinstance( kwargs['controlCountOrCrv'], int ):
-                crv = kwargs['controlCountOrCrv']
-                crv = duplicate(crv)[0]
-                kwargs['controlCountOrCrv'] = crv
-                move( crv.sp, [0, 0, 0], a=True )
-                move( crv.rp, [0, 0, 0], a=True )
-                crv.sx.set(-1)
-                
-                kwargs['duplicateCurve'] = False
-                
-        return kwargs
-
 
 
 

@@ -92,7 +92,7 @@ import maya.OpenMayaAnim
 import maya.OpenMaya
 
 from ...add import simpleName, shortName
-from ...core.dagObj import lockRot, lockTrans, lockScale
+from ...core.dagObj import lockRot, lockTrans, lockScale, Solo
 from ... import core
 from ... import lib
 from ... import nodeApi
@@ -190,21 +190,6 @@ def getMainController(obj):
     return None
     
 #pymel.internal.factories.registerVirtualClass( RigController )
-
-
-def countJoints(start, end):
-    count = 2
-    
-    p = end.getParent()
-    
-    while p and p != start:
-        p = p.getParent()
-        count += 1
-        
-    if not p:
-        return 0
-        
-    return count
 
 
 def getDepth(jnt, depth):
@@ -448,26 +433,6 @@ def ___addControllers(ctrl):
         dup.t.set(0, 0, 0)
 
 
-def addConnectingCurve(objs):
-    '''
-    Given a list of objects, make a curve that links all of them.
-    '''
-    crv = curve( d=1, p=[(0, 0, 0)] * len(objs) )
-
-    grp = group(crv, n='connectingCurve')
-
-    for i, obj in enumerate(objs):
-        handle = cluster(crv.cv[i])[1]
-        pointConstraint( obj, handle )
-        handle.setParent( grp )
-        hide(handle)
-        
-    crv.getShape().overrideEnabled.set( 1 )
-    crv.getShape().overrideDisplayType.set( 2 )
-        
-    return grp
-
-
 def addC(ctrl, target):
     '''
     Puts a `ctrl` on each child joint of the selected joints
@@ -521,171 +486,6 @@ def addC(ctrl, target):
     msg = '{0}.rz = {1[2]}.rz + ( {1[1]}.rz + {1[3]}.rz ) * 0.5 +  ( {1[0]}.rz ) * 0.2;'.format( groups[-2], controls[-4:] )
     expression( s=msg )
     
-    
-def addTwistControls(controlChain, boundChain, boundEnd, influenceDist=3):
-    '''
-    Put a rotation controller under each child of the controlChain to drive .rz
-    of the boundChain.  They must both be the same size.
-    
-    :param Joint controlChain: The first joint of the controlling rig (ideally pruned)
-    :param Joint boundChain: The first joint of joints being controlled by the spline.
-    :param Joint boundEnd: The last joint in the bound chain, used to address possible branching.
-    :param int influenceDist: How many adjacent joints are influenced (total #
-        is 2x since it influences both directions).
-    '''
-    
-    obj = controlChain[0]
-    target = boundChain
-    
-    #controlJoints = getChain( controlChain, findChild(controlChain, shortName(boundEnd)) )
-    controlJoints = controlChain
-    boundJoints = getChain( boundChain, findChild(boundChain, shortName(boundEnd)) )
-    
-    assert len(controlJoints) == len(boundJoints), "Failure when adding twist controls, somehow the chains don't match length, contorls {0} != {1}".format( len(controlJoints), len(boundJoints) )
-    
-    controls = []
-    groups = []
-
-    pointConstraints = []
-    orientConstraints = []
-    
-    for i, (obj, target) in enumerate(zip(controlJoints, boundJoints)):
-    
-        c = controllerShape.simpleCircle()
-        c.setParent(obj)
-        c.t.set(0, 0, 0)
-        c.r.set(0, 0, 0)
-        
-        controls.append(c)
-        
-        spinner = group(em=True, name='spinner%i' % i, p=target)
-        spinner.r.set(0, 0, 0)
-        spinner.setParent(obj)
-        spinner.t.set(0, 0, 0)
-        
-        # Aligning the spinners to the bound joint means we don't have to offset
-        # the orientConstraint which means nicer numbers.
-#        spinner.setRotation( target.getRotation(space='world'), space='world' )
-        
-        groups.append(spinner)
-
-        pointConstraints.append( core.constraints.pointConst( obj, target, maintainOffset=False ) )
-        orientConstraints.append( core.constraints.orientConst( spinner, target, maintainOffset=False ) )
-        
-        children = obj.listRelatives(type='joint')
-        if children:
-            obj = children[0]
-        else:
-            obj = None
-            break
-    
-    for pSrc, pDest in zip( pointConstraints[:-1], pointConstraints[1:]):
-        pSrc >> pDest
-    
-    for oSrc, oDest in zip( orientConstraints[:-1], orientConstraints[1:]):
-        oSrc >> oDest
-    
-    # &&& This and the i+7 reflect the number of controls that influence
-    bigList = [None] * influenceDist + controls + [None] * influenceDist
-    
-    influenceRange = (influenceDist * 2) + 1
-    
-    axis = identifyAxis(controlChain[0].listRelatives(type='joint')[0])
-    
-    exp = []
-    for i, spinner in enumerate(groups):
-        exp.append(driverExpression( spinner, bigList[i: i + influenceRange], axis ))
-        
-    expression( s=';\n'.join(exp) )
-    
-    return controls, ConstraintResults( pointConstraints[0], orientConstraints[0] )
-
-
-def calcInfluence( controls ):
-    '''
-    Given a list (Maybe change to a number?) returns a list of power falloffs.
-    
-    controls can have None placeholders
-    
-    power falls off to end of controls
-    low   upper
-      v   v
-    0 1 2 3 4
-    # Result: [0.5, 0.75, 1.0, 0.75, 0.5]
-    
-    low     upper
-      v     v
-    0 1 2 3 4 5
-    # Result: [0.5, 0.75, 1.0, 1.0, 0.75, 0.5]
-    
-    '''
-    max = len(controls)
-    if len(controls) % 2 == 0:
-        upper = len(controls) / 2 + 1
-        lower = upper - 2
-    else:
-        upper = len(controls) / 2 + 1
-        lower = upper - 1
-        
-    delta = 1 / float(lower) * 0.5
-        
-    powers = [1.0] * len(controls)
-    #for i, (lowCtrl, upCtrl) in enumerate(zip(controls[upper:], reversed(controls[:lower]) ), 1):
-    for i, (lowCtrl, upCtrl) in enumerate(zip(range(upper, max), range( lower - 1, -1, -1 ) ), 1):
-        power = 1 - delta * i
-        powers[lowCtrl] = power
-        powers[upCtrl] = power
-
-    return powers
-
-
-def driverExpression( driven, controls, axis ):
-    '''
-    The `driven` node's .rz will be driven by the list of `controls`.
-    `controls` is a list of objects, and optional empty entries.
-    
-    Example, if you have joints, A B C and controls X Y Z, you would do:
-        driverExpression( A, [None, X, Y] )
-        driverExpression( B, [X, Y, Z] )
-        driverExpression( C, [Y, Z, None] )
-    
-    This means A will be fully influenced by X, and partially by Y.
-    B is fully influenced by Y and partially by X and Z.
-    '''
-    
-    powers = calcInfluence(controls)
-    exp = []
-    for power, ctrl in zip(powers, controls):
-        if ctrl:
-            exp.append( '{0}.r{axis} * {1}'.format(ctrl, power, axis=axis) )
-    
-    return '{0}.r{axis} = {1};'.format( driven, ' + '.join(exp), axis=axis )
-
-
-def addControlsToCurve(name, crv=None,
-    spec={'shape': 'sphere', 'size': 10, 'color': 'blue 0.22'} ):  # noqa e128
-    '''
-    Given a curve, make a control sphere at each CV.
-    
-    :return: List of newly made controls.
-    '''
-    if not crv:
-        crv = selected()[0]
-
-    controls = []
-        
-    for i, cv in enumerate(crv.cv):
-        #l = control.sphere( '{0}{1:0>2}'.format( name, i+1), size, 'blue', type=control.SPLINE )
-        l = controllerShape.build('{0}{1:0>2}'.format(name, i + 1), spec, type=controllerShape.ControlType.SPLINE)
-        
-        core.dagObj.moveTo( l, cv )
-        handle = cluster(cv)[1]
-        handle.setParent(l)
-        hide(handle)
-        controls.append(l)
-
-    return controls
-
 
 def makeTestJoints(raw=True):
     geom = selected()[0]
@@ -1754,7 +1554,7 @@ def ikChain(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.TR
 @defaultspec( {'shape': 'box',    'size': 10, 'color': 'green 0.22' },  # noqa e231
            pv={'shape': 'sphere', 'size': 5,  'color': 'green 0.22' },
        socket={'shape': 'sphere', 'size': 5,  'color': 'green 0.22', 'visGroup': 'socket' } )
-def ikChain2(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.JOINT, twists={}, makeBendable=False, name='', groupName='', controlSpec={}):
+def ikChain2(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.TRUE_ZERO, twists={}, makeBendable=False, name='', groupName='', controlSpec={}):
     '''
     
     :param int pvLen: How far from the center joint to be, defaults to half the length of the chain.
@@ -2061,330 +1861,48 @@ def ikChain2(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.J
     return ctrl, constraints
 
 
-class TwistStyle:
-    '''
-    Used by splineIk.  Advanced uses advanced twist while the others determin
-    which rotation axis drives the twist attribute.
-    '''
-    ADVANCED = 'Advanced'
-    X        = 'X'
-    NEG_X    = '-X'
-    Y        = 'Y'
-    NEG_Y    = '-Y'
-    Z        = 'Z'
-    NEG_Z    = '-Z'
+def midVector(av, bv):
+    av = dt.Vector(av)
+    bv = dt.Vector(bv)
     
-    @classmethod
-    def asChoices(cls):
-        choices = collections.OrderedDict()
-        choices[cls.ADVANCED]   = cls.ADVANCED
-        choices[cls.X]          = cls.X
-        choices[cls.NEG_X]      = cls.NEG_X
-        choices[cls.Y]          = cls.Y
-        choices[cls.NEG_Y]      = cls.NEG_Y
-        choices[cls.Z]          = cls.Z
-        choices[cls.NEG_Z]      = cls.NEG_Z
-        return choices
+    angle = av.angle(bv)
+    axis = av.axis(bv)
+
+    return av.rotateBy(axis, angle/2.0)
 
 
-@adds('twist', 'stretch')
-@defaultspec( {'shape': 'sphere', 'size': 10, 'color': 'blue 0.22'} )
-def splineIk(start, end, controlCountOrCrv=4, twistInfDist=0, simplifyCurve=False,
-    tipBend=True, sourceBend=True, matchOrient=True, allowOffset=False,  # noqa e128
-    useLeadOrient=False,  # This is an backwards compatible option, mutually exclusive with matchOrient
-    twistStyle=TwistStyle.ADVANCED, duplicateCurve=True,
-    name='', groupName='', controlSpec={}):
-    '''
-    Make a spline controller from `start` to `end`.
-    
-    :param int twistInfDist: Default twist controls to falloff before hitting eachother.
-        Otherwise it is the number of joints on either side it will influence.
-    :param bool simplifyCurve:  Only used if # of cvs is specified.  Turning it
-        on will likely result it the curve not matching the existing joint position
-        but will be more evenly spaced per control.
-    :param bool tipBend:  If True, an extra cv will be added at the second to
-        last joint, controlled by the last controller to ease out.
-        
-    ##:param bool applyDirectly: If True, rig the given joints, do not make a duplicate chain
-        
-    :param bool useLeadOrient: If True, the controllers will be aligned the same
-        as the first joint.
-        **NOTE** I think this option only exists to preserve previous builds, this is pretty dumb
-        
-    :param bool matchOrient: Does trueZero on the start and end.  I'm not sure this makes sense.
-        
-    
-    
-    ..  todo::
-        * Add the same spline chain +X towards child that the neck has and test out advancedTwist()
-    
-        * See if I can identify the closest joint to a control and orient to that
-        * The first joint has parent AND local, which are the same thing, keep this for convenience of selecting all the controls and editing attrs?
-        * Test specifying your own curve
-        * There is a float division error that can happen if there are too many control cvs.
-        * Verify twists work right with unsimplified curves (hint, I don't think they do).
-    '''
-    
-    if isinstance( controlCountOrCrv, int ):
-        assert controlCountOrCrv > 3, "controlCount must be at least 4"
-    
-    # The axis to twist and stretch on.
-    jointAxis = identifyAxis( start.listRelatives(type='joint')[0] )
-    
-    # Make a duplicate chain for the IK that will also stretch.
-    stretchingChain = dupChain( start, end, '{0}_stretch' )
-    
-    # &&& NOTE!  This might affect advanced twist in some way.
-    # If the chain is mirrored, we need to reorient to point down x so the
-    # spline doesn't mess up when the main control rotates
-    if stretchingChain[1].tx.get() < 0:
-        # Despite aggresive zeroing of the source, the dup can still end up slightly
-        # off zero so force it.
-        for jnt in stretchingChain:
-            jnt.r.set(0, 0, 0)
-        joint( stretchingChain[0], e=True, oj='xyz', secondaryAxisOrient='yup', zso=True, ch=True)
-        joint( stretchingChain[-1], e=True, oj='none')
-    
-    if isinstance( controlCountOrCrv, int ):
-        mainIk, _effector, crv = ikHandle( sol='ikSplineSolver',
-            sj=stretchingChain[0],
-            ee=stretchingChain[-1],
-            ns=controlCountOrCrv - 3,
-            simplifyCurve=simplifyCurve)
-    else:
-        if duplicateCurve:
-            crv = duplicate(controlCountOrCrv)[0]
-        else:
-            crv = controlCountOrCrv
-            
-        mainIk, _effector = ikHandle( sol='ikSplineSolver',
-            sj=stretchingChain[0],
-            ee=stretchingChain[-1],
-            ccv=False,
-            pcv=False)
-        crv.getShape().worldSpace[0] >> mainIk.inCurve
-    
-    hide(mainIk)
-    mainIk.rename( simpleName(start, "{0}_ikHandle") )
-    crv.rename( simpleName(start, "{0}_curve") )
-        
-    if not name:
-        name = trimName(start)
+def midOrient(a, b):
 
-    if name.count(' '):
-        name, endName = name.split()
-    else:
-        endName = ''
+    aMatrix = xform(a, q=True, ws=True, m=True)
+    bMatrix = xform(b, q=True, ws=True, m=True)
     
-    # Only add a tipBend cv if number of cvs was specified.
-    if tipBend and isinstance( controlCountOrCrv, int ):
-        currentTrans = [ xform(cv, q=True, ws=True, t=True) for cv in crv.cv ]
-        insertKnotCurve( crv.u[1], nk=1, add=False, ib=False, rpo=True, cos=True, ch=True)
-        for pos, cv in zip(currentTrans, crv.cv[:-2]):
-            xform( cv, ws=True, t=pos )
+    xMid = midVector(aMatrix[:3], bMatrix[:3])
+    yMid = midVector(aMatrix[4:7], bMatrix[4:7])
+    zMid = midVector(aMatrix[8:11], bMatrix[8:11])
     
-        xform( crv.cv[-2], ws=True, t=xform(end.getParent(), q=True, ws=True, t=True) )
-        xform( crv.cv[-1], ws=True, t=currentTrans[-1] )
-        
-    # Only add a sourceBend cv if number of cvs was specified.
-    if sourceBend and isinstance( controlCountOrCrv, int ):
-        currentTrans = [ xform(cv, q=True, ws=True, t=True) for cv in crv.cv ]
-        insertKnotCurve( crv.u[1.2], nk=1, add=False, ib=False, rpo=True, cos=True, ch=True)  # I honestly don't know why, but 1.2 must be different than 1.0
-        for pos, cv in zip(currentTrans[1:], crv.cv[2:]):
-            xform( cv, ws=True, t=pos )
-    
-        xform( crv.cv[0], ws=True, t=currentTrans[0] )
-        xform( crv.cv[1], ws=True, t=xform(stretchingChain[1], q=True, ws=True, t=True) )
-    
-    grp = group(em=True, p=lib.getNodes.mainGroup(), n=start.name() + "_splineTwist")
-    
-    controls = addControlsToCurve(name + 'Ctrl', crv, controlSpec['main'])
-    for ctrl in controls:
-        core.dagObj.zero(ctrl).setParent( grp )
-
-    if endName:
-        controls[-1].rename(endName + 'Ctrl')
-
-    if matchOrient:
-        trueZeroSetup(start, controls[0])
-        trueZeroSetup(end, controls[-1])
-
-    if tipBend:
-        if useLeadOrient and not matchOrient:
-            controls[-1].setRotation( end.getRotation(space='world'), space='world' )
-        
-        parent( controls[-2].getChildren(), controls[-1] )
-        name = controls[-2].name()
-        delete( core.dagObj.zero(controls[-2]) )
-
-        if not endName:
-            controls[-1].rename(name)
-        controls[-2] = controls[-1]
-        controls.pop()
-        #core.dagObj.zero(controls[-2]).setParent(controls[-1])
-        #channels = [t + a for t in 'trs' for a in 'xyz']
-        #for channel in channels:
-        #    controls[-2].attr( channel ).setKeyable(False)
-        #    controls[-2].attr( channel ).lock()
-           
-    if sourceBend:
-        names = []
-        
-        for ctrl in controls[1:-1]:
-            names.append( ctrl.name() )
-            ctrl.rename( '__temp' )
-        
-        endNum = -1 if endName else None
-        for name, cur in zip(names, controls[2:endNum] ):
-            cur.rename(name)
-            
-        if useLeadOrient and not matchOrient:
-            controls[0].setRotation( start.getRotation(space='world'), space='world' )
-            
-        parent( controls[1].getChildren(), controls[0] )
-        delete( core.dagObj.zero(controls[1]) )
-        
-        del controls[1]
-        
-    controls[0] = nodeApi.RigController.convert(controls[0])
-    controls[0].container = grp
-    
-    stretchAttr, jointLenMultiplier = makeStretchySpline(controls[0], mainIk)
-        
-    connectingCurve = addConnectingCurve(controls)
-    controls[0].visibility >> connectingCurve.visibility
-    
-    # Make twist for everything but hide them all and drive the ones that overlap
-    # with spline controllers by the spline control.
-    if not twistInfDist:
-        numJoints = countJoints(start, end)
-        twistInfDist = int(math.ceil( numJoints - len(controls) ) / float(len(controls) - 1))
-        twistInfDist = max(1, twistInfDist)
-    
-    noInherit = group(em=True, p=grp, n='NoInheritTransform')
-    lockTrans(noInherit)
-    lockRot(noInherit)
-    lockScale(noInherit)
-    noInherit.inheritsTransform.set(False)
-    noInherit.inheritsTransform.lock()
-
-    # &&& If simplify curve is ON, the last joint gets constrained to the spinner?
-    # Otherwise it gets constrained to the offset or stretch joint, which I think is correct.
-    
-    if allowOffset:
-        # If allowOffset, make another chain to handle the difference in joint positions.
-        offsetChain = dupChain( start, end, '{0}_offset' )
-
-        offsetChain[0].setParent(noInherit)
-        hide(offsetChain[0])
-        twists, constraints = addTwistControls( offsetChain, start, end, twistInfDist)
-        finalRigJoint = offsetChain[-1]
-    else:
-        twists, constraints = addTwistControls( stretchingChain, start, end, twistInfDist )
-        finalRigJoint = stretchingChain[-1]
-    
-    # Constrain the end to the last controller so it doesn't pop off at all,
-    # but still respect the stretch attr.
-    pointConstraint(finalRigJoint, end, e=True, rm=True)
-    
-    # Make a proxy that can allows respecting stretch being active or not.
-    endProxy = duplicate(end, po=True)[0]
-    endProxy.rename('endProxy')
-    hide(endProxy)
-    endProxy.setParent(grp)
-    
-    stretchAttr >> core.constraints.pointConst( controls[-1], endProxy, mo=True )
-    core.math.opposite(stretchAttr) >> core.constraints.pointConst( finalRigJoint, endProxy )
-    constraints.point >> core.constraints.pointConst( endProxy, end )
-    
-    hide(twists)
-    
-    numControls = len(controls)
-    numTwists = len(twists)
-    for i, ctrl in enumerate(controls):
-        index = int(round( i * ((numTwists - 1) / (numControls - 1)) ))
-        drive( ctrl, 'twist', twists[index].attr('r' + jointAxis) )
-        space.add( ctrl, start.getParent(), 'local' )
-    
-    parents = [start.getParent()] + controls[:-1]
-    
-    stretchingChain[0].setParent(noInherit)
-    crv.setParent(noInherit)
-    hide(crv, stretchingChain[0])
-    connectingCurve.setParent( noInherit )
-    
-    mainIk.setParent(grp)
-    
-    # Do not want to scale but let rotate for "fk-like" space mode
-    for ctrl, _parent in zip(controls, parents):
-        lockScale( ctrl )
-        
-        if useLeadOrient:
-            ctrl.setRotation( start.getRotation(space='world'), space='world' )
-            core.dagObj.zero(ctrl)
-        
-        space.addWorld(ctrl)
-        space.add( ctrl, _parent, 'parent')
-    
-    for i, ctrl in enumerate(controls[1:]):
-        controls[0].subControl[str(i)] = ctrl
-    
-    # Must constrain AFTER controls (possibly) get orientd
-    orientConstraint( controls[-1], finalRigJoint, mo=True )
-
-    # Setup advanced twist
-    if twistStyle == TwistStyle.ADVANCED:
-        # &&& Test using advancedTwist() to replace the code beloew
-        advancedTwist(stretchingChain[0], stretchingChain[1], controls[0], controls[-1], mainIk)
-        '''
-        startAxis = duplicate( start, po=True )[0]
-        startAxis.rename( 'startAxis' )
-        startAxis.setParent( controls[0] )
-        
-        endAxis = duplicate( start, po=True )[0]
-        endAxis.rename( 'endAxis' )
-        endAxis.setParent( controls[-1] )
-        endAxis.t.set(0, 0, 0)
-        
-        mainIk.dTwistControlEnable.set(1)
-        mainIk.dWorldUpType.set(4)
-        startAxis.worldMatrix[0] >> mainIk.dWorldUpMatrix
-        endAxis.worldMatrix[0] >> mainIk.dWorldUpMatrixEnd
-        
-        hide(startAxis, endAxis)
-        '''
-    else:
-        if twistStyle == TwistStyle.X:
-            controls[-1].rx >> mainIk.twist
-        elif twistStyle == TwistStyle.NEG_X:
-            core.math.multiply(controls[-1].rx, -1.0) >> mainIk.twist
-            
-        elif twistStyle == TwistStyle.Y:
-            controls[-1].ry >> mainIk.twist
-        elif twistStyle == TwistStyle.NEG_Y:
-            core.math.multiply(controls[-1].ry, -1.0) >> mainIk.twist
-            
-        elif twistStyle == TwistStyle.Z:
-            controls[-1].rz >> mainIk.twist
-        elif twistStyle == TwistStyle.NEG_Z:
-            core.math.multiply(controls[-1].rz, -1.0) >> mainIk.twist
-        
-        # To make .twist work, the chain needs to follow parent joint
-        follow = group(em=True, p=grp)
-        target = start.getParent()
-        core.dagObj.matchTo(follow, stretchingChain[0])
-        parentConstraint( target, follow, mo=1 )
-        follow.rename(target + '_follow')
-        stretchingChain[0].setParent(follow)
-        
-    # Constraint the offset (if exists) to the stretch last to account for any adjustments.
-    if allowOffset:
-        constrainAtoB(offsetChain[:-1], stretchingChain[:-1])
-        pointConstraint(stretchingChain[-1], offsetChain[-1], mo=True)
-
-    return controls[0], constraints
+    return xMid, yMid, zMid
 
 
+def tempComp(o, a, b):
+    x, y, z = midOrient(a, b)
+    
+    m = xform(o, q=1, ws=1, m=1)
+    
+    print( x.distanceTo(m[:3]), y.distanceTo(m[4:7], z.distanceTo(m[8:11])) )
+    
+    
+def midOrient2(a, b):
+
+    aMatrix = xform(a, q=True, ws=True, m=True)
+    bMatrix = xform(b, q=True, ws=True, m=True)
+    
+    xMid = midVector(aMatrix[:3], bMatrix[:3]).normal()
+    yMid = midVector(aMatrix[4:7], bMatrix[4:7]).normal()
+    zMid = xMid.cross(yMid).normal()
+    yMid = zMid.cross(xMid).normal()
+    return xMid, yMid, zMid
+
+"""
 @adds()
 @defaultspec( {'shape': 'box',    'size': 10, 'color': 'blue 0.22'} )
 def chainedIk(start, end, driveChain, handleInfo, splineOptions={}, controlSpec={}):
@@ -2444,7 +1962,4 @@ def chainedIk(start, end, driveChain, handleInfo, splineOptions={}, controlSpec=
     parentConstraint( mainCtrl, controlChain[0], mo=True)
     
     return mainCtrl, constraints
-
-
-
-
+"""

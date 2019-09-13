@@ -6,14 +6,16 @@ import math
 
 import maya.OpenMaya
 
-from pymel.core import aimConstraint, addAttr, arclen, createNode, delete, duplicate, dt, group, hide, \
-    orientConstraint, parentConstraint, pointConstraint, scaleConstraint, upAxis, warning, xform
+from pymel.core import aimConstraint, addAttr, arclen, cluster, createNode, delete, duplicate, dt, group, hide, \
+    orientConstraint, parentConstraint, pointConstraint, scaleConstraint, selected, upAxis, warning, xform
 
 from ....add import simpleName
 from .... import core
 from .... import lib
 
 from .. import log
+
+from .. import controllerShape
 
 
 ConstraintResults = collections.namedtuple( 'ConstraintResults', 'point orient' )
@@ -232,11 +234,11 @@ def chainMeasure(joints):
     for i, j in enumerate(joints[1:]):
         j.tx >> n.input1D[i]
     
-    l = chainLength(joints)
+    cl = chainLength(joints)
     if n.output1D.get() < 0:
-        l *= -1
+        cl *= -1
     
-    return core.math.divide( n.output1D, l)
+    return core.math.divide( n.output1D, cl)
 
 
 def findChild(chain, target):
@@ -599,8 +601,6 @@ def calcOutVector(start, middle, end):
     return outFromKnee
     
 
-
-
 # -----------------------
 
 
@@ -819,3 +819,29 @@ def driveConstraints(srcConstraintResult, destConstraintResult):
     
     srcConstraintResult.point >> destConstraintResult.point
     srcConstraintResult.orient >> destConstraintResult.orient
+
+
+    
+def addControlsToCurve(name, crv=None,
+    spec={'shape': 'sphere', 'size': 10, 'color': 'blue 0.22'} ):  # noqa e128
+    '''
+    Given a curve, make a control sphere at each CV.
+    
+    :return: List of newly made controls.
+    '''
+    if not crv:
+        crv = selected()[0]
+
+    controls = []
+        
+    for i, cv in enumerate(crv.cv):
+        #l = control.sphere( '{0}{1:0>2}'.format( name, i+1), size, 'blue', type=control.SPLINE )
+        shape = controllerShape.build('{0}{1:0>2}'.format(name, i + 1), spec, type=controllerShape.ControlType.SPLINE)
+        
+        core.dagObj.moveTo( shape, cv )
+        handle = cluster(cv)[1]
+        handle.setParent(shape)
+        hide(handle)
+        controls.append(shape)
+
+    return controls

@@ -41,14 +41,14 @@ class JointLister(QtWidgets.QTableWidget):
     class FORCE_UPDATE:
         pass
     
-    def setup(self):
+    def setup(self, scale=1.0):
         '''
         Since the widget is really built in the setupUi() call, some gui editing
         work must happen afterwards (adjusting the columns).  Other things could
         be done in __init__ but might as well do it all in one place.
         '''
         for i, cw in enumerate(self.jointListerColumnWidths):
-            self.setColumnWidth(i, cw)
+            self.setColumnWidth(i, cw * scale)
         
         self.joints = []
         

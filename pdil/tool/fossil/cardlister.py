@@ -52,9 +52,14 @@ class CardRow(QtWidgets.QTreeWidgetItem):
     def rigTypeChanged(self, index):
         #print( self.options[index], self.card )
         rigData = self.card.rigData
-        rigData['rigCmd'] = self.options[index]
+        
+        if self.options[index] == '-':
+            del rigData['rigCmd']
+        else:
+            rigData['rigCmd'] = self.options[index]
+            
         self.card.rigData = rigData
-    
+
     
     def mirrorChanged(self, index):
         print( self.mirrorOptions[index], self.card )
@@ -224,6 +229,9 @@ def cardHierarchy():
     
     mirrored = {}
     
+    # Also track parent and their children so we can lookup to add asymetrically made cards to child list
+    parentCardsListed = {}
+    
     for card in core.findNode.allCards():
         if not card.parentCard:
             
@@ -241,6 +249,7 @@ def cardHierarchy():
             #ordered.append( card)
             children = card.childrenCards
             parentCards.append( [card, children] )
+            parentCardsListed[card] = children
             gatherChildren(children)
             
     gatherChildren(parentCards[0][1])
@@ -248,7 +257,16 @@ def cardHierarchy():
     for card in mirrored:
         gatherChildren([card])
     
+        # &&& Worried about the code sprawl due to how "parent" has changed over time.  Should .parentCard already handle this case?
+        parentCard = card.parentCardJoint.card
+        if parentCard:
+            parentCardsListed[parentCard].append( card )
+        else:
+            raise Exception('How did this happen? {} has mirrored side set but no discernable parent'.format(card) )
+    
+    
     return parentCards
+
 
 
 class CardLister(QtWidgets.QTreeWidget):
@@ -257,14 +275,17 @@ class CardLister(QtWidgets.QTreeWidget):
     
     namesChanged = Signal()
     
-    def setup(self):
+    def setup(self, scale=1.0):
         '''
         Since the widget is really built in the setupUi() call, some gui editing
         work must happen afterwards (adjusting the columns).  Other things could
         be done in __init__ but might as well do it all in one place.
+        
+        Args:
+            scale: Compensation since table column widths are in pixels.
         '''
         for i, cw in enumerate(self.cardListerColumnWidths):
-            self.setColumnWidth(i, cw)
+            self.setColumnWidth(i, cw * scale)
         
         self.itemClicked.connect(self.cardListerItemClicked)
         self.itemChanged.connect(self.newDataEntered)

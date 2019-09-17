@@ -8,5 +8,6 @@ from .rigging import foot # noqa
 from .rigging import freeform # noqa
 from .rigging import splineChest # noqa
 from .rigging import splineNeck # noqa
+from .rigging import splineTwist # noqa
 from .rigging import squashStretch # noqa
 from .rigging import surfaceFollow # noqa

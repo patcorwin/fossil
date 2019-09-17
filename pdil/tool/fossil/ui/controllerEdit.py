@@ -1,8 +1,12 @@
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import, division, print_function
 
+from functools import partial
 import json
+import math
 import os
 import traceback
+
+import PySide2
 
 from pymel.core import Callback, colorEditor, colorIndex, columnLayout, objectType, NurbsCurveCV
 from pymel.core import palettePort, PyNode, rotate, select, selected, selectedNodes, setParent, warning
@@ -32,71 +36,71 @@ class ShapeEditor(object):
 
     def __init__(self, source):
         self.window = source
-        self.ui = source.ui
+        self.source = source.ui
 
         # Not sure this is actually needed yet so keep it hidden.
-        self.ui.controlCardList.hide()
+        self.controlCardList.hide()
         
         if not SHAPE_DEBUG:
-            self.ui.shapeDebug.hide()
+            self.shapeDebug.hide()
             
-        self.buildShapeMenu()
-
-        self.ui.surfaceColorLayout.setObjectName(self.SURFACE_NAME)
-        setParent( self.SURFACE_NAME )
-        self.surfaceColorer = SurfaceColorEditor()
-
-
-        self.ui.curveColorLayout.setObjectName( self.CURVE_NAME )
-        setParent( self.CURVE_NAME )
-        self.curveColorer = CurveColorEditor()
-        
         self.hookupSignals()
+        self.buildShapeMenu(source.scaleFactor)
+        
+        #self.surfaceColorLayout.setObjectName(self.SURFACE_NAME)
+        
+        #setParent( self.SURFACE_NAME )
+        self.surfaceColorer = SurfaceColorEditor(self.source.surfaceColorGrid)
+        
+        self.curveColorer = CurveColorEditor(self.source.curveColorGrid)
         
         self.refresh()
+        """
+        self.curveColorLayout.setObjectName( self.CURVE_NAME )
+        setParent( self.CURVE_NAME )
+        
+        
         self.refreshCardList()
+        """
 
 
-    #def __getattr__(self, name):
-    #    return getattr( self.source, name)
+    def __getattr__(self, name):
+        return getattr( self.source, name)
 
     
     def hookupSignals(self):
         # Scaling
-        self.ui.minus_one.clicked.connect( Callback(self.scaleCvs, 0.99) )
-        self.ui.minus_ten.clicked.connect( Callback(self.scaleCvs, 0.90) )
-        self.ui.plus_ten.clicked.connect( Callback(self.scaleCvs, 1.10) )
-        self.ui.plus_one.clicked.connect( Callback(self.scaleCvs, 1.01) )
+        self.minus_one.clicked.connect( Callback(self.scaleCvs, 0.99) )
+        self.minus_ten.clicked.connect( Callback(self.scaleCvs, 0.90) )
+        self.plus_ten.clicked.connect( Callback(self.scaleCvs, 1.10) )
+        self.plus_one.clicked.connect( Callback(self.scaleCvs, 1.01) )
         
         # Rotating
-        self.ui.rot_local_x.clicked.connect( Callback(self.rotate, 'x', 45, 'local') )
-        self.ui.rot_local_y.clicked.connect( Callback(self.rotate, 'y', 45, 'local') )
-        self.ui.rot_local_z.clicked.connect( Callback(self.rotate, 'z', 45, 'local') )
-        self.ui.rot_world_x.clicked.connect( Callback(self.rotate, 'x', 45, 'world') )
-        self.ui.rot_world_y.clicked.connect( Callback(self.rotate, 'y', 45, 'world') )
-        self.ui.rot_world_z.clicked.connect( Callback(self.rotate, 'z', 45, 'world') )
+        self.rot_local_x.clicked.connect( Callback(self.rotate, 'x', 45, 'local') )
+        self.rot_local_y.clicked.connect( Callback(self.rotate, 'y', 45, 'local') )
+        self.rot_local_z.clicked.connect( Callback(self.rotate, 'z', 45, 'local') )
+        self.rot_world_x.clicked.connect( Callback(self.rotate, 'x', 45, 'world') )
+        self.rot_world_y.clicked.connect( Callback(self.rotate, 'y', 45, 'world') )
+        self.rot_world_z.clicked.connect( Callback(self.rotate, 'z', 45, 'world') )
         
         # Selecting
-        self.ui.select_cvs.clicked.connect( Callback(self.selectCVs) )
-        self.ui.select_pin_head.clicked.connect( Callback(self.selectPinHead) )
-        self.ui.select_band_edge_1.clicked.connect( Callback(self.bandEdge, 1))
-        self.ui.select_band_edge_2.clicked.connect( Callback(self.bandEdge, 2))
+        self.select_cvs.clicked.connect( Callback(self.selectCVs) )
+        self.select_pin_head.clicked.connect( Callback(self.selectPinHead) )
+        self.select_band_edge_1.clicked.connect( Callback(self.bandEdge, 1))
+        self.select_band_edge_2.clicked.connect( Callback(self.bandEdge, 2))
         
         
         # Shapes
-        self.ui.copyShapes.clicked.connect( Callback(self.transferShape) )
-        self.ui.mirrorShapes.clicked.connect( Callback(self.transferShape, mirror=True) )
-        self.ui.mirrorSide.clicked.connect( Callback(lambda: mirrorAllKinematicShapes(selected()[0])) )
+        self.copyShapes.clicked.connect( Callback(self.transferShape) )
+        self.mirrorShapes.clicked.connect( Callback(self.transferShape, mirror=True) )
+        self.mirrorSide.clicked.connect( Callback(lambda: mirrorAllKinematicShapes(selected()[0])) )
         
         #self.mirrorSide.setContextMenuPolicy(Qt.QtCore.Qt.CustomContextMenu)
         #self.mirrorSide.customContextMenuRequested.connect(self.XXXcontextMenuEvent)
         
-        self.ui.copyToCBBtn.clicked.connect( Callback(self.copyToClipboad) )
-        self.ui.pasteLocalBtn.clicked.connect( Callback(self.pasteFromCliboard, 'os') )
-        self.ui.pasteWorldBtn.clicked.connect( Callback(self.pasteFromCliboard, 'ws') )
-        
-        self.ui.identifySurfaceColor.clicked.connect( Callback(self.surfaceColorer.findColor) )
-        
+        self.copyToCBBtn.clicked.connect( Callback(self.copyToClipboad) )
+        self.pasteLocalBtn.clicked.connect( Callback(self.pasteFromCliboard, 'os') )
+        self.pasteWorldBtn.clicked.connect( Callback(self.pasteFromCliboard, 'ws') )
         
     def copyToClipboad(self):
         try:
@@ -238,19 +242,23 @@ class ShapeEditor(object):
             select(sel)
     
     
-    def buildShapeMenu(self):
+    def buildShapeMenu(self, scale):
                 
         shapeFolder = os.path.dirname( __file__ ).replace('\\', '/') + '/shapes'
         
         shapeNames = controllerShape.listShapes()
         
+        """
+        Old way had transparent background, but didn't scale the icons if the monitor had a scale set.  New version
+        does at the sacrifice of transparent background
+        
         temp_style = []
-        template = "QPushButton#%s { background-image: url('%s'); border: none; }"  # padding: 0; margin: 0;
+        template = "QPushButton#%s { background-image: url('%s'); border: none; width: 90; height: 90;}"  # padding: 0; margin: 0;
         for name in shapeNames:
             temp_style.append( template % (name, shapeFolder + '/' + name + '.png') )
         
         self.window.setStyleSheet( '\n'.join(temp_style) )
-        
+        """
         row = 0
         col = 0
 
@@ -259,13 +267,24 @@ class ShapeEditor(object):
                 shapeName = f[:-4]
                 if shapeName in shapeNames:
                     button = Qt.QtWidgets.QPushButton()
-                    button.setFixedSize(64, 64)
+                    button.setFixedSize(64 * scale, 64 * scale)
                     
-                    button.setObjectName(f[:-4])
+                    #button.setObjectName(f[:-4])
+                    
+                    img = PySide2.QtGui.QPixmap(shapeFolder + '/' + f)
+                    img = img.scaled( PySide2.QtCore.QSize( 64 * scale, 64 * scale ),
+                        PySide2.QtCore.Qt.AspectRatioMode.IgnoreAspectRatio,
+                        PySide2.QtCore.Qt.TransformationMode.SmoothTransformation )
+
+                    button.setFlat(True)
+                    button.setAutoFillBackground(True)
+                    
+                    button.setIcon( img )
+                    button.setIconSize( img.size() )
                     
                     button.clicked.connect( Callback(self.changeShape, shapeName) )
                     
-                    self.ui.shape_chooser.addWidget(button, row, col)
+                    self.shape_chooser.addWidget(button, row, col)
                     
                     col += 1
                     if col >= self.NUM_COLS:
@@ -281,7 +300,7 @@ class ShapeEditor(object):
         return
         cards = cardlister.cardHierarchy()
 
-        cardToItem = {None: self.ui.controlCardList.invisibleRootItem()}
+        cardToItem = {None: self.controlCardList.invisibleRootItem()}
 
         for parent, children in cards:
             
@@ -317,15 +336,17 @@ class ShapeEditor(object):
                 except Exception:
                     print( traceback.format_exc() )
                 
-                self.ui.shapeDebug.setPlainText(text)
+                self.shapeDebug.setPlainText(text)
             except:
                 pass
         
 
 class SurfaceColorEditor(object):
-
-    def __init__(self):
+    WIDTH = 8.0
+    
+    def __init__(self, grid):
         self.customColor = [1.0, 1.0, 1.0]
+        """
         columnLayout(w=100, h=100)
         self.surfacePalette = palettePort(
             dim=(7, 4),
@@ -333,14 +354,30 @@ class SurfaceColorEditor(object):
             h=(4 * 20),
             td=True,
             colorEditable=False)
-        self.surfacePalette.changeCommand( core.alt.Callback(self.changeSurfaceColor) )
+        """
+        #self.surfacePalette.changeCommand( core.alt.Callback(self.changeSurfaceColor) )
         
-        self.surfacePalette.setRgbValue( [0] + self.customColor )
+        #self.surfacePalette.setRgbValue( [0] + self.customColor )
+        #for i, (name, c) in enumerate(core.shader.namedColors.items()):
+        #    self.surfacePalette.setRgbValue( [i + 1] + list(c) )
+        
         for i, (name, c) in enumerate(core.shader.namedColors.items()):
-            self.surfacePalette.setRgbValue( [i + 1] + list(c) )
+            col = i % self.WIDTH
+            row = math.floor(i / self.WIDTH)
+            
+            b = PySide2.QtWidgets.QPushButton('    ')
+            pal = b.palette()
+            pal.setColor(PySide2.QtGui.QPalette.Button, PySide2.QtGui.QColor( c[0] * 255.0, c[1] * 255.0, c[2] * 255.0 ) )
+            b.setAutoFillBackground(True)
+            b.setPalette(pal)
+            
+            b.clicked.connect( partial(self.changeSurfaceColor, i) )
+            
+            grid.addWidget( b, row, col)
+        
 
-    def changeSurfaceColor(self):
-        colorIndex = self.surfacePalette.getSetCurCell() - 1
+    def changeSurfaceColor(self, colorIndex):
+        #colorIndex = self.surfacePalette.getSetCurCell() - 1
 
         if colorIndex == -1:
             self.defineSurfaceColor()
@@ -367,34 +404,15 @@ class SurfaceColorEditor(object):
             palettePort(self.surfacePalette, e=True, redraw=True)
             return True
         return False
-    
-    def findColor(self):
-        obj = selected()
-        if not obj:
-            return
-        
-        mats = core.shader.getShaders(obj[0])
-        if not mats:
-            return
-        
-        try:
-            color = mats[0].color.get()
-        except Exception:
-            color = mats[0].outColor.get()
-        
-        try:
-            index = core.shader.namedColors.values().index(color)
-            #self.surfacePalette.getSetCurCell(index + 1)
-            palettePort(self.surfacePalette, e=True, setCurCell=index + 1)
-        except ValueError:
-            pass
 
 
 class CurveColorEditor(object):
+    WIDTH = 8
+    HEIGHT = 4
     
-    def __init__(self):
+    def __init__(self, grid):
         self._colorChangeObjs = []
-        
+        """
         columnLayout()
         self.curvePalette = palettePort(
             dim=(8, 4),
@@ -410,10 +428,26 @@ class CurveColorEditor(object):
             self.curvePalette.setRgbValue( param )
         
         self.curvePalette.setRgbValue( (0, .6, .6, .6) )
+        """
+    
+        for i in range(1, 32):
+            col = i % self.WIDTH
+            row = math.floor(i / self.WIDTH)
+            
+            b = PySide2.QtWidgets.QPushButton('    ')
+            pal = b.palette()
+            color = colorIndex(i, q=True)
+            pal.setColor(PySide2.QtGui.QPalette.Button, PySide2.QtGui.QColor( color[0] * 255.0, color[1] * 255.0, color[2] * 255.0 ) )
+            b.setAutoFillBackground(True)
+            b.setPalette(pal)
+            
+            b.clicked.connect( partial(self.changeCurveColor, i) )
+            
+            grid.addWidget( b, row, col)
     
     
-    def changeCurveColor(self):
-        colorIndex = self.curvePalette.getSetCurCell()
+    def changeCurveColor(self, colorIndex):
+        #colorIndex = self.curvePalette.getSetCurCell()
         
         select(cl=True)
 

@@ -1,171 +1,196 @@
 
-
+from ....vendor import Qt
 from .... import core
 from .. import space
 
-from pymel.core import button, Callback, columnLayout, connectControl, deleteUI, floatField, frameLayout, layout, \
-    MeshVertex, rowColumnLayout, scriptJob, select, selected, text, textFieldButtonGrp, textScrollList, warning
+from pymel.core import Callback, MeshVertex, scriptJob, select, selected, warning, promptDialog
 
 
-class SpaceLayout( object ):
-    def __init__( self ):
-        self.main = columnLayout()  # Can't use `with since parent is QT`
+def getSpaceName(prevName=''):
+    # &&& This needs to prompt for a name
+    name = ''
+    msg = 'Enter a name'
+    while not name:
+        res = promptDialog(m=msg, t='Space Name', tx=prevName, b=['Enter', 'Cancel'])
+        if res == 'Cancel':
+            return None
         
-        with rowColumnLayout(nc=2):
-            self.targets = textScrollList(nr=20, sc=Callback(self.targetSelected))
-            
-            with frameLayout(l='Multi Weights') as self.multiUI:
-                pass
+        name = promptDialog(q=True, text=True)
     
-        with rowColumnLayout(nc=2):
-            button( l='   ^   ', c=Callback(self.moveUp))
-            button( l='   v   ', c=Callback(self.moveDown))
+    return name
+
+
+def addMultiSpace():
+    sel = selected()
+    if isinstance(sel[1], MeshVertex):
+        space.rivetSpace(sel[0], sel[1], getSpaceName())
+    else:
+        space.add(sel[0], sel[1:], getSpaceName(), space.Mode.MULTI_PARENT)
+    select(sel)
+
+
+def addMultiOrientSpace():
+    sel = selected()
+    space.add(sel[0], sel[1:], getSpaceName(), space.Mode.MULTI_ORIENT)
+
+
+def addSpace(mode):
+    sel = selected()
     
-        self.name = textFieldButtonGrp(l='Custom Name', bl='Update Existing')
-        button( l='Add', c=Callback(self.addSpace, space.Mode.ROTATE_TRANSLATE) )
-        button( l='Add (Trans Only)', c=Callback(self.addSpace, space.Mode.TRANSLATE) )
-        button( l='Add ( No Rot )', c=Callback(self.addSpace, "#NOROT") )
-        button( l='Add (No Trans)', c=Callback(self.addSpace, space.ROTATE) )
-        button( l='Split Targets (pos then rot)', c=Callback(self.addSpace, space.Mode.ALT_ROTATE) )
-        button( l='Multi/Vert targets', c=Callback(self.addMultiSpace) )
-        button( l='Multi Orient', c=Callback(self.addMultiOrientSpace) )
-        text(l='')
-        button( l='Add Parent', c=Callback(self.addSpace, '#PARENT') )
-        button( l='Add World', c=Callback(self.addSpace, '#WORLD') )
-        button( l='Add True World', c=Callback(self.addSpace, '#TRUEWORLD') )
-        #button( l='Add External World (For attachments)', c=Callback(self.addSpace, '#EXTERNALWORLD') )
-        button( l='Add User Driven', c=Callback(self.addSpace, '#USER') )
-        button( l='Remove', c=Callback(self.remove) )
+    if mode == '#WORLD':
         
-        self.update()
-        scriptJob( e=('SelectionChanged', Callback(self.update)), p=self.main )
+        if sel[0].tx.isKeyable():
+            space.addWorldToTranslateable( sel[0] )
+        else:
+            space.addWorld( sel[0] )
+        
+    elif mode == '#TRUEWORLD':
+        space.addTrueWorld( sel[0] )
+    elif mode == '#EXTERNALWORLD':
+        space.addExternalWorld( sel[0] )
+    elif mode == '#PARENT':
+        
+        if sel[0].fossilCtrlType.get() in ['translate', 'rotate']:
 
-
-    def targetSelected(self):
-        sel = selected()
-        targetIndex = self.targets.getSelectIndexedItem()
-        if not targetIndex:
-            return
-        
-        i = targetIndex[0] - 1
-        
-        targets = space.getTargetInfo(sel[0])
-        targetConstraints = space._targetInfoConstraints[:]
-        
-        self.clearMultiTarget()
-        if targets[i].type in [space.Mode.MULTI_PARENT, space.Mode.MULTI_ORIENT]:
-            
-            with rowColumnLayout( nc=2, p=self.multiUI ):
-                state = space.serializeSpaces( sel[0] )[i]
-                
-                weights = targetConstraints[i].getWeightAliasList()
-                
-                for t_i, (target, val) in enumerate(zip(state['targets'], state['extra'])):
-                    text(l=target[0])  # target is a pair, name and cardpath
-                    f = floatField(v=val, min=0, max=1)
-                    connectControl( f, weights[t_i])
-                    
-    def moveUp(self):
-        sel = textScrollList( self.targets, q=True, sii=True)
-        if not sel:
-            return
-        
-        index = sel[0] - 1
-        
-        if index == 0:
-            return
-            
-        space.swap(selected()[0], index, index - 1)
-        
-        self.update()
-        textScrollList(self.targets, e=True, sii=index)  # tsl is 1-based
-        
-    def moveDown(self):
-        sel = textScrollList( self.targets, q=True, sii=True)
-        if not sel:
-            return
-        
-        index = sel[0] - 1
-        
-        if index == len(space.getNames(selected()[0])) - 1:
-            return
-            
-        space.swap(selected()[0], index, index + 1)
-        self.update()
-        textScrollList(self.targets, e=True, sii=index + 2)  # tsl is 1-based
-
-    
-    def getSpaceName(self):
-        # &&& This needs to prompt for a name
-        return self.name.getText()
-
-    def addSpace(self, mode):
-        sel = selected()
-        
-        if mode == '#WORLD':
-            
-            if sel[0].tx.isKeyable():
-                space.addWorldToTranslateable( sel[0] )
+            bindBone = core.constraints.getOrientConstrainee(sel[0])
+            if not bindBone:
+                # Handle Group cards
+                try:
+                    if sel[0].card.rigData['rigCmd']:
+                        side = sel[0].getSide()
+                        if side == 'Center':
+                            parent = sel[0].card.joints[0].parent.real
+                        elif side == 'Left':
+                            raise Exception('Left side group parent not implemented yet')
+                        elif side == 'Right':
+                            raise Exception('Right side group parent not implemented yet')
+                except:
+                    raise
             else:
-                space.addWorld( sel[0] )
-            
-        elif mode == '#TRUEWORLD':
-            space.addTrueWorld( sel[0] )
-        elif mode == '#EXTERNALWORLD':
-            space.addExternalWorld( sel[0] )
-        elif mode == '#PARENT':
-            
-            if sel[0].fossilCtrlType.get() in ['translate', 'rotate']:
+                parent = bindBone.getParent()
 
-                bindBone = core.constraints.getOrientConstrainee(sel[0])
-                if not bindBone:
-                    # Handle Group cards
-                    try:
-                        if sel[0].card.rigData['rigCmd']:
-                            side = sel[0].getSide()
-                            if side == 'Center':
-                                parent = sel[0].card.joints[0].parent.real
-                            elif side == 'Left':
-                                raise Exception('Left side group parent not implemented yet')
-                            elif side == 'Right':
-                                raise Exception('Right side group parent not implemented yet')
-                    except:
-                        raise
-                else:
-                    parent = bindBone.getParent()
+            space.add( sel[0], parent, 'parent', space.Mode.ROTATE_TRANSLATE )
+    
+    elif mode == '#NOROT':
+        # &&& Gross, need to rework this so getSpaceName() isn't duplicated with the exit.
+        name = getSpaceName()
+        if name is None:
+            return
+        space.add( sel[0], sel[1], name, space.Mode.ALT_ROTATE )
 
-                space.add( sel[0], parent, 'parent', space.Mode.ROTATE_TRANSLATE )
+    elif mode == '#USER':
+        name = getSpaceName()
+        if name is None:
+            return
+        space.addUserDriven( sel[0], name)
+
+    elif mode == space.Mode.ALT_ROTATE:
+        if len(sel) != 3:
+            warning('You must have 2 targets selected')
+            return
         
-        elif mode == '#NOROT':
-            space.add( sel[0], sel[1], self.getSpaceName(), space.Mode.ALT_ROTATE )
+        name = getSpaceName()
+        if name is None:
+            return
+        space.add(sel[0], sel[1], name, mode, rotateTarget=sel[2])
 
-        elif mode == '#USER':
-            space.addUserDriven( sel[0], self.getSpaceName())
+    else:
+        if len(sel) < 2:
+            return
+        name = getSpaceName()
+        if name is None:
+            return
+        space.add( sel[0], sel[1], name, mode )
+    select(sel)
 
-        elif mode == space.Mode.ALT_ROTATE:
-            if len(sel) != 3:
-                warning('You must have 2 targets selected')
-                return
-            
-            space.add(sel[0], sel[1], self.getSpaceName(), mode, rotateTarget=sel[2])
 
-        else:
-            if len(sel) < 2:
-                return
-            space.add( sel[0], sel[1], self.getSpaceName(), mode )
-        select(sel)
+class SpaceTab( object ):
+    
+    def __init__( self, ui ):
+        self.ui = ui
+
+        buttonDirections = [
+            ('Rename Space', self.rename, ''),
         
-    def addMultiSpace(self):
-        sel = selected()
-        if isinstance(sel[1], MeshVertex):
-            space.rivetSpace(sel[0], sel[1], self.getSpaceName())
-        else:
-            space.add(sel[0], sel[1:], self.getSpaceName(), space.Mode.MULTI_PARENT)
-            
-    def addMultiOrientSpace(self):
-        sel = selected()
-        space.add(sel[0], sel[1:], self.getSpaceName(), space.Mode.MULTI_ORIENT)
+            '---',
         
+            ('Add',                 Callback(addSpace, space.Mode.ROTATE_TRANSLATE),
+                    'Create a parent constraint'),
+            ('Add (Trans Only)',    Callback(addSpace, space.Mode.TRANSLATE),
+                    'Create a translate contstraint'),
+            ('Add ( No Rot )',      Callback(addSpace, "#NOROT"),
+                    'Follow the target as if it a parent constraint but do not inherit rotation'),
+            ('Add (No Trans)',      Callback(addSpace, space.Mode.ROTATE),
+                    'Create an orient constraint'),
+            ('Split Targets',       Callback(addSpace, space.Mode.ALT_ROTATE),
+                    'Follow the position of the first target, but the rotation of the second'),
+            ('Multi/Vert targets',  Callback(addMultiSpace),
+                    ''),
+            ('Multi Orient',        Callback(addMultiOrientSpace),
+                    ''),
+            
+            '---',
+            
+            ('Add Parent',          Callback(addSpace, '#PARENT'),
+                    'Convenience to make a space following the actual hierarchical parent'),
+            ('Add Root',            Callback(addSpace, '#WORLD'),
+                    'Convenience to follow the root node'),
+            ('Add World',           Callback(addSpace, '#TRUEWORLD'),
+                    'Convenience to stay in world space'),
+            ('Add User Driven',     Callback(addSpace, '#USER'),
+                    'Generate a special node you can constrain and manipulate any way you want'),
+            
+            '---',
+            
+            ('Remove', Callback(self.remove), ''),
+        ]
+        
+        ROW_SPN = 1
+        BTN_COL = 0
+        BTN_SPN = 1
+        
+        USAGE_COL = 1
+        USAGE_SPN = 3
+        
+        DIV_SPN = 4
+        
+        for row, (label, func, usage) in enumerate(buttonDirections):
+            if label == '-':
+                divider = Qt.QtWidgets.QLabel(self.ui.space_tab)
+                divider.setText('')
+                self.ui.spaceQuickButtons.addWidget(divider, row, BTN_COL, ROW_SPN, DIV_SPN)
+                continue
+            
+            button = Qt.QtWidgets.QPushButton(self.ui.space_tab)
+            button.setText(label)
+            button.clicked.connect( func )
+            #button.setObjectName("addSpaceButton")
+            self.ui.spaceQuickButtons.addWidget(button, row, BTN_COL, ROW_SPN, BTN_SPN)
+            
+            usageGuide = Qt.QtWidgets.QLabel(self.ui.space_tab)
+            usageGuide.setText(usage)
+            #usageGuide.setObjectName("addspaceLabel")
+            self.ui.spaceQuickButtons.addWidget(usageGuide, row, USAGE_COL, ROW_SPN, USAGE_SPN)
+            
+            #button.setText(QtCompat.translate("MainWindow", "Add", None, -1))
+            #usageGuide.setText(QtCompat.translate("MainWindow", "TextLabel", None, -1))
+
+            #self.buttons.append(newButton)
+        
+        self.ui.spaceUp.clicked.connect( self.moveUp )
+        self.ui.spaceDown.clicked.connect( self.moveDown )
+        self.ui.spaceList.currentRowChanged.connect( self.targetSelected )
+        
+        self.update()
+        
+        self.jobId = scriptJob( e=('SelectionChanged', Callback(self.update)))
+    
+    def close(self):
+        try:
+            scriptJob(kill=self.jobId)
+        except Exception:
+            pass
+            
     def remove(self):
         spaces = self.targets.getSelectItem()
         
@@ -175,20 +200,77 @@ class SpaceLayout( object ):
                     space.remove( obj, _space )
                     
         self.update()
+
+    def rename(self):
+        # Prompt the user for a new space name
+        sel = selected(type='transform')
+        if sel:
+            names = space.getNames(sel[0])
+            if names:
+                index = self.ui.spaceList.currentRow()
+                if index >= 0:
+                    newName = getSpaceName(prevName=names[index])
+                    if newName:
+                        names[index] = newName
+                        space.setNames(sel[0], names)
+                        self.update()
+
+    def moveUp(self):
+        index = self.ui.spaceList.currentRow()
+        if 0 < index < (len(space.getNames(selected()[0]))):
+            space.swap(selected()[0], index, index - 1)
+
+            self.update()
+            self.ui.spaceList.setCurrentRow(index - 1)
         
+    def moveDown(self):
+        index = self.ui.spaceList.currentRow()
+        if 0 <= index < (len(space.getNames(selected()[0])) - 1):
+            space.swap(selected()[0], index, index + 1)
+        
+            self.update()
+            self.ui.spaceList.setCurrentRow(index + 1)
+
     def update(self):
-        self.targets.removeAll()
+        ''' Refreshes the list with the spaces on the currently selected control. '''
+        self.ui.spaceList.clear()
         
         sel = selected(type='transform')
-        #self.clearMultiTarget()
+
         if sel:
             sel = sel[0]
             names = space.getNames(sel)
             if names:
-                for name in names:
-                    self.targets.append(name)
-                    
-    def clearMultiTarget(self):
-        children = layout(self.multiUI, q=True, ca=True)
-        if children:
-            deleteUI(children)
+                self.ui.spaceList.addItems(names)
+
+    def targetSelected(self, index):
+        '''
+        Updates the multi weight table when appropariate
+        
+        &&& TODO, rebuild when editing the weights.  Old version was bad and simple adjust them like causing drift.
+        '''
+        
+        self.ui.multiWeights.clearContents()
+        sel = selected()
+        
+        if index < 0 or not sel:
+            return
+        
+        targets = space.getTargetInfo(sel[0])
+        #targetConstraints = space._targetInfoConstraints[:]
+        
+        if targets[index].type in [space.Mode.MULTI_PARENT, space.Mode.MULTI_ORIENT]:
+            
+            state = space.serializeSpaces( sel[0] )[index]
+            
+            #weights = targetConstraints[index].getWeightAliasList()
+            
+            self.ui.multiWeights.setRowCount( len(state['targets']) )
+            
+            for t_i, (target, val) in enumerate(zip(state['targets'], state['extra'])):
+                
+                
+                self.ui.multiWeights.setItem(t_i, 0, Qt.QtWidgets.QTableWidgetItem(target[0])) # target is a pair, name and cardpath
+                
+                self.ui.multiWeights.setItem(t_i, 1, Qt.QtWidgets.QTableWidgetItem(str(val)))
+

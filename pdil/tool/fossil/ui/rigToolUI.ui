@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1234</width>
-    <height>1009</height>
+    <width>991</width>
+    <height>1050</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -18,7 +18,7 @@
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>2</number>
+       <number>4</number>
       </property>
       <widget class="QWidget" name="tab">
        <attribute name="title">
@@ -57,166 +57,111 @@
                  <number>0</number>
                 </property>
                 <item>
-                 <widget class="QWidget" name="widget_3" native="true">
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
+                 <layout class="QHBoxLayout" name="horizontalLayout_6">
+                  <property name="topMargin">
+                   <number>0</number>
                   </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>90</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>121</height>
-                   </size>
-                  </property>
-                  <widget class="QSpinBox" name="jointCount">
-                   <property name="geometry">
-                    <rect>
-                     <x>10</x>
-                     <y>3</y>
-                     <width>42</width>
-                     <height>22</height>
-                    </rect>
-                   </property>
-                   <property name="minimum">
-                    <number>1</number>
-                   </property>
-                  </widget>
-                  <widget class="QLineEdit" name="cardJointNames">
-                   <property name="geometry">
-                    <rect>
-                     <x>60</x>
-                     <y>3</y>
-                     <width>113</width>
-                     <height>20</height>
-                    </rect>
-                   </property>
-                  </widget>
-                  <widget class="QPushButton" name="makeCardBtn">
-                   <property name="geometry">
-                    <rect>
-                     <x>190</x>
-                     <y>3</y>
-                     <width>75</width>
-                     <height>23</height>
-                    </rect>
-                   </property>
-                   <property name="text">
-                    <string>Make Card</string>
-                   </property>
-                  </widget>
-                  <widget class="QPushButton" name="selectAllBtn">
-                   <property name="geometry">
-                    <rect>
-                     <x>10</x>
-                     <y>31</y>
-                     <width>75</width>
-                     <height>23</height>
-                    </rect>
-                   </property>
-                   <property name="text">
-                    <string>Select All</string>
-                   </property>
-                  </widget>
-                  <widget class="QPushButton" name="deleteBonesBtn">
-                   <property name="geometry">
-                    <rect>
-                     <x>90</x>
-                     <y>61</y>
-                     <width>75</width>
-                     <height>23</height>
-                    </rect>
-                   </property>
-                   <property name="text">
-                    <string>Delete Bones</string>
-                   </property>
-                  </widget>
-                  <widget class="QPushButton" name="buildBonesBtn">
-                   <property name="geometry">
-                    <rect>
-                     <x>90</x>
-                     <y>31</y>
-                     <width>75</width>
-                     <height>23</height>
-                    </rect>
-                   </property>
-                   <property name="text">
-                    <string>Build Bones</string>
-                   </property>
-                  </widget>
-                  <widget class="QPushButton" name="saveModsBtn">
-                   <property name="geometry">
-                    <rect>
-                     <x>250</x>
-                     <y>31</y>
-                     <width>75</width>
-                     <height>23</height>
-                    </rect>
-                   </property>
-                   <property name="text">
-                    <string>Save Mods</string>
-                   </property>
-                  </widget>
-                  <widget class="QPushButton" name="buildRigBtn">
-                   <property name="geometry">
-                    <rect>
-                     <x>170</x>
-                     <y>31</y>
-                     <width>75</width>
-                     <height>23</height>
-                    </rect>
-                   </property>
-                   <property name="text">
-                    <string>Build Rig</string>
-                   </property>
-                  </widget>
-                  <widget class="QPushButton" name="restoreModsBtn">
-                   <property name="geometry">
-                    <rect>
-                     <x>250</x>
-                     <y>61</y>
-                     <width>75</width>
-                     <height>23</height>
-                    </rect>
-                   </property>
-                   <property name="text">
-                    <string>Restore Mods</string>
-                   </property>
-                  </widget>
-                  <widget class="QPushButton" name="deleteRigBtn">
-                   <property name="geometry">
-                    <rect>
-                     <x>169</x>
-                     <y>61</y>
-                     <width>75</width>
-                     <height>23</height>
-                    </rect>
-                   </property>
-                   <property name="text">
-                    <string>Delete Rig</string>
-                   </property>
-                  </widget>
-                  <widget class="QPushButton" name="rebuildProxyBtn">
-                   <property name="geometry">
-                    <rect>
-                     <x>430</x>
-                     <y>3</y>
-                     <width>81</width>
-                     <height>23</height>
-                    </rect>
-                   </property>
-                   <property name="text">
-                    <string>Rebuild Proxy</string>
-                   </property>
-                  </widget>
-                 </widget>
+                  <item>
+                   <layout class="QGridLayout" name="gridLayout">
+                    <property name="bottomMargin">
+                     <number>3</number>
+                    </property>
+                    <item row="0" column="0">
+                     <widget class="QSpinBox" name="jointCount">
+                      <property name="minimum">
+                       <number>1</number>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="1" column="1">
+                     <widget class="QPushButton" name="buildBonesBtn">
+                      <property name="text">
+                       <string>Build Bones</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="1" column="2">
+                     <widget class="QPushButton" name="buildRigBtn">
+                      <property name="text">
+                       <string>Build Rig</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="0" column="1" colspan="2">
+                     <widget class="QLineEdit" name="cardJointNames"/>
+                    </item>
+                    <item row="1" column="0">
+                     <widget class="QPushButton" name="selectAllBtn">
+                      <property name="text">
+                       <string>Select All</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="2" column="2">
+                     <widget class="QPushButton" name="deleteRigBtn">
+                      <property name="text">
+                       <string>Delete Rig</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="2" column="1">
+                     <widget class="QPushButton" name="deleteBonesBtn">
+                      <property name="text">
+                       <string>Delete Bones</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="1" column="3">
+                     <widget class="QPushButton" name="saveModsBtn">
+                      <property name="text">
+                       <string>Save Mods</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="2" column="3">
+                     <widget class="QPushButton" name="restoreModsBtn">
+                      <property name="text">
+                       <string>Restore Mods</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="1" column="4">
+                     <widget class="QLabel" name="label_15">
+                      <property name="text">
+                       <string/>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="0" column="5">
+                     <widget class="QPushButton" name="makeCardBtn">
+                      <property name="text">
+                       <string>Make Card</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="0" column="6">
+                     <widget class="QPushButton" name="rebuildProxyBtn">
+                      <property name="text">
+                       <string>Rebuild Proxy</string>
+                      </property>
+                     </widget>
+                    </item>
+                   </layout>
+                  </item>
+                  <item>
+                   <spacer name="horizontalSpacer">
+                    <property name="orientation">
+                     <enum>Qt::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>40</width>
+                      <height>20</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                 </layout>
                 </item>
                 <item>
                  <widget class="CardLister" name="cardLister">
@@ -279,169 +224,115 @@
                  <number>0</number>
                 </property>
                 <item>
-                 <widget class="QWidget" name="widget_6" native="true">
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
+                 <layout class="QHBoxLayout" name="horizontalLayout_7">
+                  <property name="topMargin">
+                   <number>0</number>
                   </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>60</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>80</height>
-                   </size>
-                  </property>
-                  <widget class="QPushButton" name="duplicateCardBtn">
-                   <property name="geometry">
-                    <rect>
-                     <x>60</x>
-                     <y>2</y>
-                     <width>75</width>
-                     <height>23</height>
-                    </rect>
-                   </property>
-                   <property name="text">
-                    <string>Duplicate</string>
-                   </property>
-                  </widget>
-                  <widget class="QPushButton" name="insertJointBtn">
-                   <property name="geometry">
-                    <rect>
-                     <x>60</x>
-                     <y>32</y>
-                     <width>75</width>
-                     <height>23</height>
-                    </rect>
-                   </property>
-                   <property name="text">
-                    <string>Insert</string>
-                   </property>
-                  </widget>
-                  <widget class="QPushButton" name="addTipBtn">
-                   <property name="geometry">
-                    <rect>
-                     <x>140</x>
-                     <y>32</y>
-                     <width>75</width>
-                     <height>23</height>
-                    </rect>
-                   </property>
-                   <property name="text">
-                    <string>Add Tip</string>
-                   </property>
-                  </widget>
-                  <widget class="QPushButton" name="deleteJointBtn">
-                   <property name="geometry">
-                    <rect>
-                     <x>220</x>
-                     <y>32</y>
-                     <width>75</width>
-                     <height>23</height>
-                    </rect>
-                   </property>
-                   <property name="text">
-                    <string>Delete</string>
-                   </property>
-                  </widget>
-                  <widget class="QPushButton" name="mergeCardBtn">
-                   <property name="geometry">
-                    <rect>
-                     <x>140</x>
-                     <y>2</y>
-                     <width>75</width>
-                     <height>23</height>
-                    </rect>
-                   </property>
-                   <property name="text">
-                    <string>Merge</string>
-                   </property>
-                  </widget>
-                  <widget class="QPushButton" name="splitCardBtn">
-                   <property name="geometry">
-                    <rect>
-                     <x>220</x>
-                     <y>2</y>
-                     <width>75</width>
-                     <height>23</height>
-                    </rect>
-                   </property>
-                   <property name="text">
-                    <string>Split</string>
-                   </property>
-                  </widget>
-                  <widget class="QPushButton" name="addCardIkButton">
-                   <property name="geometry">
-                    <rect>
-                     <x>320</x>
-                     <y>2</y>
-                     <width>75</width>
-                     <height>23</height>
-                    </rect>
-                   </property>
-                   <property name="text">
-                    <string>Add Card Ik</string>
-                   </property>
-                  </widget>
-                  <widget class="QPushButton" name="remCardIkButton">
-                   <property name="geometry">
-                    <rect>
-                     <x>400</x>
-                     <y>2</y>
-                     <width>75</width>
-                     <height>23</height>
-                    </rect>
-                   </property>
-                   <property name="text">
-                    <string>Rem Card Ik</string>
-                   </property>
-                  </widget>
-                  <widget class="QLabel" name="label">
-                   <property name="geometry">
-                    <rect>
-                     <x>10</x>
-                     <y>10</y>
-                     <width>46</width>
-                     <height>13</height>
-                    </rect>
-                   </property>
-                   <property name="text">
-                    <string>Cards</string>
-                   </property>
-                  </widget>
-                  <widget class="QLabel" name="label_2">
-                   <property name="geometry">
-                    <rect>
-                     <x>10</x>
-                     <y>37</y>
-                     <width>46</width>
-                     <height>13</height>
-                    </rect>
-                   </property>
-                   <property name="text">
-                    <string>Joints</string>
-                   </property>
-                  </widget>
-                  <widget class="QPushButton" name="customUpBtn">
-                   <property name="geometry">
-                    <rect>
-                     <x>500</x>
-                     <y>30</y>
-                     <width>75</width>
-                     <height>23</height>
-                    </rect>
-                   </property>
-                   <property name="text">
-                    <string>Custom Up</string>
-                   </property>
-                  </widget>
-                 </widget>
+                  <item>
+                   <layout class="QGridLayout" name="gridLayout_2">
+                    <property name="topMargin">
+                     <number>0</number>
+                    </property>
+                    <item row="0" column="2">
+                     <widget class="QPushButton" name="mergeCardBtn">
+                      <property name="text">
+                       <string>Merge</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="0" column="0">
+                     <widget class="QLabel" name="label">
+                      <property name="text">
+                       <string>Cards</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="0" column="4">
+                     <widget class="QLabel" name="label_16">
+                      <property name="text">
+                       <string/>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="0" column="3">
+                     <widget class="QPushButton" name="splitCardBtn">
+                      <property name="text">
+                       <string>Split</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="0" column="5">
+                     <widget class="QPushButton" name="addCardIkButton">
+                      <property name="text">
+                       <string>Add Card Ik</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="1" column="0">
+                     <widget class="QLabel" name="label_2">
+                      <property name="text">
+                       <string>Joints</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="0" column="1">
+                     <widget class="QPushButton" name="duplicateCardBtn">
+                      <property name="text">
+                       <string>Duplicate</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="0" column="6">
+                     <widget class="QPushButton" name="remCardIkButton">
+                      <property name="text">
+                       <string>Rem Card Ik</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="1" column="1">
+                     <widget class="QPushButton" name="insertJointBtn">
+                      <property name="text">
+                       <string>Insert</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="1" column="2">
+                     <widget class="QPushButton" name="addTipBtn">
+                      <property name="text">
+                       <string>Add Tip</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="1" column="3">
+                     <widget class="QPushButton" name="deleteJointBtn">
+                      <property name="text">
+                       <string>Delete</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="1" column="5">
+                     <widget class="QPushButton" name="customUpBtn">
+                      <property name="text">
+                       <string>Custom Up</string>
+                      </property>
+                     </widget>
+                    </item>
+                   </layout>
+                  </item>
+                  <item>
+                   <spacer name="horizontalSpacer_2">
+                    <property name="orientation">
+                     <enum>Qt::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>40</width>
+                      <height>20</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                 </layout>
                 </item>
                 <item>
                  <widget class="JointLister" name="jointLister">
@@ -489,7 +380,7 @@
           <widget class="QWidget" name="widget_2" native="true">
            <property name="maximumSize">
             <size>
-             <width>303</width>
+             <width>403</width>
              <height>16777215</height>
             </size>
            </property>
@@ -655,539 +546,429 @@
        <attribute name="title">
         <string>Controller Edit</string>
        </attribute>
-       <widget class="QWidget" name="shape_container" native="true">
-        <property name="geometry">
-         <rect>
-          <x>10</x>
-          <y>10</y>
-          <width>331</width>
-          <height>271</height>
-         </rect>
-        </property>
-        <widget class="QLabel" name="label_5">
-         <property name="geometry">
-          <rect>
-           <x>10</x>
-           <y>10</y>
-           <width>46</width>
-           <height>13</height>
-          </rect>
-         </property>
-         <property name="text">
-          <string>Shapes</string>
-         </property>
-        </widget>
-        <widget class="QScrollArea" name="scrollArea">
-         <property name="geometry">
-          <rect>
-           <x>0</x>
-           <y>30</y>
-           <width>331</width>
-           <height>241</height>
-          </rect>
-         </property>
-         <property name="widgetResizable">
-          <bool>true</bool>
-         </property>
-         <widget class="QWidget" name="scrollAreaWidgetContents_2">
-          <property name="geometry">
-           <rect>
-            <x>0</x>
-            <y>0</y>
-            <width>329</width>
-            <height>239</height>
-           </rect>
+       <layout class="QVBoxLayout" name="verticalLayout_7">
+        <item>
+         <layout class="QVBoxLayout" name="verticalLayout_13">
+          <property name="margin">
+           <number>0</number>
           </property>
-          <layout class="QGridLayout" name="gridLayout_4">
-           <item row="0" column="0">
-            <layout class="QGridLayout" name="shape_chooser"/>
-           </item>
-          </layout>
-         </widget>
-        </widget>
-       </widget>
-       <widget class="QWidget" name="widget_10" native="true">
-        <property name="geometry">
-         <rect>
-          <x>10</x>
-          <y>490</y>
-          <width>331</width>
-          <height>191</height>
-         </rect>
-        </property>
-        <layout class="QVBoxLayout" name="verticalLayout_10">
-         <item>
-          <widget class="QLabel" name="label_9">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="text">
-            <string>Scale</string>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignCenter</set>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_3">
-           <property name="spacing">
-            <number>15</number>
-           </property>
-           <item>
-            <widget class="QPushButton" name="minus_ten">
-             <property name="text">
-              <string>-10%</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="minus_one">
-             <property name="text">
-              <string>-1%</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="plus_one">
-             <property name="text">
-              <string>+1%</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="plus_ten">
-             <property name="text">
-              <string>+10%</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item>
-          <widget class="QLabel" name="label_10">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="text">
-            <string>Rotate</string>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignBottom|Qt::AlignHCenter</set>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_4">
-           <property name="spacing">
-            <number>5</number>
-           </property>
-           <property name="leftMargin">
-            <number>0</number>
-           </property>
-           <property name="rightMargin">
-            <number>0</number>
-           </property>
-           <item>
-            <layout class="QVBoxLayout" name="verticalLayout_7">
-             <item>
-              <widget class="QLabel" name="label_6">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="text">
-                <string>Local</string>
-               </property>
-               <property name="alignment">
-                <set>Qt::AlignCenter</set>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="rot_local_x">
-               <property name="text">
-                <string>Rotate X 45</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="rot_local_y">
-               <property name="text">
-                <string>Rotate Y 45</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="rot_local_z">
-               <property name="text">
-                <string>Rotate Z 45</string>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </item>
-           <item>
-            <layout class="QVBoxLayout" name="verticalLayout_9">
-             <item>
-              <widget class="QLabel" name="label_8">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="text">
-                <string>World</string>
-               </property>
-               <property name="alignment">
-                <set>Qt::AlignCenter</set>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="rot_world_x">
-               <property name="text">
-                <string>Rotate X 45</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="rot_world_y">
-               <property name="text">
-                <string>Rotate Y 45</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="rot_world_z">
-               <property name="text">
-                <string>Rotate Z 45</string>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </item>
-          </layout>
-         </item>
-        </layout>
-       </widget>
-       <widget class="QWidget" name="widget_12" native="true">
-        <property name="geometry">
-         <rect>
-          <x>350</x>
-          <y>10</y>
-          <width>201</width>
-          <height>131</height>
-         </rect>
-        </property>
-        <widget class="QLabel" name="label_11">
-         <property name="geometry">
-          <rect>
-           <x>10</x>
-           <y>10</y>
-           <width>181</width>
-           <height>16</height>
-          </rect>
-         </property>
-         <property name="text">
-          <string>Surface Color</string>
-         </property>
-        </widget>
-        <widget class="QWidget" name="gridLayoutWidget_2">
-         <property name="geometry">
-          <rect>
-           <x>10</x>
-           <y>29</y>
-           <width>181</width>
-           <height>91</height>
-          </rect>
-         </property>
-         <layout class="QGridLayout" name="surfaceColorLayout"/>
-        </widget>
-       </widget>
-       <widget class="QWidget" name="widget_13" native="true">
-        <property name="geometry">
-         <rect>
-          <x>350</x>
-          <y>180</y>
-          <width>201</width>
-          <height>131</height>
-         </rect>
-        </property>
-        <widget class="QLabel" name="label_12">
-         <property name="geometry">
-          <rect>
-           <x>10</x>
-           <y>6</y>
-           <width>181</width>
-           <height>20</height>
-          </rect>
-         </property>
-         <property name="text">
-          <string>Curve Color</string>
-         </property>
-        </widget>
-        <widget class="QWidget" name="gridLayoutWidget_3">
-         <property name="geometry">
-          <rect>
-           <x>10</x>
-           <y>29</y>
-           <width>181</width>
-           <height>91</height>
-          </rect>
-         </property>
-         <layout class="QGridLayout" name="curveColorLayout"/>
-        </widget>
-       </widget>
-       <widget class="QWidget" name="widget_9" native="true">
-        <property name="geometry">
-         <rect>
-          <x>20</x>
-          <y>300</y>
-          <width>501</width>
-          <height>181</height>
-         </rect>
-        </property>
-        <layout class="QHBoxLayout" name="horizontalLayout_5">
-         <property name="leftMargin">
-          <number>0</number>
-         </property>
-         <property name="rightMargin">
-          <number>0</number>
-         </property>
-         <item>
-          <widget class="QWidget" name="widget_11" native="true">
-           <layout class="QVBoxLayout" name="verticalLayout_11">
-            <property name="leftMargin">
-             <number>0</number>
-            </property>
-            <property name="rightMargin">
-             <number>0</number>
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_9">
+            <property name="margin">
+             <number>25</number>
             </property>
             <item>
-             <widget class="QLabel" name="label_13">
-              <property name="text">
-               <string>Shapes</string>
+             <layout class="QVBoxLayout" name="verticalLayout_16">
+              <property name="leftMargin">
+               <number>25</number>
               </property>
-              <property name="alignment">
-               <set>Qt::AlignCenter</set>
-              </property>
-             </widget>
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_10">
+                <property name="margin">
+                 <number>0</number>
+                </property>
+                <item>
+                 <layout class="QVBoxLayout" name="verticalLayout_14">
+                  <property name="leftMargin">
+                   <number>0</number>
+                  </property>
+                  <item>
+                   <widget class="QLabel" name="label_5">
+                    <property name="text">
+                     <string>Shapes</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QScrollArea" name="scrollArea">
+                    <property name="widgetResizable">
+                     <bool>true</bool>
+                    </property>
+                    <widget class="QWidget" name="scrollAreaWidgetContents_2">
+                     <property name="geometry">
+                      <rect>
+                       <x>0</x>
+                       <y>0</y>
+                       <width>341</width>
+                       <height>97</height>
+                      </rect>
+                     </property>
+                     <layout class="QGridLayout" name="gridLayout_4">
+                      <item row="0" column="0">
+                       <layout class="QGridLayout" name="shape_chooser"/>
+                      </item>
+                     </layout>
+                    </widget>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+                <item>
+                 <layout class="QVBoxLayout" name="verticalLayout_15">
+                  <property name="leftMargin">
+                   <number>0</number>
+                  </property>
+                  <item>
+                   <widget class="QLabel" name="label_11">
+                    <property name="text">
+                     <string>Surface Color</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <layout class="QGridLayout" name="surfaceColorGrid"/>
+                  </item>
+                  <item>
+                   <layout class="QGridLayout" name="surfaceColorLayout">
+                    <property name="bottomMargin">
+                     <number>55</number>
+                    </property>
+                   </layout>
+                  </item>
+                  <item>
+                   <widget class="QLabel" name="label_12">
+                    <property name="text">
+                     <string>Curve Color</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <layout class="QGridLayout" name="curveColorGrid"/>
+                  </item>
+                  <item>
+                   <layout class="QGridLayout" name="curveColorLayout"/>
+                  </item>
+                 </layout>
+                </item>
+               </layout>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_3">
+                <property name="topMargin">
+                 <number>0</number>
+                </property>
+                <item>
+                 <layout class="QVBoxLayout" name="verticalLayout_8">
+                  <property name="topMargin">
+                   <number>0</number>
+                  </property>
+                  <property name="bottomMargin">
+                   <number>0</number>
+                  </property>
+                  <item>
+                   <layout class="QGridLayout" name="gridLayout_3">
+                    <property name="topMargin">
+                     <number>0</number>
+                    </property>
+                    <item row="0" column="0">
+                     <widget class="QLabel" name="label_13">
+                      <property name="text">
+                       <string>Shapes</string>
+                      </property>
+                      <property name="alignment">
+                       <set>Qt::AlignCenter</set>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="0" column="1">
+                     <widget class="QLabel" name="label_14">
+                      <property name="text">
+                       <string>Shape Clipboard</string>
+                      </property>
+                      <property name="alignment">
+                       <set>Qt::AlignCenter</set>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="1" column="0">
+                     <widget class="QPushButton" name="copyShapes">
+                      <property name="text">
+                       <string>Copy to Second Selection</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="0" column="2">
+                     <widget class="QLabel" name="label_7">
+                      <property name="text">
+                       <string>Select CVs</string>
+                      </property>
+                      <property name="alignment">
+                       <set>Qt::AlignCenter</set>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="1" column="2">
+                     <widget class="QPushButton" name="select_cvs">
+                      <property name="text">
+                       <string>All</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="1" column="1">
+                     <widget class="QPushButton" name="copyToCBBtn">
+                      <property name="text">
+                       <string>Copy</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="2" column="1">
+                     <widget class="QPushButton" name="pasteLocalBtn">
+                      <property name="text">
+                       <string>Paste Local</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="3" column="1">
+                     <widget class="QPushButton" name="pasteWorldBtn">
+                      <property name="text">
+                       <string>Paste World</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="3" column="2">
+                     <widget class="QPushButton" name="select_band_edge_1">
+                      <property name="text">
+                       <string>Band Edge 1</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="2" column="0">
+                     <widget class="QPushButton" name="mirrorShapes">
+                      <property name="text">
+                       <string>Mirror to Selected</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="3" column="0">
+                     <widget class="QPushButton" name="mirrorSide">
+                      <property name="text">
+                       <string>Mirror All to Other Side</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="2" column="2">
+                     <widget class="QPushButton" name="select_pin_head">
+                      <property name="text">
+                       <string>Pin Head</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="4" column="2">
+                     <widget class="QPushButton" name="select_band_edge_2">
+                      <property name="text">
+                       <string>Band Edge 2</string>
+                      </property>
+                     </widget>
+                    </item>
+                   </layout>
+                  </item>
+                  <item>
+                   <widget class="QLabel" name="label_9">
+                    <property name="sizePolicy">
+                     <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+                      <horstretch>0</horstretch>
+                      <verstretch>0</verstretch>
+                     </sizepolicy>
+                    </property>
+                    <property name="text">
+                     <string>Scale</string>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignCenter</set>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <layout class="QHBoxLayout" name="horizontalLayout_11">
+                    <property name="topMargin">
+                     <number>0</number>
+                    </property>
+                    <item>
+                     <widget class="QPushButton" name="minus_ten">
+                      <property name="text">
+                       <string>-10%</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QPushButton" name="minus_one">
+                      <property name="text">
+                       <string>-1%</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QPushButton" name="plus_one">
+                      <property name="text">
+                       <string>+1%</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QPushButton" name="plus_ten">
+                      <property name="text">
+                       <string>+10%</string>
+                      </property>
+                     </widget>
+                    </item>
+                   </layout>
+                  </item>
+                  <item>
+                   <widget class="QLabel" name="label_10">
+                    <property name="sizePolicy">
+                     <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+                      <horstretch>0</horstretch>
+                      <verstretch>0</verstretch>
+                     </sizepolicy>
+                    </property>
+                    <property name="text">
+                     <string>RotateX</string>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignBottom|Qt::AlignHCenter</set>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <layout class="QGridLayout" name="gridLayout_5">
+                    <property name="topMargin">
+                     <number>0</number>
+                    </property>
+                    <item row="2" column="0">
+                     <widget class="QPushButton" name="rot_local_y">
+                      <property name="text">
+                       <string>Rotate Y 45</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="0" column="0">
+                     <widget class="QLabel" name="label_6">
+                      <property name="sizePolicy">
+                       <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+                        <horstretch>0</horstretch>
+                        <verstretch>0</verstretch>
+                       </sizepolicy>
+                      </property>
+                      <property name="text">
+                       <string>Local</string>
+                      </property>
+                      <property name="alignment">
+                       <set>Qt::AlignCenter</set>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="0" column="1">
+                     <widget class="QLabel" name="label_8">
+                      <property name="sizePolicy">
+                       <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+                        <horstretch>0</horstretch>
+                        <verstretch>0</verstretch>
+                       </sizepolicy>
+                      </property>
+                      <property name="text">
+                       <string>World</string>
+                      </property>
+                      <property name="alignment">
+                       <set>Qt::AlignCenter</set>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="1" column="1">
+                     <widget class="QPushButton" name="rot_world_x">
+                      <property name="text">
+                       <string>Rotate X 45</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="1" column="0">
+                     <widget class="QPushButton" name="rot_local_x">
+                      <property name="text">
+                       <string>Rotate X 45</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="2" column="1">
+                     <widget class="QPushButton" name="rot_world_y">
+                      <property name="text">
+                       <string>Rotate Y 45</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="3" column="0">
+                     <widget class="QPushButton" name="rot_local_z">
+                      <property name="text">
+                       <string>Rotate Z 45</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="3" column="1">
+                     <widget class="QPushButton" name="rot_world_z">
+                      <property name="text">
+                       <string>Rotate Z 45</string>
+                      </property>
+                     </widget>
+                    </item>
+                   </layout>
+                  </item>
+                 </layout>
+                </item>
+                <item>
+                 <spacer name="horizontalSpacer_3">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>40</width>
+                    <height>20</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+               </layout>
+              </item>
+             </layout>
             </item>
             <item>
-             <widget class="QPushButton" name="copyShapes">
-              <property name="text">
-               <string>Copy to Second Selection</string>
-              </property>
+             <widget class="QTreeWidget" name="controlCardList">
+              <attribute name="headerVisible">
+               <bool>false</bool>
+              </attribute>
+              <column>
+               <property name="text">
+                <string notr="true">1</string>
+               </property>
+              </column>
              </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="mirrorShapes">
-              <property name="text">
-               <string>Mirror to Selected</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="mirrorSide">
-              <property name="text">
-               <string>Mirror All to Other Side</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <spacer name="verticalSpacer_3">
-              <property name="orientation">
-               <enum>Qt::Vertical</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>20</width>
-                <height>40</height>
-               </size>
-              </property>
-             </spacer>
             </item>
            </layout>
-          </widget>
-         </item>
-         <item>
-          <widget class="QWidget" name="widget_15" native="true">
-           <layout class="QVBoxLayout" name="verticalLayout_12">
-            <property name="leftMargin">
-             <number>0</number>
+          </item>
+          <item>
+           <spacer name="verticalSpacer_2">
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
             </property>
-            <property name="rightMargin">
-             <number>0</number>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>20</width>
+              <height>40</height>
+             </size>
             </property>
-            <item>
-             <widget class="QLabel" name="label_14">
-              <property name="text">
-               <string>Shape Clipboard</string>
-              </property>
-              <property name="alignment">
-               <set>Qt::AlignCenter</set>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="copyToCBBtn">
-              <property name="text">
-               <string>Copy</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="pasteLocalBtn">
-              <property name="text">
-               <string>Paste Local</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="pasteWorldBtn">
-              <property name="text">
-               <string>Paste World</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <spacer name="verticalSpacer_4">
-              <property name="orientation">
-               <enum>Qt::Vertical</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>20</width>
-                <height>40</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-           </layout>
-          </widget>
-         </item>
-         <item>
-          <widget class="QWidget" name="widget_14" native="true">
-           <layout class="QVBoxLayout" name="verticalLayout_8">
-            <property name="leftMargin">
-             <number>0</number>
+           </spacer>
+          </item>
+          <item>
+           <widget class="QTextEdit" name="shapeDebug">
+            <property name="enabled">
+             <bool>true</bool>
             </property>
-            <property name="rightMargin">
-             <number>0</number>
+            <property name="lineWrapMode">
+             <enum>QTextEdit::NoWrap</enum>
             </property>
-            <item>
-             <widget class="QLabel" name="label_7">
-              <property name="text">
-               <string>Select CVs</string>
-              </property>
-              <property name="alignment">
-               <set>Qt::AlignCenter</set>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="select_cvs">
-              <property name="text">
-               <string>All</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="select_pin_head">
-              <property name="text">
-               <string>Pin Head</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="select_band_edge_1">
-              <property name="text">
-               <string>Band Edge 1</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="select_band_edge_2">
-              <property name="text">
-               <string>Band Edge 2</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <spacer name="verticalSpacer_2">
-              <property name="orientation">
-               <enum>Qt::Vertical</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>20</width>
-                <height>40</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-           </layout>
-          </widget>
-         </item>
-        </layout>
-       </widget>
-       <widget class="QTreeWidget" name="controlCardList">
-        <property name="geometry">
-         <rect>
-          <x>580</x>
-          <y>40</y>
-          <width>271</width>
-          <height>631</height>
-         </rect>
-        </property>
-        <attribute name="headerVisible">
-         <bool>false</bool>
-        </attribute>
-        <column>
-         <property name="text">
-          <string notr="true">1</string>
-         </property>
-        </column>
-       </widget>
-       <widget class="QTextEdit" name="shapeDebug">
-        <property name="enabled">
-         <bool>true</bool>
-        </property>
-        <property name="geometry">
-         <rect>
-          <x>10</x>
-          <y>690</y>
-          <width>841</width>
-          <height>231</height>
-         </rect>
-        </property>
-        <property name="lineWrapMode">
-         <enum>QTextEdit::NoWrap</enum>
-        </property>
-       </widget>
-       <widget class="QPushButton" name="identifySurfaceColor">
-        <property name="geometry">
-         <rect>
-          <x>360</x>
-          <y>140</y>
-          <width>181</width>
-          <height>23</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Identify Surface Color</string>
-        </property>
-       </widget>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
       </widget>
       <widget class="QWidget" name="tab_4">
        <attribute name="title">
@@ -1199,129 +980,239 @@
           <x>10</x>
           <y>10</y>
           <width>256</width>
-          <height>311</height>
+          <height>381</height>
          </rect>
         </property>
        </widget>
-       <widget class="QPushButton" name="equipVisControl">
+       <widget class="QWidget" name="verticalLayoutWidget_6">
         <property name="geometry">
          <rect>
           <x>280</x>
           <y>10</y>
-          <width>151</width>
-          <height>23</height>
+          <width>341</width>
+          <height>381</height>
          </rect>
         </property>
-        <property name="text">
-         <string>Equip Vis Control</string>
-        </property>
+        <layout class="QVBoxLayout" name="verticalLayout_9">
+         <item>
+          <widget class="QPushButton" name="unequipVisControl">
+           <property name="text">
+            <string>Unequip Vis Control</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="equipVisControl">
+           <property name="text">
+            <string>Equip Vis Control</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pruneVisGroups">
+           <property name="text">
+            <string>Prune Unused Vis Groups</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="widget_3" native="true">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>100</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>100</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="tagAsMain">
+           <property name="text">
+            <string>Tag as Main Control</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="verticalSpacer_3">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>40</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
        </widget>
-       <widget class="QPushButton" name="unequipVisControl">
-        <property name="geometry">
-         <rect>
-          <x>280</x>
-          <y>50</y>
-          <width>151</width>
-          <height>23</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Unequip Vis Control</string>
-        </property>
-       </widget>
-       <widget class="QPushButton" name="pruneVisGroups">
-        <property name="geometry">
-         <rect>
-          <x>280</x>
-          <y>90</y>
-          <width>151</width>
-          <height>23</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Prune Unused Vis Groups</string>
-        </property>
-       </widget>
-       <widget class="QLineEdit" name="visGroupNameEntry">
+       <widget class="QWidget" name="verticalLayoutWidget_7">
         <property name="geometry">
          <rect>
           <x>10</x>
-          <y>360</y>
-          <width>171</width>
-          <height>20</height>
+          <y>400</y>
+          <width>611</width>
+          <height>151</height>
          </rect>
         </property>
-       </widget>
-       <widget class="QPushButton" name="assignVisGroup">
-        <property name="geometry">
-         <rect>
-          <x>280</x>
-          <y>360</y>
-          <width>151</width>
-          <height>23</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Assign</string>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_3">
-        <property name="geometry">
-         <rect>
-          <x>11</x>
-          <y>340</y>
-          <width>251</width>
-          <height>16</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Assign to Group</string>
-        </property>
-       </widget>
-       <widget class="QSpinBox" name="groupLevel">
-        <property name="geometry">
-         <rect>
-          <x>230</x>
-          <y>360</y>
-          <width>41</width>
-          <height>21</height>
-         </rect>
-        </property>
-        <property name="minimum">
-         <number>1</number>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_4">
-        <property name="geometry">
-         <rect>
-          <x>194</x>
-          <y>362</y>
-          <width>31</width>
-          <height>16</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Level</string>
-        </property>
-       </widget>
-       <widget class="QPushButton" name="tagAsMain">
-        <property name="geometry">
-         <rect>
-          <x>280</x>
-          <y>200</y>
-          <width>151</width>
-          <height>23</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Tag as Main Control</string>
-        </property>
+        <layout class="QVBoxLayout" name="verticalLayout_10">
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="label_3">
+           <property name="text">
+            <string>Assign to Group</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_4">
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="QLineEdit" name="visGroupNameEntry"/>
+           </item>
+           <item>
+            <widget class="QLabel" name="label_4">
+             <property name="text">
+              <string>Level</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QSpinBox" name="groupLevel">
+             <property name="minimum">
+              <number>1</number>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="assignVisGroup">
+             <property name="text">
+              <string>Assign</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <spacer name="verticalSpacer_4">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>40</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
        </widget>
       </widget>
       <widget class="QWidget" name="space_tab">
        <attribute name="title">
         <string>Space</string>
        </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_17">
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_12">
+          <item>
+           <layout class="QVBoxLayout" name="verticalLayout_18">
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_5">
+              <item>
+               <layout class="QVBoxLayout" name="verticalLayout_12">
+                <item>
+                 <widget class="QListWidget" name="spaceList"/>
+                </item>
+                <item>
+                 <layout class="QHBoxLayout" name="horizontalLayout_8">
+                  <item>
+                   <widget class="QPushButton" name="spaceUp">
+                    <property name="text">
+                     <string> ^ </string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QPushButton" name="spaceDown">
+                    <property name="text">
+                     <string> v </string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+               </layout>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QGridLayout" name="spaceQuickButtons"/>
+            </item>
+            <item>
+             <widget class="QLabel" name="label_17">
+              <property name="text">
+               <string>Multi Weights editor (doesn't work just yet)</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QTableWidget" name="multiWeights">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="columnCount">
+               <number>2</number>
+              </property>
+              <attribute name="horizontalHeaderVisible">
+               <bool>false</bool>
+              </attribute>
+              <column/>
+              <column/>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer_4">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </item>
+       </layout>
       </widget>
       <widget class="QWidget" name="artist_tools">
        <attribute name="title">
@@ -1337,7 +1228,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1234</width>
+     <width>991</width>
      <height>21</height>
     </rect>
    </property>

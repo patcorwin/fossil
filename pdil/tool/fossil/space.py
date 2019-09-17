@@ -938,11 +938,11 @@ def addWorldToTranslateable(control, **kwargs):
     add(control, parent, 'world', mode=Mode.ALT_ROTATE, rotateTarget=getMainGroup())
 
 
-def addWorld(control, *args, **kwargs):
+def addWorld(control, *args, **kwargs): # &&& TODO: rename to addRoot()
     '''
-    Convenience func for adding world space, has same args as `add()`
+    Convenience func for adding root space, has same args as `add()`
     '''
-    add( control, getMainGroup(), 'world', *args, **kwargs )
+    add( control, getMainGroup(), 'root', *args, **kwargs )
 
 
 def addExternalWorld(control, *args, **kwargs):
@@ -960,7 +960,7 @@ def addTrueWorld(control, *args, **kwargs):
     '''
     Convenience func for adding world space, has same args as `add()`
     '''
-    add( control, getTrueWorld(), 'trueWorld', *args, **kwargs )
+    add( control, getTrueWorld(), 'world', *args, **kwargs )
 
 
 def addUserDriven(control, spaceName):

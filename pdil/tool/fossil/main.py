@@ -124,6 +124,9 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         
         super(RigTool, self).__init__(core.ui.mayaMainWindow())
         
+        # Not sure how else to get window's scale factor for high dpi displays
+        self.scaleFactor = self.font().pixelSize()/11.0
+
         self.ui = RigToolUI()
         self.ui.setupUi(self)
 
@@ -188,12 +191,12 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         self.visGroupProxy = _visGroup.VisGroupLayout(self.ui)
         
         # Space Tab
-        self.spaceTabLayout = Qt.QtWidgets.QVBoxLayout(self.ui.space_tab)
+        #self.spaceTabLayout = Qt.QtWidgets.QVBoxLayout(self.ui.space_tab)
         
-        self.spaceTabLayout.setObjectName( self.FOSSIL_SPACE_TAB )
-        setParent( self.FOSSIL_SPACE_TAB)
-        self.spaceTab = spacesTab.SpaceLayout()
-        
+        #self.spaceTabLayout.setObjectName( self.FOSSIL_SPACE_TAB )
+        #setParent( self.FOSSIL_SPACE_TAB)
+        #self.spaceTab = spacesTab.SpaceLayout()
+        self.spaceTab = spacesTab.SpaceTab(self.ui)
         
         # Shelf tab
         
@@ -207,14 +210,14 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         
         # Card Lister setup
         self.updateId = scriptJob( e=('SelectionChanged', core.alt.Callback(self.selectionChanged)) )
-        self.ui.cardLister.setup()
+        self.ui.cardLister.setup(self.scaleFactor)
         
         self.ui.cardLister.itemSelectionChanged.connect(self.cardListerSelection)
         
         self.ui.cardLister.cardListerRefresh(force=True)
         self.ui.cardLister.updateHighlight()
         
-        self.ui.jointLister.setup()
+        self.ui.jointLister.setup(self.scaleFactor)
         
         self.ui.cardLister.namesChanged.connect( self.ui.jointLister.jointListerRefresh )
         
@@ -249,6 +252,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         for card in cardlister.cardJointBuildOrder():
             if card in sel:
                 card.buildJoints()
+        select(sel)
     
     @staticmethod
     def buildRig():
@@ -282,6 +286,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
             for switch, value in prevValues:
                 if objExists(switch):
                     setAttr(switch, value)
+        select(cards)
 
     def closeEvent(self, event):
         #print('------  - - -  i am closing')
@@ -291,14 +296,17 @@ class RigTool(Qt.QtWidgets.QMainWindow):
                 id = self.updateId
                 self.updateId = None
                 scriptJob(kill=id)
+            
+            self.spaceTab.close()
+            
         except Exception:
             pass
         
         # Might be overkill but I'm trying to prevent new gui parenting to the old widgets
         self.artistShelfLayout.setObjectName( 'delete_me' )
-        self.spaceTabLayout.setObjectName( 'delete_me2' )
-        self.shapeEditor.curveColorLayout.setObjectName( 'delete_me3' )
-        self.shapeEditor.surfaceColorLayout.setObjectName( 'delete_me4' )
+        #self.spaceTabLayout.setObjectName( 'delete_me2' )
+#        self.shapeEditor.curveColorLayout.setObjectName( 'delete_me3' )
+#        self.shapeEditor.surfaceColorLayout.setObjectName( 'delete_me4' )
         self.startTabLayout.setObjectName('delete_me5')
         
         event.accept()

@@ -363,7 +363,7 @@ def makeStretchyNonSpline(controller, ik, stretchDefault=1):
 
     dist, grp = core.dagObj.measure(start, ik)
     grp.setParent( controller )
-    dist.setParent( ik )
+    dist.setParent( ik.getParent() )
     length = dist.distance
     
     lengthMax = chainLength(chain)

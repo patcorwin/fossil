@@ -146,7 +146,7 @@ def ikFkSwitch(name, ikRigController, ikPlugs, fkRigController, fkPlugs):
     lib.sharedShape.remove(fkRigController)
     lib.sharedShape.use(fkRigController)
     
-    attrName = name + "_Switch"
+    attrName = 'IkSwitch'
     
     if not cmds.objExists( shape + '.' + attrName ):
         cmds.addAttr( shape, longName=attrName, at='double', min=0.0, max=1.0, k=True )
@@ -191,7 +191,13 @@ def getSwitcherPlug(obj):
     shapes = cmds.listRelatives( str(obj), type='nurbsCurve', f=True)
     if shapes:
         for shape in shapes:
+            # Check for new style switch first
+            if cmds.objExists( shape + '.IkSwitch' ):
+                return shape + '.IkSwitch'
+            
+            # Fallback to old style switch
             if cmds.objExists( shape + '.kinematicSwitch' ):
+                
                 attr = cmds.listAttr(shape, ud=1, st='*_Switch')
                 return cmds.ls(shape, l=False)[0] + '.' + attr[0] # noqa
     return ''

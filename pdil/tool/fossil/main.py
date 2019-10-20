@@ -69,19 +69,19 @@ class RigTool(Qt.QtWidgets.QMainWindow):
     FOSSIL_ARTIST_TOOLS = 'Fossil_RigTool_ToolsTab'
     FOSSIL_SPACE_TAB = 'Fossil_RigTool_SpacedTab'
     
-    settings = core.ui.Settings( "Skeleton Tool Settings",
+    settings = core.ui.Settings( 'Skeleton Tool Settings',
         {
-            "spineCount": 5,
-            "fingerCount": 4,
-            "thumb": True,
-            "spineOrient": "Vertical",
-            "legType": "Human",
-            "tabIndex": 1,  # 1-base
-            'panels': [75, 75, 25, 100, 75, 25],
-            'rebuildMode': 'Use Current Shapes',
+            #'spineCount': 5,
+            #'fingerCount': 4,
+            #'thumb': True,
+            #'spineOrient': 'Vertical',
+            #'legType': 'Human',
+            'currentTabIndex': 1,  # 1-base
+            #'panels': [75, 75, 25, 100, 75, 25],
+            #'rebuildMode': 'Use Current Shapes',
 
-            'closedControlFrame': False,
-            'closeDebugFrame': True,
+            #'closedControlFrame': False,
+            #'closeDebugFrame': True,
         })
     
     @staticmethod
@@ -229,6 +229,11 @@ class RigTool(Qt.QtWidgets.QMainWindow):
     
         self.uiActive = True
         self._uiActiveStack = []
+        
+        self.ui.tabWidget.setCurrentIndex(self.settings['currentTabIndex'])
+        
+        if 'geometry' in self.settings:
+            core.ui.setGeometry( self, self.settings['geometry'] )
     
     def noUiUpdate(self):
         self._uiActiveStack.append( self.uiActive )
@@ -298,6 +303,9 @@ class RigTool(Qt.QtWidgets.QMainWindow):
                 scriptJob(kill=id)
             
             self.spaceTab.close()
+            
+            self.settings['geometry'] = core.ui.getGeometry(self)
+            self.settings['currentTabIndex'] = self.ui.tabWidget.currentIndex()
             
         except Exception:
             pass

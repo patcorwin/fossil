@@ -342,6 +342,9 @@ class Settings(object):
     def __setitem__(self, key, value):
         self.__setattr__(key, value)
 
+    def __contains__(self, key):
+        return key in self.__info__
+
     #--------------------------------------------------------------------------
     #   The *Setup functions set the given control the specified setting value
     #   and sets the change command to update aforementioned setting.
@@ -404,6 +407,17 @@ class Settings(object):
     def menuItemCheckboxUpdate(self, control, settingName):
         self.__info__[settingName] = not self.__info__[settingName]
         menuItem(control, e=True, cb=self.__info__[settingName])
+    
+    
+def getGeometry(qwindow):
+    # Return x, y, width, height as a list which is json serializable.
+    geo = qwindow.geometry()
+    return [geo.x(), geo.y(), geo.width(), geo.height()]
+    
+    
+def setGeometry(qwindow, geo):
+    # Takes a list from `getGeometry()`, really for symmetry more than necessity.
+    qwindow.setGeometry(*geo)
     
     
 class NagCheck(object):

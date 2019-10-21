@@ -526,6 +526,11 @@ class MetaControl(object):
             kwargs['controlSpec'].update( cls.fkControllerOptions )
             kwargs.update( sideAlteration(**fkControlSpec) )
             
+            names = card.nameList(excludeSide=True)
+            if side:
+                names = [n + settings.controlSideSuffix(side) for n in names]
+            kwargs['names'] = names
+            
             fkCtrl, fkConstraints = cls.fk( start, end, groupName=fkGroupName, **kwargs )
             
             # If ik is coming, disable fk so ik can lay cleanly on top.  Technically it shouldn't matter but sometimes it does.
@@ -552,13 +557,19 @@ class MetaControl(object):
         kwargs = cls.readIkKwargs(card, isMirroredSide, sideAlteration)
 
         name = rig.trimName(end)
-
+        
         if 'name' in kwargs and kwargs['name']:
-            if side == 'left':
-                kwargs['name'] += settings.sideSuffix('left').title()
-            elif side == 'right':
-                kwargs['name'] += settings.sideSuffix('right').title()
             name = kwargs['name']
+        else:
+            # If no name is passed in, default to the first joint's
+            name = card.nameList(excludeSide=1)[0]
+        
+        if side == 'left':
+            name += settings.controlSideSuffix('left')
+        elif side == 'right':
+            name += settings.controlSideSuffix('right')
+            
+        kwargs['name'] = name
 
         if name.count(' '):  # Hack for splineIk to have different controller names
             name = name.split()[-1]
@@ -692,7 +703,6 @@ class IkChain(MetaControl):
     @classmethod
     def readIkKwargs(cls, card, isMirroredSide, sideAlteration):
         kwargs = super(IkChain, cls).readIkKwargs(card, isMirroredSide, sideAlteration)
-        
         '''
         try:
             kwargs['twists'] = json.loads( kwargs['twists'] )

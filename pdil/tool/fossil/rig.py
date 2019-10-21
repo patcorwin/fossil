@@ -798,7 +798,7 @@ def getBPJoint(realJoint):
 
 @adds()
 @defaultspec( {'shape': 'sphere', 'color': 'orange 0.22', 'size': 10} )
-def fkChain(start, end, translatable=False, scalable=False, groupName='', controlSpec={} ):
+def fkChain(start, end, translatable=False, scalable=False, names=None, groupName='', controlSpec={} ):
     '''
     Make an FK chain between the given joints.
     
@@ -831,8 +831,12 @@ def fkChain(start, end, translatable=False, scalable=False, groupName='', contro
     validCtrl = None
     prevBPJ = None
     
-    for j in joints:
-        ctrl = controllerShape.build(   trimName(j) + "_ctrl",
+    # This should never be hit in production, fk should always specify the correct names
+    if names is None:
+        names = [trimName(j) for j in names]
+    
+    for j, name in zip(joints, names):
+        ctrl = controllerShape.build( name + "_ctrl",
                                 controlSpec['main'],
                                 type=controllerShape.ControlType.TRANSLATE if translatable else controllerShape.ControlType.ROTATE )
         controls.append( ctrl )
@@ -1611,9 +1615,9 @@ def ikChain2(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.T
     hide(controlChain)
     
     if not name:
-        name = trimName(start) + '_Ik'
+        name = trimName(start)
     
-    ctrl = controllerShape.build( name, controlSpec['main'], type=controllerShape.ControlType.IK )
+    ctrl = controllerShape.build( name + '_Ik', controlSpec['main'], type=controllerShape.ControlType.IK )
     
     container = group( n=name + '_grp' )
     container.setParent( lib.getNodes.mainGroup() )

@@ -549,12 +549,30 @@
        <layout class="QVBoxLayout" name="verticalLayout_7">
         <item>
          <layout class="QVBoxLayout" name="verticalLayout_13">
-          <property name="margin">
+          <property name="leftMargin">
+           <number>0</number>
+          </property>
+          <property name="topMargin">
+           <number>0</number>
+          </property>
+          <property name="rightMargin">
+           <number>0</number>
+          </property>
+          <property name="bottomMargin">
            <number>0</number>
           </property>
           <item>
            <layout class="QHBoxLayout" name="horizontalLayout_9">
-            <property name="margin">
+            <property name="leftMargin">
+             <number>25</number>
+            </property>
+            <property name="topMargin">
+             <number>25</number>
+            </property>
+            <property name="rightMargin">
+             <number>25</number>
+            </property>
+            <property name="bottomMargin">
              <number>25</number>
             </property>
             <item>
@@ -564,7 +582,16 @@
               </property>
               <item>
                <layout class="QHBoxLayout" name="horizontalLayout_10">
-                <property name="margin">
+                <property name="leftMargin">
+                 <number>0</number>
+                </property>
+                <property name="topMargin">
+                 <number>0</number>
+                </property>
+                <property name="rightMargin">
+                 <number>0</number>
+                </property>
+                <property name="bottomMargin">
                  <number>0</number>
                 </property>
                 <item>
@@ -589,8 +616,8 @@
                       <rect>
                        <x>0</x>
                        <y>0</y>
-                       <width>341</width>
-                       <height>97</height>
+                       <width>98</width>
+                       <height>28</height>
                       </rect>
                      </property>
                      <layout class="QGridLayout" name="gridLayout_4">
@@ -1248,7 +1275,14 @@
     <addaction name="menuVisibility"/>
     <addaction name="actionMatch_Selected_Orients"/>
    </widget>
+   <widget class="QMenu" name="menuSettings">
+    <property name="title">
+     <string>Settings</string>
+    </property>
+    <addaction name="actionNaming_Rules"/>
+   </widget>
    <addaction name="menuTools"/>
+   <addaction name="menuSettings"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionCard_Orients">
@@ -1291,6 +1325,11 @@
   <action name="actionMatch_Selected_Orients">
    <property name="text">
     <string>Match Selected Orients</string>
+   </property>
+  </action>
+  <action name="actionNaming_Rules">
+   <property name="text">
+    <string>Naming Rules</string>
    </property>
   </action>
  </widget>

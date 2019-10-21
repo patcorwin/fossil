@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'G:/Projects/_tools/_maya/fossil\pdil\tool\fossil/ui/rigToolUI.ui'
 #
-# Created: Tue Sep 17 00:22:25 2019
+# Created: Sun Oct 20 17:26:21 2019
 #      by: pyside2-uic  running on PySide2 2.0.0~alpha0
 #
 # WARNING! All changes made in this file will be lost!
@@ -265,7 +265,7 @@ class Ui_MainWindow(object):
         self.scrollArea.setWidgetResizable(True)
         self.scrollArea.setObjectName("scrollArea")
         self.scrollAreaWidgetContents_2 = QtWidgets.QWidget()
-        self.scrollAreaWidgetContents_2.setGeometry(QtCore.QRect(0, 0, 341, 97))
+        self.scrollAreaWidgetContents_2.setGeometry(QtCore.QRect(0, 0, 98, 28))
         self.scrollAreaWidgetContents_2.setObjectName("scrollAreaWidgetContents_2")
         self.gridLayout_4 = QtWidgets.QGridLayout(self.scrollAreaWidgetContents_2)
         self.gridLayout_4.setObjectName("gridLayout_4")
@@ -567,6 +567,8 @@ class Ui_MainWindow(object):
         self.menuTools.setObjectName("menuTools")
         self.menuVisibility = QtWidgets.QMenu(self.menuTools)
         self.menuVisibility.setObjectName("menuVisibility")
+        self.menuSettings = QtWidgets.QMenu(self.menubar)
+        self.menuSettings.setObjectName("menuSettings")
         MainWindow.setMenuBar(self.menubar)
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
         self.statusbar.setObjectName("statusbar")
@@ -587,13 +589,17 @@ class Ui_MainWindow(object):
         self.actionHandles.setObjectName("actionHandles")
         self.actionMatch_Selected_Orients = QtWidgets.QAction(MainWindow)
         self.actionMatch_Selected_Orients.setObjectName("actionMatch_Selected_Orients")
+        self.actionNaming_Rules = QtWidgets.QAction(MainWindow)
+        self.actionNaming_Rules.setObjectName("actionNaming_Rules")
         self.menuVisibility.addAction(self.actionCard_Orients_2)
         self.menuVisibility.addAction(self.actionConnectors)
         self.menuVisibility.addAction(self.actionHandles)
         self.menuTools.addAction(self.actionReconnect_Real_Joints)
         self.menuTools.addAction(self.menuVisibility.menuAction())
         self.menuTools.addAction(self.actionMatch_Selected_Orients)
+        self.menuSettings.addAction(self.actionNaming_Rules)
         self.menubar.addAction(self.menuTools.menuAction())
+        self.menubar.addAction(self.menuSettings.menuAction())
 
         self.retranslateUi(MainWindow)
         self.tabWidget.setCurrentIndex(4)
@@ -685,12 +691,14 @@ class Ui_MainWindow(object):
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.artist_tools), QtCompat.translate("MainWindow", "Artist Tools", None, -1))
         self.menuTools.setTitle(QtCompat.translate("MainWindow", "Tools", None, -1))
         self.menuVisibility.setTitle(QtCompat.translate("MainWindow", "Visibility", None, -1))
+        self.menuSettings.setTitle(QtCompat.translate("MainWindow", "Settings", None, -1))
         self.actionCard_Orients.setText(QtCompat.translate("MainWindow", "Card Orients", None, -1))
         self.actionReconnect_Real_Joints.setText(QtCompat.translate("MainWindow", "Reconnect Real Joints", None, -1))
         self.actionCard_Orients_2.setText(QtCompat.translate("MainWindow", "Card Orients", None, -1))
         self.actionConnectors.setText(QtCompat.translate("MainWindow", "Connectors", None, -1))
         self.actionHandles.setText(QtCompat.translate("MainWindow", "Joint Handles", None, -1))
         self.actionMatch_Selected_Orients.setText(QtCompat.translate("MainWindow", "Match Selected Orients", None, -1))
+        self.actionNaming_Rules.setText(QtCompat.translate("MainWindow", "Naming Rules", None, -1))
 
 from pdil.tool.fossil.cardlister import CardLister
 from pdil.tool.fossil.cardparams import CardParams

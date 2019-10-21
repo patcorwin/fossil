@@ -629,7 +629,7 @@ class Card(nt.Transform):
         # fallback to returing the first joint.
         return self.joints[0]
         
-    def nameList(self, usePrefix=True, mirroredSide=False):
+    def nameList(self, usePrefix=True, mirroredSide=False, excludeSide=False):
         '''
         Returns a list of names for the joints that will be made, helpers are skipped.
         New version with definable repeating areas.
@@ -645,11 +645,11 @@ class Card(nt.Transform):
                 mirrorCode = mirrorSrc.rigData.get('mirrorCode', '')
                 #card_log.debug('Mirror inherited on {} = {}'.format(self, mirrorCode))
         
-        if mirrorCode:
+        if mirrorCode and not excludeSide:
             if mirroredSide:
-                suffix = settings.sideSuffix( settings.otherSideCode(mirrorCode) )
+                suffix = settings.jointSideSuffix( settings.otherSideCode(mirrorCode) )
             else:
-                suffix = settings.sideSuffix( mirrorCode )
+                suffix = settings.jointSideSuffix( mirrorCode )
         else:
             suffix = ''
         

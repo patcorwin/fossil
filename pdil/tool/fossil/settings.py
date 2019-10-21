@@ -3,6 +3,8 @@ The thinking was other languages/setups could use other short and long words so
 you edit `sides`
 '''
 
+from ... import core
+
 #from ...vendor.enum import Enum # When maya get python 3, the stdlib can replace this.
 
 # Joints are optionally prefixed with this string.  This can be helpful to avoid
@@ -36,13 +38,28 @@ trace out the code.  I super dig this idea right now.
     'right': ('r', 'Right')
 }"""
 
+_settings = core.ui.Settings( 'Skeleton Tool Settings',
+    {
+        'joint_left':  'L',
+        'joint_right': 'R',
+        
+        'control_left':  'L',
+        'control_right': 'R',
+    }
+)
 
-SIDE_CODE_MAP = {
-    'left':  'l',
-    'right': 'r',
+
+JOINT_SIDE_CODE_MAP = {
+    'left':  _settings['joint_left'],
+    'right': _settings['joint_right'],
     '': '',
 }
 
+CONTROL_SIDE_CODE_MAP = {
+    'left': _settings['control_left'],
+    'right': _settings['control_right'],
+    '': '',
+}
 
 #letterToWord = { letter: word for (letter, word) in sides.values() }
 
@@ -84,7 +101,13 @@ def otherSideCode(name):
     return 'right' if name == 'left' else 'left'
     
 
-def sideSuffix(code):
+def jointSideSuffix(code):
     ''' Accetps the strings 'left' and 'right'. '''
 
-    return '_' + SIDE_CODE_MAP[code]
+    return '_' + JOINT_SIDE_CODE_MAP[code]
+    
+    
+def controlSideSuffix(code):
+    ''' Accetps the strings 'left' and 'right'. '''
+
+    return '_' + CONTROL_SIDE_CODE_MAP[code]

@@ -9,7 +9,9 @@ from ...vendor import Qt
 
 
 from pymel.core import Callback, confirmDialog, getAttr, hide, objExists, scriptJob, select, selected, setParent, setAttr, \
-    shelfButton, shelfLayout, showHidden, tabLayout, warning, xform
+    showHidden, warning, xform, \
+    button, columnLayout, deleteUI, showWindow, textFieldGrp, window
+    
 
 from ... import core
 
@@ -20,6 +22,7 @@ from . import cardRigging
 from . import controllerShape
 from . import moveCard
 from . import proxy
+from . import settings
 from . import util
 
 from .ui import artistToolsTab
@@ -68,22 +71,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
     FOSSIL_START_TAB = 'Fossil_RigTool_StartTab'
     FOSSIL_ARTIST_TOOLS = 'Fossil_RigTool_ToolsTab'
     FOSSIL_SPACE_TAB = 'Fossil_RigTool_SpacedTab'
-    
-    settings = core.ui.Settings( 'Skeleton Tool Settings',
-        {
-            #'spineCount': 5,
-            #'fingerCount': 4,
-            #'thumb': True,
-            #'spineOrient': 'Vertical',
-            #'legType': 'Human',
-            'currentTabIndex': 1,  # 1-base
-            #'panels': [75, 75, 25, 100, 75, 25],
-            #'rebuildMode': 'Use Current Shapes',
-
-            #'closedControlFrame': False,
-            #'closeDebugFrame': True,
-        })
-    
+        
     @staticmethod
     @core.alt.name( 'Rig Tool' )
     def run():
@@ -116,7 +104,21 @@ class RigTool(Qt.QtWidgets.QMainWindow):
     
     
     def __init__(self, *args, **kwargs):
-        global settings
+        
+        self.settings = core.ui.Settings( 'Skeleton Tool Settings',
+            {
+                #'spineCount': 5,
+                #'fingerCount': 4,
+                #'thumb': True,
+                #'spineOrient': 'Vertical',
+                #'legType': 'Human',
+                'currentTabIndex': 1,  # 1-base
+                #'panels': [75, 75, 25, 100, 75, 25],
+                #'rebuildMode': 'Use Current Shapes',
+
+                #'closedControlFrame': False,
+                #'closeDebugFrame': True,
+            })
         
         objectName = 'Rig_Tool'
         # Remove any existing windows first
@@ -125,7 +127,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         super(RigTool, self).__init__(core.ui.mayaMainWindow())
         
         # Not sure how else to get window's scale factor for high dpi displays
-        self.scaleFactor = self.font().pixelSize()/11.0
+        self.scaleFactor = self.font().pixelSize() / 11.0
 
         self.ui = RigToolUI()
         self.ui.setupUi(self)
@@ -144,6 +146,8 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         self.ui.menuVisibility.removeAction(self.ui.actionConnectors)
         
         self.ui.actionHandles.triggered.connect( Callback(self.handleDisplayToggle) )
+        
+        self.ui.actionNaming_Rules.triggered.connect( Callback(self.nameRulesWindow) )
         
         
         '''
@@ -242,6 +246,51 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         self.uiActive = self._uiActiveStack.pop()
                 
         self.updateId = scriptJob( e=('SelectionChanged', core.alt.Callback(self.selectionChanged)) )
+
+    def nameRulesWindow(self):
+        
+        win = window(t='Choose what is displayed to indicate the side of the joints and controllers.')
+        with columnLayout(adj=True):
+            jl = textFieldGrp(l='Joint Left Side', tx=self.settings['joint_left'] )
+            jr = textFieldGrp(l='Joint Right Side', tx=self.settings['joint_right'] )
+
+            cl = textFieldGrp(l='Control Left Side', tx=self.settings['control_left'] )
+            cr = textFieldGrp(l='Control Right Side', tx=self.settings['control_right'] )
+        
+            def setSides():
+                jlText = jl.getText().strip()
+                jrText = jr.getText().strip()
+                
+                clText = cl.getText().strip()
+                crText = cr.getText().strip()
+                
+                if jlText == jrText or clText == crText:
+                    confirmDialog(m='The left and right sides must be different\n(but the control and joint text for the same side can be the same)')
+                    return
+                
+                if not clText or not crText or not jlText or not jrText:
+                    confirmDialog(m='You cannot leave any side empty.')
+                    return
+                
+                self.settings['joint_left'] = jlText
+                self.settings['joint_right'] = jrText
+                
+                self.settings['control_left'] = clText
+                self.settings['control_right'] = crText
+                
+                settings.JOINT_SIDE_CODE_MAP['left'] = jlText
+                settings.JOINT_SIDE_CODE_MAP['right'] = jrText
+                
+                settings.CONTROL_SIDE_CODE_MAP['left'] = clText
+                settings.CONTROL_SIDE_CODE_MAP['right'] = crText
+                
+                
+                deleteUI(win)
+            
+            button(l='Apply', c=Callback(setSides))
+        
+        showWindow()
+
 
     def selectAll(self):
         select( core.findNode.allCards() )

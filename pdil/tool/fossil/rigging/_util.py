@@ -361,6 +361,7 @@ def trueZeroSetup(rotationTarget, ctrl):
     
 def trueZeroFloorPlane(rotationTarget, ctrl):
     
+    """
     trans = xform(rotationTarget, q=True, ws=True, t=True)
     
     # Make a unit X vector (assume left side is +x, right is -x)
@@ -383,8 +384,71 @@ def trueZeroFloorPlane(rotationTarget, ctrl):
 
     rad = math.atan2(deltaX, deltaZ)
     degrees = math.degrees(rad)
+    """
+    degrees = trueWorldFloorAngle(rotationTarget)
     ctrl.ry.set(degrees)
     storeTrueZero(ctrl, [0, degrees, 0])
+
+
+def trueWorldFloorAngle(obj):
+    '''
+    Only true for Y up, returns the smallest Y axis worldspace angle needed to
+    rotate to be axis aligned.
+    
+    To rotate the object run `rotate([0, a, 0], r=1, ws=1, fo=True)`
+    '''
+    m = xform(obj, q=True, ws=True, m=True)
+
+    # The valid axes to check
+    rows = (0, 1, 2)
+    cols = (2,)
+
+    hirow = rows[0]
+    hicol = cols[0]
+    highest = m[ hirow * 4 + hicol ]
+
+    for col in cols:
+        for row in rows:
+            if abs(m[ row * 4 + col]) > abs(highest):
+                highest = m[ row * 4 + col]
+                hirow = row
+                hicol = col
+    #print 'col: {}    row: {}   h: {}'.format(hicol, hirow, highest)
+    # The `col` determines the world axis
+    if hicol == 0:
+        worldAxis = dt.Vector([1.0, 0, 0])
+    elif hicol == 1:
+        worldAxis = dt.Vector([0, 1.0, 0])
+    elif hicol == 2:
+        worldAxis = dt.Vector([0, 0, 1.0])
+    
+    # If the highest is negative, flip it; i.e a local axis closely matched -z
+    if highest < 0:
+        worldAxis *= -1.0
+    
+    # The `row` determins the local axis
+    if hirow == 0:
+        localAxis = dt.Vector(m[0], 0, m[2]).normal()
+    elif hirow == 1:
+        localAxis = dt.Vector(m[4], 0, m[6]).normal()
+    elif hirow == 2:
+        localAxis = dt.Vector(m[8], 0, m[10]).normal()
+        
+    a = math.degrees(localAxis.angle(worldAxis))
+
+    # If the cross in negative, flip the angle
+    if localAxis.cross(worldAxis).y < 0:
+        a *= -1
+        
+    return a
+
+
+
+
+
+
+
+
 
 
 # Stretchiness ----------------------------------------------------------------

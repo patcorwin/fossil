@@ -197,7 +197,7 @@ class _ErrorDBLogger(object):
             return
     
         global _errorDB
-        toolRoot = nicePath(os.environ['RxArtToolRoot'])
+        toolRoot = '?' # Just disable this for now
         
         traces = []
         cur = traceback

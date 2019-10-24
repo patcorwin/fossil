@@ -107,17 +107,17 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         
         self.settings = core.ui.Settings( 'Skeleton Tool Settings',
             {
-                #'spineCount': 5,
-                #'fingerCount': 4,
-                #'thumb': True,
-                #'spineOrient': 'Vertical',
-                #'legType': 'Human',
-                'currentTabIndex': 1,  # 1-base
-                #'panels': [75, 75, 25, 100, 75, 25],
-                #'rebuildMode': 'Use Current Shapes',
+                'spineCount': 5,
+                'fingerCount': 4,
+                'thumb': True,
+                'spineOrient': 'Vertical',
+                'legType': 'Human',
+                'currentTabIndex': 1,  # 1-base AFAIK THE ONLY ONE ACTUALLY NEEDED
+                'panels': [75, 75, 25, 100, 75, 25],
+                'rebuildMode': 'Use Current Shapes',
 
-                #'closedControlFrame': False,
-                #'closeDebugFrame': True,
+                'closedControlFrame': False,
+                'closeDebugFrame': True,
             })
         
         objectName = 'Rig_Tool'

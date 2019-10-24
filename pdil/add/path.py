@@ -8,6 +8,7 @@ try:
 except ImportError:
     pass
 
+"""
 try:
     # Only needed for `localizeFile` and `useSourceRoot`
     import pdilconfig
@@ -15,7 +16,8 @@ except ImportError:
     pass
 
 
-SOURCE_ROOT = "RxSourceAssetRoot"
+SOURCE_ROOT = '!'
+"""
 
 
 def normalize(p): # type: (str) -> str
@@ -46,7 +48,7 @@ def cleanFilepath(filepath): # type: (str) -> str
     return filepath
 
 
-def localizeFile(filepath): # type: (str) -> str
+"""def localizeFile(filepath): # type: (str) -> str
     '''
     Given what might be depot path, or something from another user, convert it
     to what it would be on your machine.
@@ -59,7 +61,7 @@ def localizeFile(filepath): # type: (str) -> str
     if key != -1:
         return pdilconfig.sourceAssetDir() + '/' + filepath[index + len(key):]
 
-    return filepath
+    return filepath"""
 
 
 def findRig(path): # type: (str) -> str
@@ -79,9 +81,9 @@ def findRig(path): # type: (str) -> str
             return findRig( os.path.dirname(path) )
 
 
-def useSourceRoot(srcPath): # type: (str) -> str
+"""def useSourceRoot(srcPath): # type: (str) -> str
     '''
-    Given a path, return a version using the env var RxSourceAssetRoot if possible.
+    Given a path, return a version using the env var for the project root if possible.
     
     ..todo: Probably rename to something like `formatFromSourceRoot`
     '''
@@ -91,10 +93,10 @@ def useSourceRoot(srcPath): # type: (str) -> str
     else:
         path = srcPath
         
-    return path
+    return path"""
 
 
-def findLocalFile(path): # type: (str) -> Union[str, bool, None]
+"""def findLocalFile(path): # type: (str) -> Union[str, bool, None]
     '''
     Give a path, see if a local version exists.
     
@@ -124,7 +126,7 @@ def findLocalFile(path): # type: (str) -> Union[str, bool, None]
     else:
         print( 'This path does not appear to be in the SourceAssets', path)
         
-    return False
+    return False"""
 
 
 def getMayaFiles(folder): # type: (str) -> List[str]

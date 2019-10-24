@@ -1,3 +1,4 @@
+
 '''
 
 Contains two systems for calling code that logs errors, `call` and `Callback`
@@ -179,7 +180,6 @@ class _ErrorDBLogger(object):
     
     The intended use is to have a shared log between `call` and `Callback`.
     '''
-    
     def __init__(self, funcType, args=(), kwargs={}):
         '''
         :param str funcType: Either 'alt' or 'cb' for alt.call or Callback
@@ -198,8 +198,7 @@ class _ErrorDBLogger(object):
             return
     
         global _errorDB
-        # If possible, identify where this code lives to limit what is shown in the debug trace.
-        toolRoot = nicePath(os.environ.get('fossilArtToolRoot', '!'))
+        toolRoot = '?' # Just disable this for now
         
         traces = []
         cur = traceback

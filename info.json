@@ -1,5 +1,10 @@
 {
-    "version": 0,
-    "version_scheme": "integer",
-    "utc_time": "2019-10-04 17:20:00.327000"
+    "utc_build_time": "2019-11-06 07:39:47.124958",
+    "shelf_items": [
+        {
+            "command": "import pdil.tool.fossil.main\npdil.tool.fossil.main.RigTool()",
+            "image": "",
+            "annotation": "fossil"
+        }
+    ]
 }

@@ -7,8 +7,8 @@ import traceback
 from pymel.core import Callback, cmds, currentTime, menuItem, PyNode, selected, setParent
 
 from .. import core
-from .. import lib
-from ..melOverrides import dagMenuProc
+#from .. import lib
+#from ..melOverrides import dagMenuProc
 
 from .fossil import controllerShape
 from .fossil import kinematicSwitch
@@ -179,6 +179,6 @@ def animationSwitchMenu(objName):
 
 
 #print('-' * 5, 'About to run dag menu overrides')
-dagMenuProc.override_dagMenuProc()
-dagMenuProc.registerMenu(animationSwitchMenu)
+#dagMenuProc.override_dagMenuProc()
+#dagMenuProc.registerMenu(animationSwitchMenu)
 #print('-' * 5, 'Overrides complete')

@@ -118,6 +118,13 @@ class RigTool(Qt.QtWidgets.QMainWindow):
 
                 'closedControlFrame': False,
                 'closeDebugFrame': True,
+                
+                # &&& This is really convoluted, storing the side map in two places.  Fix it on a rainy day.
+                'joint_left': settings.JOINT_SIDE_CODE_MAP['left'],
+                'joint_right': settings.JOINT_SIDE_CODE_MAP['right'],
+                
+                'control_left': settings.CONTROL_SIDE_CODE_MAP['left'],
+                'control_right': settings.CONTROL_SIDE_CODE_MAP['right'],
             })
         
         objectName = 'Rig_Tool'

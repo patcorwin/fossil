@@ -8,7 +8,21 @@ Tested in Maya 2016, 2017 and 2019.  Developed in 2019 so hopefully nothing brea
 None.
 
 ## Installation
+
+### The Easy Way
+
+I made a "fancy" installer, for this and other maya packages.
+
+1. Save [this file](https://raw.githubusercontent.com/patcorwin/mayaHooks/master/mayaHooksInstaller.mel) anywhere as a ".mel", ex "install.mel", then simply drag it into a maya viewport to execute.
+2. This will add mayaHooks and bring up a really ugly (for now) gui.  In the "Install from URL", paste in address of this repo, `https://github.com/patcorwin/fossil`
+3. Reopen the gui, then you will see a shelf section under pdil to open fossil.
+4. Drag it, and the mayaHooks shelf item, onto your own shelf.  Don't worry, the icons will regenerate if you want to put them on several shevles.
+
+### Less Easy Way
+
 Download, unzip and put the "pdil" folder in one of your Maya script folders.
+
+To take full advantage of it, you will also want to add code to your userSetup.py found in userSetup_code.py.
 
 ## Philosophy
 Making rigs manually is cumbersome and tedious because it takes many actions to follow through on a single decision.  When you have 3 joints: Shoulder, Elbow and Wrist, you probably are making an arm, and you probably want IK and FK controls for it.  But when creating rigs by hand, you name these joints, then name similar chains to control these joints, then name the controllers to match.
@@ -19,7 +33,7 @@ Most importantly, every decision should be easily changed.  There is still lots 
 
 
 ## Usage
-In the script editor, in a Python tab, run:
+Use the shelf item from mayaHooks or, in the script editor, in a Python tab, run:
 
 ```python
 import pdil.tool.fossil.main

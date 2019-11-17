@@ -192,14 +192,15 @@ class SpaceTab( object ):
             pass
             
     def remove(self):
-        spaces = self.targets.getSelectItem()
+        #spaces = self.targets.getSelectItem()
+        spaces = [str(self.ui.spaceList.currentItem().text())] # In case I update this to allow multi-select
         
         for obj in selected():
             for _space in spaces:
                 if _space in space.getNames(obj):
                     space.remove( obj, _space )
                     
-        self.update()
+        self.update(keepRow=True)
 
     def rename(self):
         # Prompt the user for a new space name
@@ -213,7 +214,7 @@ class SpaceTab( object ):
                     if newName:
                         names[index] = newName
                         space.setNames(sel[0], names)
-                        self.update()
+                        self.update(keepRow=True)
 
     def moveUp(self):
         index = self.ui.spaceList.currentRow()
@@ -231,8 +232,9 @@ class SpaceTab( object ):
             self.update()
             self.ui.spaceList.setCurrentRow(index + 1)
 
-    def update(self):
+    def update(self, keepRow=False):
         ''' Refreshes the list with the spaces on the currently selected control. '''
+        row = self.ui.spaceList.currentRow()
         self.ui.spaceList.clear()
         
         sel = selected(type='transform')
@@ -242,6 +244,10 @@ class SpaceTab( object ):
             names = space.getNames(sel)
             if names:
                 self.ui.spaceList.addItems(names)
+        
+            if row < len(names):
+                self.ui.spaceList.setCurrentRow( row )
+        
 
     def targetSelected(self, index):
         '''

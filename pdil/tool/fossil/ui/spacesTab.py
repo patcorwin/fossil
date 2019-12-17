@@ -46,8 +46,10 @@ def addSpace(mode):
         
     elif mode == '#TRUEWORLD':
         space.addTrueWorld( sel[0] )
+
     elif mode == '#EXTERNALWORLD':
         space.addExternalWorld( sel[0] )
+        
     elif mode == '#PARENT':
         
         if sel[0].fossilCtrlType.get() in ['translate', 'rotate']:
@@ -133,8 +135,8 @@ class SpaceTab( object ):
             
             ('Add Parent',          Callback(addSpace, '#PARENT'),
                     'Convenience to make a space following the actual hierarchical parent'),
-            ('Add Root',            Callback(addSpace, '#WORLD'),
-                    'Convenience to follow the root node'),
+            ('Add Main',            Callback(addSpace, '#WORLD'),
+                    'Convenience to follow the main controller'),
             ('Add World',           Callback(addSpace, '#TRUEWORLD'),
                     'Convenience to stay in world space'),
             ('Add User Driven',     Callback(addSpace, '#USER'),
@@ -193,7 +195,7 @@ class SpaceTab( object ):
             
     def remove(self):
         #spaces = self.targets.getSelectItem()
-        spaces = [str(self.ui.spaceList.currentItem().text())] # In case I update this to allow multi-select
+        spaces = [str(self.ui.spaceList.currentItem().text())]  # In case I update this to allow multi-select
         
         for obj in selected():
             for _space in spaces:

@@ -935,14 +935,14 @@ def addWorldToTranslateable(control, **kwargs):
     bindBone = core.constraints.getOrientConstrainee(control)
     parent = bindBone.getParent()
     
-    add(control, parent, 'world', mode=Mode.ALT_ROTATE, rotateTarget=getMainGroup())
+    add(control, parent, 'main', mode=Mode.ALT_ROTATE, rotateTarget=getMainGroup())
 
 
 def addWorld(control, *args, **kwargs): # &&& TODO: rename to addRoot()
     '''
     Convenience func for adding root space, has same args as `add()`
     '''
-    add( control, getMainGroup(), 'root', *args, **kwargs )
+    add( control, getMainGroup(), 'main', *args, **kwargs )
 
 
 def addExternalWorld(control, *args, **kwargs):

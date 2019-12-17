@@ -38,8 +38,8 @@ def addSpace(mode):
     sel = selected()
     
     if mode == '#WORLD':
-        
-        if sel[0].tx.isKeyable():
+
+        if sel[0].tx.isKeyable() and sel[0].fossilCtrlType.get() == 'fk':
             space.addWorldToTranslateable( sel[0] )
         else:
             space.addWorld( sel[0] )
@@ -49,7 +49,7 @@ def addSpace(mode):
 
     elif mode == '#EXTERNALWORLD':
         space.addExternalWorld( sel[0] )
-        
+
     elif mode == '#PARENT':
         
         if sel[0].fossilCtrlType.get() in ['translate', 'rotate']:

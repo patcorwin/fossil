@@ -113,10 +113,10 @@ def buildFoot(ballJnt, toePos, heelPos, legControl, side, controlSpec={}):
     xform(legControl, ws=True, rp=heelPos)
     
     # Drive the align groups for common motions to keep down on clutter
-    drive(footCtrl, 'tiptoe', toeCtrl.getParent().rx, dv=0, minVal=0)
-    drive(footCtrl, 'heelRaise', heelRaiseCtrl.getParent().rx, dv=0, maxVal=0, flipped=True)
-    drive(footCtrl, 'toeTap', toeTapCtrl.getParent().rx, dv=0, minVal=0, flipped=True)
-    drive(footCtrl, 'ballPivot', ballCtrl.getParent().attr('r' + MAYA_UP), dv=0)
+    util.drive(footCtrl, 'tiptoe', toeCtrl.getParent().rx, dv=0, minVal=0)
+    util.drive(footCtrl, 'heelRaise', heelRaiseCtrl.getParent().rx, dv=0, maxVal=0, flipped=True)
+    util.drive(footCtrl, 'toeTap', toeTapCtrl.getParent().rx, dv=0, minVal=0, flipped=True)
+    util.drive(footCtrl, 'ballPivot', ballCtrl.getParent().attr('r' + MAYA_UP), dv=0)
     
     
     constraints = util.constrainAtoB( [ballJnt], [ball], mo=True )

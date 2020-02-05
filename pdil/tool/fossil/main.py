@@ -320,7 +320,8 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         '''
         Makes the rig, saving shapes and removing the old rig if needed.
         '''
-        cards = util.selectedCards()
+        # &&& Need to move cardJointBuildOrder to util and make selectedCards() use it.
+        cards = set(util.selectedCards())
         
         mode = 'Use Rig Info Shapes'
         
@@ -329,7 +330,10 @@ class RigTool(Qt.QtWidgets.QMainWindow):
             return
         
         
-        for card in cards:
+        for card in cardlister.cardJointBuildOrder():
+            if card not in cards:
+                continue
+
             if mode == 'Use Current Shapes':
                 card.saveShapes()
             

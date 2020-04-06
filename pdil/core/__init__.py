@@ -1,8 +1,10 @@
 from __future__ import absolute_import
+import contextlib
 import importlib
 import os
 
 from pymel.core import about
+from maya import cmds
 
 # Load in alt and path for convenience use in other modules
 from ..add import alt           # noqa
@@ -26,3 +28,15 @@ def version(includeBitVersion=False):
         return (int(year), 64 if about(v=True).count('x64') else 32  )
     else:
         return int(year)
+        
+
+@contextlib.contextmanager
+def undoBlock(name=''):
+    if name:
+        cmds.undoInfo(openChunk=True, chunkName=name)
+    else:
+        cmds.undoInfo(openChunk=True)
+    
+    yield
+    
+    cmds.undoInfo(closeChunk=True)

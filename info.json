@@ -3,8 +3,28 @@
     "shelf_items": [
         {
             "command": "import pdil.tool.fossil.main\npdil.tool.fossil.main.RigTool()",
-            "image": "",
+            "image": "skeletonTool.png",
             "annotation": "fossil"
-        }
+        },
+        {
+            "image": "zeropose.png",
+            "annotation": "Zero Controllers",
+            "command": "import pdil.tool.fossil.userTools;pdil.core.alt.call('Zero Controllers')()"
+        },
+        {
+            "image": "selectAllControls.png",
+            "annotation": "Select All Controllers",
+            "command": "import pdil.tool.fossil.userTools;pdil.core.alt.call('Select All Controllers')()"
+        },
+        {
+            "image": "quickHideControls.png",
+            "annotation": "Similar to 'Isolated Selected' but just for rig controls",
+            "command": "import pdil.tool.rigControls;pdil.core.alt.call('Quick Hide Controls')()"
+        },
+        {
+            "image": "pythonFamily.png",
+            "annotation": "SelBnd Select Bindable joints",
+            "command": "import pdil.tool.fossil.userTools;pdil.core.alt.call('Select Bindable Joints')()"
+        }       
     ]
 }

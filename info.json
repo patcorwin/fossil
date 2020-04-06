@@ -1,23 +1,24 @@
 {
-    "utc_build_time": "2019-11-06 07:39:47.124958",
+    "utc_build_time": "2020-04-06 17:29:35.362040",
     "shelf_items": [
         {
-            "command": "import pdil.tool.fossil.main\npdil.tool.fossil.main.RigTool()",
-            "image": "skeletonTool.png",
+            "command": "import pdil.tool.fossil.main\npdil.core.alt.call('Rig Tool')()",
+            "image": "pdil/icons/skeletonTool.png",
             "annotation": "fossil"
         },
         {
-            "image": "zeropose.png",
+            "image": "pdil/icons/zeropose.png",
             "annotation": "Zero Controllers",
+            "label": "Zero the controls",
             "command": "import pdil.tool.fossil.userTools;pdil.core.alt.call('Zero Controllers')()"
         },
         {
-            "image": "selectAllControls.png",
+            "image": "pdil/icons/selectAllControls.png",
             "annotation": "Select All Controllers",
             "command": "import pdil.tool.fossil.userTools;pdil.core.alt.call('Select All Controllers')()"
         },
         {
-            "image": "quickHideControls.png",
+            "image": "pdil/icons/quickHideControls.png",
             "annotation": "Similar to 'Isolated Selected' but just for rig controls",
             "command": "import pdil.tool.rigControls;pdil.core.alt.call('Quick Hide Controls')()"
         },

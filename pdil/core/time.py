@@ -35,6 +35,7 @@ class PreserveCurrentTime(object):
     '''
     Context Manager to reset the current frame at the end
     '''
+    
     def __enter__(self):
         self.current = currentTime(q=True)
         

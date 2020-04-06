@@ -1,35 +1,41 @@
 
+from pymel.core import newFile
 
-import pdil.tool.fossil.main
+from pdil.tool.fossil import card, main
 
-a = pdil.tool.fossil.card.makeCard(jointCount=3, jointNames={'head': ['aa', 'bb', 'cc']})
-x = pdil.tool.fossil.card.makeCard(jointCount=3, jointNames={'head': ['xx', 'yy', 'zz']})
 
-assert not pdil.tool.fossil.main.RigTool.validateBoneNames([a, x])
+def test_validateBoneNames():
 
-data = a.rigData
-data['nameInfo']['head'] = ['aa', 'bb', 'cc', 'xx']
-a.rigData = data
+    newFile(f=True)
 
-assert not pdil.tool.fossil.main.RigTool.validateBoneNames([a, x]) # No issues because the xx is extra, therefore not build
+    a = card.makeCard(jointCount=3, jointNames={'head': ['aa', 'bb', 'cc']})
+    x = card.makeCard(jointCount=3, jointNames={'head': ['xx', 'yy', 'zz']})
 
-data = a.rigData
-data['nameInfo']['head'] = ['aa', 'bb', 'xx']
-a.rigData = data
+    assert not main.RigTool.validateBoneNames([a, x])
 
-assert len(pdil.tool.fossil.main.RigTool.validateBoneNames([a, x])) == 1
-assert  'overlap' in pdil.tool.fossil.main.RigTool.validateBoneNames([a, x])[0]
+    data = a.rigData
+    data['nameInfo']['head'] = ['aa', 'bb', 'cc', 'xx']
+    a.rigData = data
 
-data = a.rigData
-data['nameInfo']['head'] = ['aa', 'aa', 'xx']
-a.rigData = data
+    assert not main.RigTool.validateBoneNames([a, x]) # No issues because the xx is extra, therefore not build
 
-assert len(pdil.tool.fossil.main.RigTool.validateBoneNames([a, x])) == 2
-#assert  'overlap' in pdil.tool.fossil.main.RigTool.validateBoneNames([a, x])[0]
+    data = a.rigData
+    data['nameInfo']['head'] = ['aa', 'bb', 'xx']
+    a.rigData = data
 
-data = a.rigData
-data['nameInfo']['head'] = ['aa', 'bb']
-a.rigData = data
+    assert len(main.RigTool.validateBoneNames([a, x])) == 1
+    assert 'overlap' in main.RigTool.validateBoneNames([a, x])[0]
 
-assert len(pdil.tool.fossil.main.RigTool.validateBoneNames([a, x])) == 1
-assert  'enough' in pdil.tool.fossil.main.RigTool.validateBoneNames([a, x])[0]
+    data = a.rigData
+    data['nameInfo']['head'] = ['aa', 'aa', 'xx']
+    a.rigData = data
+
+    assert len(main.RigTool.validateBoneNames([a, x])) == 2
+    #assert  'overlap' in main.RigTool.validateBoneNames([a, x])[0]
+
+    data = a.rigData
+    data['nameInfo']['head'] = ['aa', 'bb']
+    a.rigData = data
+
+    assert len(main.RigTool.validateBoneNames([a, x])) == 1
+    assert 'enough' in main.RigTool.validateBoneNames([a, x])[0]

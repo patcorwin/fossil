@@ -72,3 +72,10 @@ def loadCurves():
     
     filename = core.path.getTempPath('curve_transfer.ma')
     lib.anim.load(filename, insertTime=None, alterPlug=None, bufferKeys=True, targetPool=None)
+    
+    
+@core.alt.name('Select Bindable Joints')
+def selectBindableJoints():
+    select(cl=True)
+    for card in core.findNode.allCards():
+        select(card.getOutputJoints(), add=True)

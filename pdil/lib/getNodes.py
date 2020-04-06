@@ -27,6 +27,8 @@ def mainGroup(create=True, nodes=None):
         core.dagObj.lockScale(main)
         main.visibility.setKeyable(False)
         main.visibility.set(cb=True)
+    
+        core.findNode.tagAsMain(main)
         
         if True:  # Put it in a default group
             core.layer.putInLayer(main, 'Controls')

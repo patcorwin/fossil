@@ -303,12 +303,46 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         select( core.findNode.allCards() )
     
     @staticmethod
-    def buildBones():
+    def validateBoneNames(cards):
+        '''
+        Returns a list of any name issues building the given cards.
+        '''
+        issues = []
+        allJoints = { c: c.getOutputJoints() for c in core.findNode.allCards()}
+
+        untestedCards = list(allJoints.keys())
+
+        for current in cards:
+            
+            untestedCards.remove(current)
+
+            currentJoints = set( allJoints[current] )
+            if len(currentJoints) != len( allJoints[current] ):
+                issues.append(current.name() + ' does not have unique internal names')
+            
+            if 'NOT_ENOUGH_NAMES' in currentJoints:
+                issues.append( '{} does not have enough names'.format(current) )
+
+            for otherCard in untestedCards:
+                overlap = currentJoints.intersection( allJoints[otherCard] )
+                if overlap:
+                    issues.append( '{} and {} overlap {}'.format( current, otherCard, overlap ))
+
+        return issues
+
+
+    @classmethod
+    def buildBones(cls):
         sel = set(util.selectedCards())
         if not sel:
             confirmDialog( m='No cards selected' )
             return
-        
+
+        issues = cls.validateBoneNames(sel)
+        if issues:
+            confirmDialog(m='\n'.join(issues), t='Fix these')
+            return
+
         # Only build the selected cards, but always do it in the right order.
         for card in cardlister.cardJointBuildOrder():
             if card in sel:

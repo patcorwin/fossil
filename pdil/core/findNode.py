@@ -123,13 +123,15 @@ def controllers(main=None):
 MAIN_CONTROL_TAG = 'fossilMainControl'
 
 
-def mainGroup(nodes=None):
+def mainGroup(nodePool=None):
     '''
     Returns the main group containing the rig, named "main", or an object tagged as the main.
+    
+    todo: This logic should mainly go into `mainControls`, and this just returns the first.
     '''
     
-    if nodes:
-        for n in nodes:
+    if nodePool:
+        for n in nodePool:
             if simpleName(n) == 'main' or n.hasAttr(MAIN_CONTROL_TAG):
                 return n
     
@@ -147,6 +149,15 @@ def mainGroup(nodes=None):
         return plugs[0].node()
     
     return None
+
+
+def mainControls():
+    '''
+    Returns all the main controls in the scene, ake the main of each character.
+    
+    todo: see mainGroup, take most of the logic.
+    '''
+    return ls( '*.' + MAIN_CONTROL_TAG, o=True, r=True )
 
 
 def tagAsMain(obj):

@@ -15,35 +15,37 @@ if '_loadAlterPlug' not in globals():
     _loadAlterPlug = None
 
 
-class AttrFlags:
-    NONE  = 0
-    TRANS = 1
-    ROT   = 1 << 1
-    SCALE = 1 << 2
-    
-    ALL = TRANS | ROT | SCALE
 
+def findKeyTimes(obj, start=None, end=None, customAttrs=[], includeCaps=True):
+    ''' Returns a list of all the frames the given obj has keyframes at.
 
-def getKeyTimes(obj, attrFlags=AttrFlags.ALL, customAttrs=[]):
+    Args:
+        start: Optionally specify a beginning
+        end: Optionally specify an end
+        attrs: Optional additional attributes to search beyond the basic transforms
+        includeCaps: If keyed at all and a start or end where given, include those keys
+    
+    Returns:
+        Ascending list of keyframes, or empty list.
+    
+    Examples - If an obj has keys at 0, 5, 10, 15:
+        findKeyTimes(obj ) => [0, 5, 10, 15]
+        findKeyTimes(obj, start=5 ) => [5, 10, 15]
+        findKeyTimes(obj, start=6 ) => [6, 10, 15] # Notice start will be returned even when unkeyed due to `includeCaps`
+    
     '''
-    Returns a list of all the frames the given obj has keyframes at.
+    attrs = customAttrs[:] + [t + a for t in 'trs' for a in 'xyz']
+
     
-    ..  todo::
-        Support user defined vars
-    '''
-    attrs = customAttrs[:]
+    times = set(keyframe( obj, at=attrs, q=True, tc=True, t=(start, end)))
     
-    if attrFlags & AttrFlags.TRANS:
-        attrs += ['t' + a for a in 'xyz']
-    if attrFlags & AttrFlags.ROT:
-        attrs += ['r' + a for a in 'xyz']
-    if attrFlags & AttrFlags.SCALE:
-        attrs += ['s' + a for a in 'xyz']
-    
-    times = keyframe( obj, at=attrs, q=True, tc=True)
-    times = sorted(set(times))
-    
-    return times
+    if includeCaps:
+        if start and start not in times and times:
+            times.add(start)
+        if end and end not in times and times:
+            times.add(end)
+        
+    return sorted(times)
 
 
 def _processAttr(plug, dups, forceKeys, staticValues, start, end):

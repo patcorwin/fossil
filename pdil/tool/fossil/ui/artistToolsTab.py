@@ -20,10 +20,6 @@ def toolShelf():
                 annotation='Select All Controllers',
                 command="import pdil.tool.fossil.userTools;pdil.core.alt.call('Select All Controllers')()")
     
-    shelfButton(image1='switch.png',
-                annotation='Ik/Fk Switch GUI',
-                command="import pdil.tool.animSwitcherGui;pdil.core.alt.call('Anim Switch GUI')()")
-    
     shelfButton(image1='quickHideControls.png',
                 annotation='Similar to "Isolated Selected" but just for rig controls',
                 command="import pdil.tool.rigControls;pdil.core.alt.call('Quick Hide Controls')()")

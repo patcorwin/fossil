@@ -26,6 +26,16 @@
             "image": "pythonFamily.png",
             "annotation": "SelBnd Select Bindable joints",
             "command": "import pdil.tool.fossil.userTools;pdil.core.alt.call('Select Bindable Joints')()"
-        }       
+        },
+        {
+            "image": "pdil/icons/saveCurves.png",
+            "annotation": "",
+            "command": "import pdil.tool.fossil.userTools;pdil.core.alt.call('Save Curves')()"
+        },
+        {
+            "image": "pdil/icons/loadCurves.png",
+            "annotation": "",
+            "command": "import pdil.tool.fossil.userTools;pdil.core.alt.call('Load Curves')()"
+        },
     ]
 }

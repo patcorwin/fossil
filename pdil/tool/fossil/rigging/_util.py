@@ -629,7 +629,22 @@ def createMatcher(ctrl, target):
         matcher.deleteAttr( 'fossilCtrlType' )
     
     return matcher
+
+
+_45_DEGREES = math.radians(45)
+
+
+def slerp(start, end, percent):
+
+    dot = start.dot(end)
     
+    theta = math.acos(dot) * percent # angle between * percent
+
+    relativeVec = end - start * dot
+    relativeVec.normalize()
+    
+    return ((start * math.cos(theta)) + (relativeVec * math.sin(theta)))
+
     
 def calcOutVector(start, middle, end):
     '''
@@ -654,6 +669,32 @@ def calcOutVector(start, middle, end):
     newPos = modifiedUp + e
     
     outFromKnee = m - newPos
+    outFromKnee.normalize()
+    
+    # If we are halfway to the x/z plane, lerp between the old formula and a new one
+    testUp = dt.Vector(up)
+    if testUp.y < 0:
+        testUp.y *= -1.0
+        
+    angleToVertical = dt.Vector( 0, 1, 0 ).angle( testUp )
+    
+    if angleToVertical > _45_DEGREES:
+        # Calculate a point perpendicular to the line created by the start and end
+        # going through the middle
+        theta = up.angle( m - e )
+
+        distToMidpoint = math.cos(theta) * (m - e).length()
+
+        midPoint = distToMidpoint * up.normal() + e
+
+        altOutFromKnee = m - midPoint
+
+        altOutFromKnee.normalize()
+    
+        # lerp between the vectors
+        percent = (angleToVertical - _45_DEGREES) / _45_DEGREES # 45 to up axis will favor old, on y axis favors new
+        outFromKnee = slerp(outFromKnee, altOutFromKnee, percent)
+
     
     angleBetween = (m - s).angle( e - m )
     

@@ -203,21 +203,21 @@
                         <number>3</number>
                        </property>
                        <item row="0" column="2">
-                        <widget class="QPushButton" name="pushButton_7">
+                        <widget class="QPushButton" name="constraintsRestore">
                          <property name="text">
                           <string>Const</string>
                          </property>
                         </widget>
                        </item>
                        <item row="1" column="2">
-                        <widget class="QPushButton" name="pushButton_8">
+                        <widget class="QPushButton" name="lockedAttrsRestore">
                          <property name="text">
                           <string>Locked</string>
                          </property>
                         </widget>
                        </item>
                        <item row="0" column="0">
-                        <widget class="QPushButton" name="pushButton_2">
+                        <widget class="QPushButton" name="spacesRestore">
                          <property name="text">
                           <string>Space</string>
                          </property>
@@ -231,28 +231,28 @@
                         </widget>
                        </item>
                        <item row="1" column="0">
-                        <widget class="QPushButton" name="pushButton">
+                        <widget class="QPushButton" name="visGroupRestore">
                          <property name="text">
                           <string>Vis</string>
                          </property>
                         </widget>
                        </item>
                        <item row="0" column="1">
-                        <widget class="QPushButton" name="pushButton_4">
+                        <widget class="QPushButton" name="connectionsRestore">
                          <property name="text">
                           <string>Conn</string>
                          </property>
                         </widget>
                        </item>
                        <item row="1" column="1">
-                        <widget class="QPushButton" name="pushButton_5">
+                        <widget class="QPushButton" name="setDrivenRestore">
                          <property name="text">
                           <string>Driven</string>
                          </property>
                         </widget>
                        </item>
                        <item row="3" column="1">
-                        <widget class="QPushButton" name="pushButton_6">
+                        <widget class="QPushButton" name="customAttrsRestore">
                          <property name="text">
                           <string>Attrs</string>
                          </property>

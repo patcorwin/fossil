@@ -10,6 +10,12 @@
     <height>1050</height>
    </rect>
   </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
@@ -18,7 +24,7 @@
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>4</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="tab">
        <attribute name="title">
@@ -160,6 +166,102 @@
                      </size>
                     </property>
                    </spacer>
+                  </item>
+                  <item>
+                   <widget class="QWidget" name="restoreContainer" native="true">
+                    <property name="sizePolicy">
+                     <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                      <horstretch>0</horstretch>
+                      <verstretch>0</verstretch>
+                     </sizepolicy>
+                    </property>
+                    <property name="minimumSize">
+                     <size>
+                      <width>30</width>
+                      <height>0</height>
+                     </size>
+                    </property>
+                    <layout class="QHBoxLayout" name="horizontalLayout_13">
+                     <property name="spacing">
+                      <number>0</number>
+                     </property>
+                     <property name="leftMargin">
+                      <number>0</number>
+                     </property>
+                     <property name="topMargin">
+                      <number>0</number>
+                     </property>
+                     <property name="rightMargin">
+                      <number>0</number>
+                     </property>
+                     <property name="bottomMargin">
+                      <number>0</number>
+                     </property>
+                     <item>
+                      <layout class="QGridLayout" name="layout">
+                       <property name="bottomMargin">
+                        <number>3</number>
+                       </property>
+                       <item row="0" column="2">
+                        <widget class="QPushButton" name="pushButton_7">
+                         <property name="text">
+                          <string>Const</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item row="1" column="2">
+                        <widget class="QPushButton" name="pushButton_8">
+                         <property name="text">
+                          <string>Locked</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item row="0" column="0">
+                        <widget class="QPushButton" name="pushButton_2">
+                         <property name="text">
+                          <string>Space</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item row="3" column="0">
+                        <widget class="QPushButton" name="pushButton_3">
+                         <property name="text">
+                          <string>Shape</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item row="1" column="0">
+                        <widget class="QPushButton" name="pushButton">
+                         <property name="text">
+                          <string>Vis</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item row="0" column="1">
+                        <widget class="QPushButton" name="pushButton_4">
+                         <property name="text">
+                          <string>Conn</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item row="1" column="1">
+                        <widget class="QPushButton" name="pushButton_5">
+                         <property name="text">
+                          <string>Driven</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item row="3" column="1">
+                        <widget class="QPushButton" name="pushButton_6">
+                         <property name="text">
+                          <string>Attrs</string>
+                         </property>
+                        </widget>
+                       </item>
+                      </layout>
+                     </item>
+                    </layout>
+                   </widget>
                   </item>
                  </layout>
                 </item>
@@ -377,14 +479,14 @@
             </item>
            </layout>
           </widget>
-          <widget class="QWidget" name="widget_2" native="true">
+          <widget class="QWidget" name="propertyLayout" native="true">
            <property name="maximumSize">
             <size>
              <width>403</width>
              <height>16777215</height>
             </size>
            </property>
-           <layout class="QVBoxLayout" name="verticalLayout_5">
+           <layout class="QVBoxLayout" name="verticalLayout_5" stretch="0,0,1">
             <property name="topMargin">
              <number>0</number>
             </property>
@@ -497,41 +599,219 @@
              </widget>
             </item>
             <item>
-             <spacer name="verticalSpacer">
+             <spacer name="propertySpacer">
               <property name="orientation">
                <enum>Qt::Vertical</enum>
+              </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Expanding</enum>
               </property>
               <property name="sizeHint" stdset="0">
                <size>
                 <width>20</width>
-                <height>466</height>
+                <height>1</height>
                </size>
               </property>
              </spacer>
             </item>
             <item>
-             <widget class="QWidget" name="controllerEdit" native="true">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="minimumSize">
-               <size>
-                <width>0</width>
-                <height>400</height>
-               </size>
-              </property>
-              <property name="maximumSize">
-               <size>
-                <width>16777215</width>
-                <height>400</height>
-               </size>
-              </property>
+             <widget class="QWidget" name="rigStateContainer" native="true">
               <layout class="QVBoxLayout" name="verticalLayout_6">
                <item>
-                <layout class="QVBoxLayout" name="testLayout"/>
+                <widget class="QPushButton" name="pushButton_9">
+                 <property name="text">
+                  <string>PushButton</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QTabWidget" name="tabWidget_2">
+                 <property name="currentIndex">
+                  <number>0</number>
+                 </property>
+                 <widget class="QWidget" name="tab_2">
+                  <attribute name="title">
+                   <string>Spaces</string>
+                  </attribute>
+                  <layout class="QVBoxLayout" name="verticalLayout_11">
+                   <property name="leftMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="topMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="rightMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="bottomMargin">
+                    <number>0</number>
+                   </property>
+                   <item>
+                    <widget class="QTextEdit" name="spacesField">
+                     <property name="lineWrapMode">
+                      <enum>QTextEdit::NoWrap</enum>
+                     </property>
+                    </widget>
+                   </item>
+                  </layout>
+                 </widget>
+                 <widget class="QWidget" name="tab_8">
+                  <attribute name="title">
+                   <string>Vis Groups</string>
+                  </attribute>
+                  <layout class="QVBoxLayout" name="verticalLayout_19">
+                   <property name="leftMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="topMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="rightMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="bottomMargin">
+                    <number>0</number>
+                   </property>
+                   <item>
+                    <widget class="QTextEdit" name="visGroupField"/>
+                   </item>
+                  </layout>
+                  <zorder>visGroupField</zorder>
+                  <zorder>shapesField</zorder>
+                 </widget>
+                 <widget class="QWidget" name="tab_6">
+                  <attribute name="title">
+                   <string>Shapes</string>
+                  </attribute>
+                  <layout class="QVBoxLayout" name="verticalLayout_20">
+                   <property name="leftMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="topMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="rightMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="bottomMargin">
+                    <number>0</number>
+                   </property>
+                   <item>
+                    <widget class="QTextEdit" name="shapesField"/>
+                   </item>
+                  </layout>
+                 </widget>
+                 <widget class="QWidget" name="tab_7">
+                  <attribute name="title">
+                   <string>Constraints</string>
+                  </attribute>
+                  <layout class="QVBoxLayout" name="verticalLayout_21">
+                   <property name="leftMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="topMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="rightMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="bottomMargin">
+                    <number>0</number>
+                   </property>
+                   <item>
+                    <widget class="QTextEdit" name="constraintsField"/>
+                   </item>
+                  </layout>
+                 </widget>
+                 <widget class="QWidget" name="tab_5">
+                  <attribute name="title">
+                   <string>Connections</string>
+                  </attribute>
+                  <layout class="QVBoxLayout" name="verticalLayout_22">
+                   <property name="leftMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="topMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="rightMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="bottomMargin">
+                    <number>0</number>
+                   </property>
+                   <item>
+                    <widget class="QPlainTextEdit" name="connectionsField"/>
+                   </item>
+                  </layout>
+                 </widget>
+                 <widget class="QWidget" name="tab_9">
+                  <attribute name="title">
+                   <string>Set Driven</string>
+                  </attribute>
+                  <layout class="QVBoxLayout" name="verticalLayout_23">
+                   <property name="leftMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="topMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="rightMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="bottomMargin">
+                    <number>0</number>
+                   </property>
+                   <item>
+                    <widget class="QPlainTextEdit" name="setDrivenField"/>
+                   </item>
+                  </layout>
+                 </widget>
+                 <widget class="QWidget" name="tab_10">
+                  <attribute name="title">
+                   <string>Custom Attrs</string>
+                  </attribute>
+                  <layout class="QVBoxLayout" name="verticalLayout_24">
+                   <property name="leftMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="topMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="rightMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="bottomMargin">
+                    <number>0</number>
+                   </property>
+                   <item>
+                    <widget class="QPlainTextEdit" name="customAttrsField"/>
+                   </item>
+                  </layout>
+                 </widget>
+                 <widget class="QWidget" name="tab_11">
+                  <attribute name="title">
+                   <string>Locked Attrs</string>
+                  </attribute>
+                  <layout class="QVBoxLayout" name="verticalLayout_25">
+                   <property name="leftMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="topMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="rightMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="bottomMargin">
+                    <number>0</number>
+                   </property>
+                   <item>
+                    <widget class="QPlainTextEdit" name="lockedAttrsField"/>
+                   </item>
+                  </layout>
+                 </widget>
+                </widget>
                </item>
               </layout>
              </widget>
@@ -616,8 +896,8 @@
                       <rect>
                        <x>0</x>
                        <y>0</y>
-                       <width>98</width>
-                       <height>28</height>
+                       <width>353</width>
+                       <height>104</height>
                       </rect>
                      </property>
                      <layout class="QGridLayout" name="gridLayout_4">
@@ -1256,7 +1536,7 @@
      <x>0</x>
      <y>0</y>
      <width>991</width>
-     <height>21</height>
+     <height>26</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuTools">
@@ -1280,6 +1560,8 @@
      <string>Settings</string>
     </property>
     <addaction name="actionNaming_Rules"/>
+    <addaction name="actionShow_Individual_Restores"/>
+    <addaction name="actionShow_Card_Rig_State"/>
    </widget>
    <addaction name="menuTools"/>
    <addaction name="menuSettings"/>
@@ -1330,6 +1612,22 @@
   <action name="actionNaming_Rules">
    <property name="text">
     <string>Naming Rules</string>
+   </property>
+  </action>
+  <action name="actionShow_Individual_Restores">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Show Individual Restores</string>
+   </property>
+  </action>
+  <action name="actionShow_Card_Rig_State">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Show Card Rig State</string>
    </property>
   </action>
  </widget>

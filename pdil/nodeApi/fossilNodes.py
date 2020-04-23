@@ -6,6 +6,7 @@ from __future__ import print_function, absolute_import
 import collections
 import itertools
 import logging
+import math
 import re
 import traceback
 
@@ -13,7 +14,7 @@ from maya.api import OpenMaya
 
 import pymel.api
 from pymel.core import cmds, select, objExists, PyNode, ls, nt, listRelatives, joint, hasAttr, removeMultiInstance, \
-    xform, delete, warning, dt, connectAttr, pointConstraint, getAttr
+    xform, delete, warning, dt, connectAttr, pointConstraint, getAttr, orientConstraint
 
 from ..add import simpleName, shortName, meters
 from .. import core
@@ -371,6 +372,24 @@ card_log = logging.getLogger('fossil.CardNode')
 joint_build_log = logging.getLogger(__name__ + '.buildJoints')
 
 
+def getRJoint(bpj):
+    '''
+    Get Repositioned joint from blueprint joint
+
+    &&& How to I have just one version instead of another in tpose.py?
+    '''
+    for plug in bpj.message.listConnections(s=False, d=True, p=True):
+        if plug.attrName() == 'bpj':
+            return plug.node()
+
+
+class JointMode:
+    default = 0
+    tpose = 1
+    bind = 2
+
+
+
 class Card(nt.Transform):
     
     version = 1
@@ -490,6 +509,10 @@ class Card(nt.Transform):
         
     @property
     def joints(self):
+        '''
+        &&& I think I can just do self.attr('joints').listConnections(),
+        it's 3x faster than this.
+        '''
         joints = []
         for j in self.attr('joints'):
             connected = j.jmsg.listConnections()
@@ -848,8 +871,8 @@ class Card(nt.Transform):
         else:
             return False
             
-
-    def buildJoints(self):
+    
+    def buildJoints_core(self, mode):
         '''
         Creates, parents and orients the joints of a card.
         
@@ -863,7 +886,8 @@ class Card(nt.Transform):
         if self.rigData.get( 'rigCmd' ) in HELPER_CARDS:
             return
         
-        self.removeBones()
+        if mode != JointMode.bind:
+            self.removeBones()
                 
         trueRoot = core.findNode.getRoot(make='root')
 
@@ -880,21 +904,35 @@ class Card(nt.Transform):
         
         jointsThatBuild = [j for j in self.joints if not j.isHelper]
         
+        if mode == JointMode.tpose:
+            positions = [xform(getRJoint(j), q=True, ws=True, t=True) for j in jointsThatBuild]
+        else:
+            positions = [xform(j, q=True, ws=True, t=True) for j in jointsThatBuild]
+
         if len(names) < len(jointsThatBuild):
             raise Exception( 'Not enough names specified to build joints on {0}'.format(self) )
         
         isMirrored = self.isCardMirrored()
         card_log.debug( '{} is mirrored'.format(isMirrored) )
         
-        # If not mirrorred, mirrorName is just ignored in the loop body.
-        for name, bpJoint, mirrorName in zip( names, jointsThatBuild, self.nameList(mirroredSide=True)):
+        outputJoints = []
+        
+        # If not mirrored, mirrorName is just ignored in the loop body.
+        for name, jpos, bpJoint, mirrorName in zip( names, positions, jointsThatBuild, self.nameList(mirroredSide=True)):
             # Make the joint
+            name = name if mode != JointMode.bind else name + '_tempAlign'
+            j = joint(None,
+                      n=name,
+                      p=jpos,
+                      relative=False)
+            outputJoints.append(j)
+            
+            if mode != JointMode.bind:
+                j.msg >> bpJoint.realJoint
+            else:
+                core.factory._setSingleConnection(bpJoint, 'bind', j)
 
-            j = joint( None,
-                n=name,
-                p=xform(bpJoint, q=True, ws=True, t=True),
-                relative=False)
-            j.msg >> bpJoint.realJoint
+
             if checkOffcenter:
                 log.Centerline.check(j)
             
@@ -911,16 +949,38 @@ class Card(nt.Transform):
             #print( bpJoint, state, target )
                         
             #------- Parent it (so orient as parent works) -------
+            # probably move into a function?
+            
+            if mode == JointMode.bind:
+                def redirect(node):
+                    cons = node.message.listConnections(p=True, s=False, d=True)
+                    for con in cons:
+                        if isinstance(con.node(), BPJoint):
+                            if con.attrName() == 'realJointMirror':
+                                return con.node().bindMirror.listConnections()[0]
+                            else:
+                                return con.node().bind.listConnections()[0]
+
+                            #subCons = con.node().message.listConnections(p=True, s=False, d=True)
+                            #for subCon in subCons:
+                            #    if subCons.attrName() == 'bpj':
+                            #        return subCon.node()
+                    
+                    return node
+            else:
+                def redirect(node):
+                    return node
+            
             if bpJoint.parent:
                 
                 if bpJoint.info.get('options', {}).get('mirroredSide'):
-                    j.setParent( bpJoint.parent.realMirror )
+                    j.setParent( redirect(bpJoint.parent.realMirror) )
                 else:
-                    j.setParent( bpJoint.parent.real )
+                    j.setParent( redirect(bpJoint.parent.real) )
             
             elif bpJoint.extraNode[0]:
                 if bpJoint.info.get('options').get('mirroredSide'):
-                    j.setParent( bpJoint.extraNode[0].realMirror )
+                    j.setParent( redirect(bpJoint.extraNode[0].realMirror) )
             
             elif bpJoint.postCommand.count('reparent'):
                 
@@ -929,9 +989,9 @@ class Card(nt.Transform):
                 bpParent = bpJoint.extraNode[0]
                 if bpParent:
                     if bpParent.realMirror:
-                        j.setParent( bpParent.realMirror )
+                        j.setParent( redirect(bpParent.realMirror) )
             else:
-                j.setParent( trueRoot )
+                j.setParent( redirect(trueRoot) )
             
             
             if state in [   BPJoint.Orient.HAS_TARGET,
@@ -991,19 +1051,27 @@ class Card(nt.Transform):
                 jo = core.math.eulerFromMatrix(dt.Matrix(m), degrees=True)
                 pos = j.getTranslation(space='world')
                 pos.x *= -1
+
+                mirrorName = mirrorName if mode != JointMode.bind else mirrorName + '_tempAlign'
+
                 mj = joint(None, n=mirrorName, p=pos, relative=False)
+                outputJoints.append(mj)
                 mj.jointOrient.set(jo)
                 
                 # Hard link of output joint to blueprint joint to avoid any ambiguity
-                core.factory._setSingleConnection(bpJoint, 'realJointMirror', mj)
+                if mode != JointMode.bind:
+                    core.factory._setSingleConnection(bpJoint, 'realJointMirror', mj)
+                else:
+                    core.factory._setSingleConnection(bpJoint, 'bindMirror', mj)
             
                 # Figure out if parent is mirrored to and parent appropriately
                 if bpJoint.parent:
                     if bpJoint.parent.realMirror:
-                        mj.setParent(bpJoint.parent.realMirror)
+                        mj.setParent( redirect( bpJoint.parent.realMirror) )
                     else:
-                        mj.setParent(bpJoint.parent.real)
-
+                        mj.setParent( redirect( bpJoint.parent.real) )
+        
+        return outputJoints
                 
             
     def getUpArrow(self):
@@ -1315,6 +1383,17 @@ class Card(nt.Transform):
         # First use moParentCardLink to determine children.
         subCards = [ n.node() for n in self.message.listConnections(d=True, s=False, p=True) if n.attrName() == 'moParentCardLink']
         
+        '''
+        the above loop done 1000x
+        ~.88
+
+        1.5 as cmds
+
+        .55 as cmds but cast to pynode at end
+
+        '''
+
+        ''' &&& Trash this I think
         # If that fails, it means it's an older rig, so we must use the proxy children connections,
         # which fails to deal with parent to mirror.
         if not subCards:
@@ -1323,8 +1402,8 @@ class Card(nt.Transform):
                 for child in _joint.proxyChildren:
                     if child.cardCon.node() != self and child.cardCon.node() not in subCards:
                         subCards.append(child.cardCon.node())
-                    
-        return sorted(subCards, key=lambda card: card.orderIndex.get() if card.hasAttr('orderIndex') else 0 )
+        '''
+        return sorted(subCards, key=lambda card: (card.rigData.get('buildOrder', 10), card.name()) )
         
     def childrenCardsBySide(self, side):
         '''

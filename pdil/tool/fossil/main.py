@@ -1,5 +1,6 @@
 from __future__ import print_function, absolute_import
 
+import json
 from functools import partial
 import operator
 import os
@@ -8,12 +9,14 @@ import traceback
 from ...vendor import Qt
 
 
-from pymel.core import Callback, confirmDialog, getAttr, hide, objExists, scriptJob, select, selected, setParent, setAttr, \
+from pymel.core import Callback, confirmDialog, dt, getAttr, hide, objExists, scriptJob, select, selected, setParent, setAttr, \
     showHidden, warning, xform, \
-    button, columnLayout, deleteUI, showWindow, textFieldGrp, window
+    button, columnLayout, deleteUI, showWindow, textFieldGrp, window, \
+    delete, orientConstraint
     
 
 from ... import core
+from ... import nodeApi
 
 from . import card as fossil_card  # Hack to not deal with the fact that "card" is a var used all over, thusly shadowing this import
 from . import cardlister
@@ -23,6 +26,7 @@ from . import controllerShape
 from . import moveCard
 from . import proxy
 from . import settings
+from . import tpose
 from . import util
 
 from .ui import artistToolsTab
@@ -62,6 +66,45 @@ def customUp(self):
 
     for jnt in util.selectedJoints():
         fossil_card.customUp(jnt, arrow)
+
+
+def complexJson(s):
+    if not s:
+        return '{\n}'
+    output = ['{']
+
+    for side, info in s.items():
+        output.append( '"%s": {' % (side) )
+        for component, data in info.items():
+            output.append( '  "%s": [' % (component) )
+            for d in data:
+                output.append( '    %s,' % json.dumps(d) )
+            output[-1] = output[-1][:-1]  # strip off trailing comma
+            output.append('  ],')
+        output[-1] = output[-1][:-1]  # strip off trailing comma
+        output.append('},')
+    output[-1] = output[-1][:-1]  # strip off trailing comma
+    output.append('}')
+                
+    return '\n'.join(output)
+
+
+def simpleJson(s):
+    if not s:
+        return '{\n}'
+    output = ['{']
+
+    for side, info in s.items():
+        output.append( '"%s": {' % (side) )
+        for component, data in info.items():
+            output.append( '  "%s": %s,' % (component, json.dumps(data)) )
+
+        output[-1] = output[-1][:-1]  # strip off trailing comma
+        output.append('},')
+    output[-1] = output[-1][:-1]  # strip off trailing comma
+    output.append('}')
+                
+    return '\n'.join(output)
 
 
 class RigTool(Qt.QtWidgets.QMainWindow):
@@ -125,6 +168,10 @@ class RigTool(Qt.QtWidgets.QMainWindow):
                 
                 'control_left': settings.CONTROL_SIDE_CODE_MAP['left'],
                 'control_right': settings.CONTROL_SIDE_CODE_MAP['right'],
+
+
+                'showIndividualRestore': False,
+                'showRigStateDebug': False,
             })
         
         objectName = 'Rig_Tool'
@@ -156,6 +203,11 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         
         self.ui.actionNaming_Rules.triggered.connect( Callback(self.nameRulesWindow) )
         
+        self.ui.actionShow_Individual_Restores.setChecked( self.settings['showIndividualRestore'] )
+        self.ui.actionShow_Card_Rig_State.setChecked( self.settings['showRigStateDebug'] )
+
+        self.ui.actionShow_Individual_Restores.triggered.connect( Callback(self.restoreToggle) )
+        self.ui.actionShow_Card_Rig_State.triggered.connect( Callback(self.rigStateToggle) )
         
         '''
         button(l="Custom Up", c=Callback(customUp), w=200)
@@ -232,6 +284,9 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         
         self.ui.cardLister.namesChanged.connect( self.ui.jointLister.jointListerRefresh )
         
+        self.ui.restoreContainer.setVisible( self.settings['showIndividualRestore'] )
+        self.ui.rigStateContainer.setVisible( self.settings['showRigStateDebug'] )
+
         # Controller Edit
         self.shapeEditor = controllerEdit.ShapeEditor(self)
         self.show()
@@ -253,6 +308,14 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         self.uiActive = self._uiActiveStack.pop()
                 
         self.updateId = scriptJob( e=('SelectionChanged', core.alt.Callback(self.selectionChanged)) )
+
+    def restoreToggle(self):
+        self.settings['showIndividualRestore'] = not self.settings['showIndividualRestore']
+        self.ui.restoreContainer.setVisible( self.settings['showIndividualRestore'] )
+
+    def rigStateToggle(self):
+        self.settings['showRigStateDebug'] = not self.settings['showRigStateDebug']
+        self.ui.rigStateContainer.setVisible( self.settings['showRigStateDebug'] )
 
     def nameRulesWindow(self):
         
@@ -333,6 +396,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
 
     @classmethod
     def buildBones(cls):
+        # Might need to wrap as single undo()
         sel = set(util.selectedCards())
         if not sel:
             confirmDialog( m='No cards selected' )
@@ -343,10 +407,60 @@ class RigTool(Qt.QtWidgets.QMainWindow):
             confirmDialog(m='\n'.join(issues), t='Fix these')
             return
 
-        # Only build the selected cards, but always do it in the right order.
-        for card in cardlister.cardJointBuildOrder():
-            if card in sel:
-                card.buildJoints()
+        if tpose.reposerExists():
+            realJoints = []
+            bindPoseJoints = []
+
+            with tpose.matchReposer(cardlister.cardJointBuildOrder()):
+                for card in cardlister.cardJointBuildOrder():
+                    if card in sel:
+                        realJoints += card.buildJoints_core(nodeApi.fossilNodes.JointMode.tpose)
+
+            for card in cardlister.cardJointBuildOrder():
+                if card in sel:
+                    bindPoseJoints += card.buildJoints_core(nodeApi.fossilNodes.JointMode.bind)
+
+            constraints = []
+            for bind, real in zip(bindPoseJoints, realJoints):
+                constraints.append( orientConstraint( bind, real ) )
+                real.addAttr( 'bindZero', at='double3' )
+                
+                real.addAttr( 'bindZeroX', at='double', p='bindZero' )
+                real.addAttr( 'bindZeroY', at='double', p='bindZero' )
+                real.addAttr( 'bindZeroZ', at='double', p='bindZero' )
+                real.bindZero.set( real.r.get() )
+            
+            for constraint, real in zip(constraints, realJoints):
+                delete(constraint)
+                real.r.set(0, 0, 0)
+
+            root = core.findNode.getRoot()
+            topJoints = root.listRelatives(type='joint')
+
+            for jnt in topJoints:
+                try:
+                    index = realJoints.index(jnt)
+                    real = jnt
+                    bind = bindPoseJoints[index]
+
+                    real.addAttr( 'bindZeroTr', at='double3' )
+                    real.addAttr( 'bindZeroTrX', at='double', p='bindZeroTr' )
+                    real.addAttr( 'bindZeroTrY', at='double', p='bindZeroTr' )
+                    real.addAttr( 'bindZeroTrZ', at='double', p='bindZeroTr' )
+
+                    real.bindZeroTr.set(
+                        dt.Vector(xform(bind, q=True, ws=True, t=True)) - dt.Vector(xform(real, q=True, ws=True, t=True))
+                    )
+
+                except ValueError:
+                    pass
+
+        else:
+            # Only build the selected cards, but always do it in the right order.
+            for card in cardlister.cardJointBuildOrder():
+                if card in sel:
+                    card.buildJoints_core(nodeApi.fossilNodes.JointMode.default)
+
         select(sel)
     
     @staticmethod
@@ -413,6 +527,16 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         
         event.accept()
     
+    formatter = {
+        'visGroup': simpleJson,
+        'connections': complexJson,
+        'setDriven': complexJson,
+        'customAttrs': complexJson,
+        'spaces': complexJson,
+        'constraints': complexJson,
+        'lockedAttrs': simpleJson,
+    }
+
     def selectionChanged(self):
         self.ui.cardLister.updateHighlight()
         
@@ -422,6 +546,12 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         self.ui.jointLister.jointListerRefresh(selectedCard)
         self.ui.jointLister.refreshHighlight()
         self.shapeEditor.refresh()
+        if self.ui.rigStateContainer.isVisible():
+            for key, data in selectedCard.rigState.items():
+                try:
+                    getattr(self.ui, key + 'Field').setText( self.formatter[key](data) )
+                except:
+                    getattr(self.ui, key + 'Field').setPlainText( self.formatter[key](data) )
             
     def cardListerSelection(self):
         if self.ui.cardLister.uiActive:

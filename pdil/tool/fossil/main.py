@@ -243,6 +243,20 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         
         self.ui.customUpBtn.clicked.connect(Callback(customUp))
         
+
+        def restore(key, restoreFunc):
+            print('Restoring', key)
+            [ c._restoreData(restoreFunc, c.rigState[key]) for c in util.selectedCards() ]
+
+        # Individual restore commands
+        for niceName, harvestFunc, restoreFunc in nodeApi.Card.thingsToSave:
+            button = getattr(self.ui, niceName + 'Restore')
+            button.clicked.connect( partial(restore, niceName, restoreFunc))
+
+        '''                
+        self.restoreShapes(objectSpace=shapesInObjectSpace)
+        '''
+
         # Start Group Tab
         self.startTabLayout = Qt.QtWidgets.QVBoxLayout(self.ui.tab)
         self.startTabLayout.setObjectName( self.FOSSIL_START_TAB )
@@ -547,12 +561,19 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         self.ui.jointLister.refreshHighlight()
         self.shapeEditor.refresh()
         if self.ui.rigStateContainer.isVisible():
-            for key, data in selectedCard.rigState.items():
-                try:
-                    getattr(self.ui, key + 'Field').setText( self.formatter[key](data) )
-                except:
-                    getattr(self.ui, key + 'Field').setPlainText( self.formatter[key](data) )
-            
+            if selectedCard:
+                for key, data in selectedCard.rigState.items():
+                    try:
+                        getattr(self.ui, key + 'Field').setText( self.formatter[key](data) )
+                    except:
+                        getattr(self.ui, key + 'Field').setPlainText( self.formatter[key](data) )
+            else:
+                for key, _, _ in nodeApi.Card.thingsToSave:
+                    try:
+                        getattr(self.ui, key + 'Field').setText( '' )
+                    except:
+                        getattr(self.ui, key + 'Field').setPlainText( '' )
+
     def cardListerSelection(self):
         if self.ui.cardLister.uiActive:
             cards = [item.card for item in self.ui.cardLister.selectedItems()]

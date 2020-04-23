@@ -1,8 +1,9 @@
 from __future__ import absolute_import, division, print_function
 
 from collections import OrderedDict
+import math
 
-from pymel.core import duplicate, group, hide, joint, ikHandle, makeIdentity, move, orientConstraint, parent, parentConstraint, skinCluster, xform
+from pymel.core import duplicate, dt, group, hide, joint, ikHandle, makeIdentity, move, orientConstraint, parent, parentConstraint, skinCluster, xform
 
 from .... import core
 from .... import lib
@@ -19,7 +20,7 @@ from . import _util as util
 @util.adds('stretch')
 @util.defaultspec( {'shape': 'box',    'color': 'orange 0.22', 'size': 10 },
             middle={'shape': 'sphere', 'color': 'green  0.22', 'size': 7  },
-            offset={'shape': 'sphere', 'color': 'orange  0.22', 'size': 3 },
+            offset={'shape': 'pin',    'color': 'orange  0.22', 'size': 3 },
                end={'shape': 'box',    'color': 'orange 0.22', 'size': 10 }, )
 def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=True, groupName='', controlSpec={}):
     '''
@@ -35,9 +36,28 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
     chestIndex = chain.index(chestBase)
     
     if chestIndex % 2 == 0:
-        midPoint = chain[1]
+        # Due to `division`, have to cast to int
+        midPos = xform(chain[int(chestIndex / 2)], q=True, ws=True, t=True)
+        midRot = xform(chain[int(chestIndex / 2)], q=True, ws=True, ro=True)
+
     else:
-        raise Exception('Need to implement even number of stomach joints')
+        tempIndex = int( math.floor(chestIndex / 2) )
+        low = chain[ tempIndex ]
+        high = chain[ tempIndex + 1 ]
+
+        midPos = dt.Vector( xform(low, q=True, ws=True, t=True) )
+        midPos += dt.Vector( xform(high, q=True, ws=True, t=True) )
+        midPos = dt.Vector(midPos) * .5
+        '''&&&
+        To be safe, find the closest axis on the second obj
+        Get average z basis, forward
+        then average y basis, up
+        calc x, side
+        recalc y, up
+        This is the world matrix of the average rotation'''
+        midRot = xform(low, q=True, ws=True, ro=True)
+        #raise Exception('Need to implement even number of stomach joints')
+
         
     container = group(em=True, p=lib.getNodes.mainGroup(), n=name + "_controls")
     container.inheritsTransform.set(False)
@@ -109,22 +129,26 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
     # -- Chest Offset -- &&& Currently hard coded to make a single offset joint
     chestOffsetCtrl = None
     if chestIndex < (len(chain) - 1):
-        chestOffsetCtrl = controllerShape.build( name + '_main', controlSpec['offset'], controllerShape.ControlType.SPLINE )
+        chestOffsetCtrl = controllerShape.build( name + '_bend', controlSpec['offset'], controllerShape.ControlType.SPLINE )
         chestOffsetCtrl.setParent(chestCtrl)
         core.dagObj.matchTo( chestOffsetCtrl, chain[-1])
-        move(chestOffsetCtrl, [0, 0.7, 3], r=True)
+        #move(chestOffsetCtrl, [0, 0.7, 3], r=True)
         core.dagObj.zero(chestOffsetCtrl)
         core.dagObj.lockScale(chestOffsetCtrl)
         parentConstraint(chestOffsetCtrl, chain[-1], mo=True)
     
     # -- Mid --
     midCtrl = controllerShape.build( name + '_mid', controlSpec['middle'], controllerShape.ControlType.SPLINE )
-    core.dagObj.matchTo( midCtrl, midPoint )
+    #core.dagObj.matchTo( midCtrl, midPoint )
+    xform( midCtrl, ws=True, t=midPos )
+
+
     core.dagObj.lockScale(midCtrl)
     midCtrl.setParent( container )
     
     mid = joint(None, n='Mid')
-    core.dagObj.moveTo( mid, midPoint )
+    #core.dagObj.moveTo( mid, midPoint )
+    xform( mid, ws=True, t=midPos )
     mid.setParent( midCtrl )
     core.dagObj.lockScale(core.dagObj.lockRot(core.dagObj.lockTrans(mid)))
     hide(mid)
@@ -273,7 +297,7 @@ class SplineChest(MetaControl):
     ik_ = 'pdil.tool.fossil.rigging.splineChest.buildSplineChest'
     ikInput = OrderedDict( [('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, 'Chest')),
                             ('useTrueZero', ParamInfo( 'Use True Zero', 'Use True Zero', ParamInfo.BOOL, False)),
-                            ('indexOfRibCage', ParamInfo( 'Rib Cage Index', 'Index of the bottom of the rib cage.', ParamInfo.INT, -1)),
+                            ('indexOfRibCage', ParamInfo( 'Base of Rib Cage Index', 'Index of the bottom of the rib cage.', ParamInfo.INT, -1)),
                             ] )
     
     fkArgs = {'translatable': True}

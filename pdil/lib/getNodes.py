@@ -55,6 +55,9 @@ def rootMotion(create=True, main=None):
         core.dagObj.lockScale( rootMotion )
         #skeletonTool.controller.sharedShape.use(rootMotion)
         
+        rootMotion.addAttr( 'fossilCtrlType', dt='string' )
+        rootMotion.attr( 'fossilCtrlType' ).set( 'translate' )
+        
         try:
             parentConstraint( rootMotion, root )
         except Exception:

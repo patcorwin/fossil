@@ -23,7 +23,7 @@ from . import controllerShape
 from . import log
 from . import rig
 from . import settings
-#from . import space
+from . import space
 from . import util
 
 try:
@@ -765,7 +765,12 @@ def buildRig(cards):
     
     # Ensure that main and root motion exist
     main = lib.getNodes.mainGroup()
-    lib.getNodes.rootMotion(main=main)
+    
+    rootMotion = core.findNode.rootMotion(main=main)
+    if not rootMotion:
+        rootMotion = lib.getNodes.rootMotion(main=main)
+        space.addWorld(rootMotion)
+        space.addTrueWorld(rootMotion)
     
     # Build all the rig components
     for card in cards:

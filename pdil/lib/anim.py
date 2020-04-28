@@ -155,7 +155,7 @@ def load(filename, insertTime=None, alterPlug=None, bufferKeys=True, targetPool=
         a function to alter the curve (or None)
 
         def alterPlug( 'inputNode.attr' ):
-            return 'transformed'
+            return 'transformed', <curve altering func>
         
     :param bool bufferKeys: If True (default), will add keys a frame before and
         after the range.
@@ -255,7 +255,7 @@ def load(filename, insertTime=None, alterPlug=None, bufferKeys=True, targetPool=
         for plug, value in keys.items():
             try:
                 if alter:
-                    setAttr(alter(plug), value)
+                    setAttr(alter(plug)[0], value)
                 else:
                     setAttr(plug, value)
             except Exception:

@@ -1,5 +1,6 @@
 from __future__ import print_function, absolute_import
 
+from collections import OrderedDict
 import json
 from functools import partial
 import operator
@@ -11,7 +12,7 @@ from ...vendor import Qt
 
 from pymel.core import Callback, confirmDialog, dt, getAttr, hide, objExists, scriptJob, select, selected, setParent, setAttr, \
     showHidden, warning, xform, \
-    button, columnLayout, deleteUI, showWindow, textFieldGrp, window, \
+    button, columnLayout, deleteUI, textFieldGrp, \
     delete, orientConstraint
     
 
@@ -208,13 +209,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
 
         self.ui.actionShow_Individual_Restores.triggered.connect( Callback(self.restoreToggle) )
         self.ui.actionShow_Card_Rig_State.triggered.connect( Callback(self.rigStateToggle) )
-        
-        '''
-        button(l="Custom Up", c=Callback(customUp), w=200)
-    
-        '''
-        
-        
+                
         # Callback setup
         
         self.ui.makeCardBtn.clicked.connect(self.makeCard)
@@ -243,6 +238,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         
         self.ui.customUpBtn.clicked.connect(Callback(customUp))
         
+        self.ui.updateRigState.clicked.connect(self.updateField)
 
         def restore(key, restoreFunc):
             print('Restoring', key)
@@ -253,7 +249,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
             button = getattr(self.ui, niceName + 'Restore')
             button.clicked.connect( partial(restore, niceName, restoreFunc))
 
-        '''                
+        '''
         self.restoreShapes(objectSpace=shapesInObjectSpace)
         '''
 
@@ -333,48 +329,44 @@ class RigTool(Qt.QtWidgets.QMainWindow):
 
     def nameRulesWindow(self):
         
-        win = window(t='Choose what is displayed to indicate the side of the joints and controllers.')
-        with columnLayout(adj=True):
-            jl = textFieldGrp(l='Joint Left Side', tx=self.settings['joint_left'] )
-            jr = textFieldGrp(l='Joint Right Side', tx=self.settings['joint_right'] )
+        with core.ui.singleWindow('nameRulesWindow', t='Choose what is displayed to indicate the side of the joints and controllers.') as win:
+            with columnLayout(adj=True):
+                jl = textFieldGrp(l='Joint Left Side', tx=self.settings['joint_left'] )
+                jr = textFieldGrp(l='Joint Right Side', tx=self.settings['joint_right'] )
 
-            cl = textFieldGrp(l='Control Left Side', tx=self.settings['control_left'] )
-            cr = textFieldGrp(l='Control Right Side', tx=self.settings['control_right'] )
-        
-            def setSides():
-                jlText = jl.getText().strip()
-                jrText = jr.getText().strip()
-                
-                clText = cl.getText().strip()
-                crText = cr.getText().strip()
-                
-                if jlText == jrText or clText == crText:
-                    confirmDialog(m='The left and right sides must be different\n(but the control and joint text for the same side can be the same)')
-                    return
-                
-                if not clText or not crText or not jlText or not jrText:
-                    confirmDialog(m='You cannot leave any side empty.')
-                    return
-                
-                self.settings['joint_left'] = jlText
-                self.settings['joint_right'] = jrText
-                
-                self.settings['control_left'] = clText
-                self.settings['control_right'] = crText
-                
-                settings.JOINT_SIDE_CODE_MAP['left'] = jlText
-                settings.JOINT_SIDE_CODE_MAP['right'] = jrText
-                
-                settings.CONTROL_SIDE_CODE_MAP['left'] = clText
-                settings.CONTROL_SIDE_CODE_MAP['right'] = crText
-                
-                
-                deleteUI(win)
+                cl = textFieldGrp(l='Control Left Side', tx=self.settings['control_left'] )
+                cr = textFieldGrp(l='Control Right Side', tx=self.settings['control_right'] )
             
-            button(l='Apply', c=Callback(setSides))
-        
-        showWindow()
-
+                def setSides():
+                    jlText = jl.getText().strip()
+                    jrText = jr.getText().strip()
+                    
+                    clText = cl.getText().strip()
+                    crText = cr.getText().strip()
+                    
+                    if jlText == jrText or clText == crText:
+                        confirmDialog(m='The left and right sides must be different\n(but the control and joint text for the same side can be the same)')
+                        return
+                    
+                    if not clText or not crText or not jlText or not jrText:
+                        confirmDialog(m='You cannot leave any side empty.')
+                        return
+                    
+                    self.settings['joint_left'] = jlText
+                    self.settings['joint_right'] = jrText
+                    
+                    self.settings['control_left'] = clText
+                    self.settings['control_right'] = crText
+                    
+                    settings.JOINT_SIDE_CODE_MAP['left'] = jlText
+                    settings.JOINT_SIDE_CODE_MAP['right'] = jrText
+                    
+                    settings.CONTROL_SIDE_CODE_MAP['left'] = clText
+                    settings.CONTROL_SIDE_CODE_MAP['right'] = crText
+                    
+                    deleteUI(win)
+                
+                button(l='Apply', c=Callback(setSides))
 
     def selectAll(self):
         select( core.findNode.allCards() )
@@ -563,16 +555,33 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         if self.ui.rigStateContainer.isVisible():
             if selectedCard:
                 for key, data in selectedCard.rigState.items():
-                    try:
-                        getattr(self.ui, key + 'Field').setText( self.formatter[key](data) )
-                    except:
-                        getattr(self.ui, key + 'Field').setPlainText( self.formatter[key](data) )
+                    getattr(self.ui, key + 'Field').setText( self.formatter[key](data) )
+
             else:
                 for key, _, _ in nodeApi.Card.thingsToSave:
-                    try:
-                        getattr(self.ui, key + 'Field').setText( '' )
-                    except:
-                        getattr(self.ui, key + 'Field').setPlainText( '' )
+                    getattr(self.ui, key + 'Field').setText( '' )
+
+
+    def updateField(self):
+        # Get the tab title
+        label = self.ui.rigStateTab.tabText( self.ui.rigStateTab.currentIndex() )
+        label = (label[0].lower() + label[1:]).replace(' ', '')
+
+        print(label)
+
+        text = self.ui.rigStateTab.currentWidget().children()[-1].toPlainText()
+
+        try:
+            data = json.loads(text, object_pairs_hook=OrderedDict)
+        except Exception:
+            confirmDialog(m='Invalid json, see script editor for details')
+            print( traceback.format_exc() )
+            return
+
+        selectedCard = util.selectedCardsSoft(single=True)
+        rigState = selectedCard.rigState
+        rigState[label] = data
+        selectedCard.rigState = rigState
 
     def cardListerSelection(self):
         if self.ui.cardLister.uiActive:

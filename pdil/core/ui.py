@@ -1,5 +1,6 @@
 from __future__ import print_function, absolute_import
 
+import contextlib
 from cStringIO import StringIO
 import importlib
 import logging
@@ -45,6 +46,19 @@ if VENDORIMPORT not in sys.modules:
 if 'qtCompileLog' not in globals():
     qtCompileLog = logging.getLogger('pdil.qt_compile')
     qtCompileLog.setLevel(logging.WARN)
+
+
+@contextlib.contextmanager
+def singleWindow(name, **kwargs):
+    '''
+    Ensure just one window of the give `name` exists, and shows it.  Passes kwargs to standard `window()` call.
+    '''
+    if window(name, exists=True):
+        deleteUI(name)
+        
+    yield window(name, **kwargs)
+
+    showWindow()
 
 
 def mayaMainWindow():
@@ -268,15 +282,6 @@ class RedirectOutput(object):
         sys.stdout = self.origOutput
         sys.stderr = self.origErr
 
-
-def isSuperUser():
-    '''
-    Quick stub for enabling advanced ui and other options.
-    '''
-    if os.environ['user'] == 'patc':
-        return True
-    return False
-    
 
 class Settings(object):
     '''

@@ -133,7 +133,7 @@ class Foot(MetaControl):
         '''
         '''
         
-        #assert len(card.joints) > 2
+        assert len(card.joints) > 2, 'You need 3 joints, the toe, a helper representing the toe tip, and a helper representing the back of the heel.'
         
         toe = card.joints[1]
         heel = card.joints[2]

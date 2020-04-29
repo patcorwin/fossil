@@ -36,6 +36,6 @@
             "image": "pdil/icons/loadCurves.png",
             "annotation": "",
             "command": "import pdil.tool.fossil.userTools;pdil.core.alt.call('Load Curves')()"
-        },
+        }
     ]
 }

@@ -618,16 +618,16 @@
              <widget class="QWidget" name="rigStateContainer" native="true">
               <layout class="QVBoxLayout" name="verticalLayout_6">
                <item>
-                <widget class="QPushButton" name="pushButton_9">
+                <widget class="QPushButton" name="updateRigState">
                  <property name="text">
-                  <string>PushButton</string>
+                  <string>Update</string>
                  </property>
                 </widget>
                </item>
                <item>
-                <widget class="QTabWidget" name="tabWidget_2">
+                <widget class="QTabWidget" name="rigStateTab">
                  <property name="currentIndex">
-                  <number>0</number>
+                  <number>7</number>
                  </property>
                  <widget class="QWidget" name="tab_2">
                   <attribute name="title">
@@ -741,7 +741,7 @@
                     <number>0</number>
                    </property>
                    <item>
-                    <widget class="QPlainTextEdit" name="connectionsField"/>
+                    <widget class="QTextEdit" name="connectionsField"/>
                    </item>
                   </layout>
                  </widget>
@@ -763,7 +763,7 @@
                     <number>0</number>
                    </property>
                    <item>
-                    <widget class="QPlainTextEdit" name="setDrivenField"/>
+                    <widget class="QTextEdit" name="setDrivenField"/>
                    </item>
                   </layout>
                  </widget>
@@ -785,7 +785,7 @@
                     <number>0</number>
                    </property>
                    <item>
-                    <widget class="QPlainTextEdit" name="customAttrsField"/>
+                    <widget class="QTextEdit" name="customAttrsField"/>
                    </item>
                   </layout>
                  </widget>
@@ -807,7 +807,7 @@
                     <number>0</number>
                    </property>
                    <item>
-                    <widget class="QPlainTextEdit" name="lockedAttrsField"/>
+                    <widget class="QTextEdit" name="lockedAttrsField"/>
                    </item>
                   </layout>
                  </widget>

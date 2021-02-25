@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function
 from collections import OrderedDict
 import math
 
-from pymel.core import duplicate, dt, group, hide, joint, ikHandle, makeIdentity, move, orientConstraint, parent, parentConstraint, skinCluster, xform
+from pymel.core import duplicate, dt, group, hide, joint, ikHandle, listConnections, makeIdentity, move, orientConstraint, parent, parentConstraint, PyNode, skinCluster, xform
 
 from .... import core
 from .... import lib
@@ -15,6 +15,8 @@ from .. import space
 from ..cardRigging import MetaControl, ParamInfo
 
 from . import _util as util
+from .. import node
+from .. import rig
 
 
 @util.adds('stretch')
@@ -59,7 +61,7 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
         #raise Exception('Need to implement even number of stomach joints')
 
         
-    container = group(em=True, p=lib.getNodes.mainGroup(), n=name + "_controls")
+    container = group(em=True, p=node.mainGroup(), n=name + "_controls")
     container.inheritsTransform.set(False)
     container.inheritsTransform.lock()
     chain[0].setParent(container)
@@ -91,12 +93,6 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
     chestCtrl.stretch.lock()
     chestCtrl.stretch.setKeyable(False)
     core.dagObj.lockScale(chestCtrl)
-    space.add( chestCtrl, start.getParent(), 'local' )
-    space.add( chestCtrl, start.getParent(), 'local_posOnly', mode=space.Mode.TRANSLATE )
-    space.addWorld( chestCtrl )  # Not sure this space is useful...
-    space.addTrueWorld( chestCtrl )
-    space.add( chestCtrl, start.getParent(), 'worldRotate', mode=space.Mode.ALT_ROTATE, rotateTarget=space.getMainGroup())
-
 
     # Put pivot point at the bottom
     chestCtrl.ty.set( chestCtrl.boundingBox()[1][1] )
@@ -107,7 +103,7 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
     lib.sharedShape.use(chestCtrl)
     
     move( chestCtrl, xform(chestBase, q=True, ws=True, t=True), rpr=True )
-    chestZero = core.dagObj.zero(chestCtrl)
+    core.dagObj.zero(chestCtrl)
     
     if useTrueZero:
         rot = util.determineClosestWorldOrient(chestBase)
@@ -125,6 +121,12 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
     chestMatcher = util.createMatcher(chestCtrl, srcChain[chestIndex])
     chestMatcher.setParent(container)
     
+    # Chest spaces need to happen after it's done being manipulated into place
+    space.add( chestCtrl, start.getParent(), 'local' )
+    space.add( chestCtrl, start.getParent(), 'local_posOnly', mode=space.Mode.TRANSLATE )
+    space.addMain( chestCtrl )  # Not sure this space is useful...
+    space.addTrueWorld( chestCtrl )
+    space.add( chestCtrl, start.getParent(), 'worldRotate', mode=space.Mode.ALT_ROTATE, rotateTarget=space.getMainGroup())
     
     # -- Chest Offset -- &&& Currently hard coded to make a single offset joint
     chestOffsetCtrl = None
@@ -195,7 +197,7 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
         core.dagObj.lockScale(core.dagObj.lockTrans(neckCtrl))
         space.add( neckCtrl, chestCtrl, 'chest' )
         
-    space.addWorld(neckCtrl)
+    space.addMain(neckCtrl)
     """
     # Constrain to spline proxy, up to the chest...
     constraints = []
@@ -294,7 +296,9 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
 
 class SplineChest(MetaControl):
     ''' Spline control for the chest mass.'''
-    ik_ = 'pdil.tool.fossil.rigging.splineChest.buildSplineChest'
+    #ik_ = 'pdil.tool.fossil.rigging.splineChest.buildSplineChest'
+    ik_ = __name__ + '.' + buildSplineChest.__name__ # Uses strings so reloading development always grabs the latest
+    
     ikInput = OrderedDict( [('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, 'Chest')),
                             ('useTrueZero', ParamInfo( 'Use True Zero', 'Use True Zero', ParamInfo.BOOL, False)),
                             ('indexOfRibCage', ParamInfo( 'Base of Rib Cage Index', 'Index of the bottom of the rib cage.', ParamInfo.INT, -1)),
@@ -302,3 +306,130 @@ class SplineChest(MetaControl):
     
     fkArgs = {'translatable': True}
 
+
+def activate_ik(chestCtrl):
+    '''
+    '''
+    util.alignToMatcher(chestCtrl)
+    matcher = util.getMatcher(chestCtrl)
+    endJoint = PyNode( parentConstraint(matcher, q=True, tl=True)[0] )
+    
+    endBpj = rig.getBPJoint(endJoint)
+    
+    if chestCtrl.isPrimarySide:
+        children = [c.real for c in endBpj.proxyChildren if not c.isHelper]
+    else:
+        children = [c.realMirror for c in endBpj.proxyChildren if not c.isHelper]
+        
+    if children:
+        rot = xform(children[0], q=True, ws=True, ro=True)
+        pos = xform(children[0], q=True, ws=True, t=True)
+    
+    # ---
+    
+    midJnt = chestCtrl.subControl['mid'].listRelatives(type='joint')[0]
+    
+    skin = listConnections(midJnt, type='skinCluster')
+    curveShape = skin[0].outputGeometry[0].listConnections(p=True)[0].node()
+    ikHandle = curveShape.worldSpace.listConnections( type='ikHandle' )[0]
+    
+    chain = util.getChainFromIk(ikHandle)
+    
+    boundJoints = util.getConstraineeChain(chain)
+    
+    if len(boundJoints) % 2 == 1:
+        #switch_logger.debug('Mid point ODD moved, # bound = {}'.format(len(boundJoints)))
+        i = int(len(boundJoints) / 2) + 1
+        xform( chestCtrl.subControl['mid'], ws=True, t=xform(boundJoints[i], q=True, ws=True, t=True) )
+    else:
+        i = int(len(boundJoints) / 2)
+        xform( chestCtrl.subControl['mid'], ws=True, t=xform(boundJoints[i], q=True, ws=True, t=True) )
+        #switch_logger.debug('Mid point EVEN moved, # bound = {}'.format(len(boundJoints)))
+    
+    # FK match joints beyond the chest control
+            
+    if children:
+        print(rot, pos)
+        xform(chestCtrl.subControl['offset'], ws=True, ro=rot)
+        xform(chestCtrl.subControl['offset'], ws=True, t=pos)
+        
+    """
+    
+    
+    
+    
+    # Find all children joints
+    jointData = []
+    
+    def getChildrenPositions(jnt, jointData):
+        children = listRelatives(jnt, type='joint')
+        for child in children:
+            bpChild = rig.getBPJoint( child )
+            if bpChild.card == card:
+                jointData.append( (
+                    child,
+                    xform(child, q=True, ws=True, ro=True),
+                    xform(child, q=True, ws=True, p=True)
+                ) )
+                getChildrenPositions(child, jointData)
+                break
+    
+    getChildrenPositions(endJoint, jointData)
+    
+    for j, rot, pos in jointData:
+        pass
+    """
+
+class activator(object):
+    
+    @staticmethod
+    def prep(chestCtrl):
+        matcher = util.getMatcher(chestCtrl)
+        
+        endJoint = PyNode( parentConstraint(matcher, q=True, tl=True)[0] )
+        
+        endBpj = rig.getBPJoint(endJoint)
+        card = endBpj.card
+        
+        if chestCtrl.isPrimarySide:
+            children = [c.real for c in endBpj.proxyChildren if not c.isHelper and c.card == card]
+        else:
+            children = [c.realMirror for c in endBpj.proxyChildren if not c.isHelper and c.card == card]
+                
+        midJnt = chestCtrl.subControl['mid'].listRelatives(type='joint')[0]
+        
+        skin = listConnections(midJnt, type='skinCluster')
+        curveShape = skin[0].outputGeometry[0].listConnections(p=True)[0].node()
+        ikHandle = curveShape.worldSpace.listConnections( type='ikHandle' )[0]
+        
+        chain = util.getChainFromIk(ikHandle)
+        
+        boundJoints = util.getConstraineeChain(chain)
+        
+        stomachIndex = int(len(boundJoints) / 2) + 1 if len(boundJoints) % 2 == 1 else int(len(boundJoints) / 2)
+        
+        return {
+            'matcher': matcher,
+            'extraFk': children,
+            'stomach': boundJoints[stomachIndex]
+        }
+
+        
+    @staticmethod
+    def harvest(data):
+        values = {
+            'matcher': util.worldInfo(data['matcher']),
+            'stomach': util.worldInfo(data['stomach']),
+            'extraFk': util.worldInfo(data['extraFk'][0]) if data['extraFk'] else None,
+        }
+
+        return values
+
+
+    @staticmethod
+    def apply(data, values, chestCtrl):
+        util.applyWorldInfo(chestCtrl, values['matcher'])
+        util.applyWorldInfo(chestCtrl.subControl['mid'], values['stomach'])
+        
+        if values['extraFk']:
+            util.applyWorldInfo(chestCtrl.subControl['offset'], values['extraFk'])

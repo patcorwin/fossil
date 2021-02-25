@@ -7,7 +7,6 @@ from pymel.core import curve, cluster, delete, dt, duplicate, expression, group,
 
 from ....add import simpleName, shortName
 from .... import core
-from .... import lib
 from .... import nodeApi
 
 from .. import controllerShape
@@ -16,6 +15,7 @@ from .. import space
 from ..cardRigging import MetaControl, ParamInfo
 
 from . import _util as util
+from .. import node
 
 
 class OrientMode:
@@ -163,7 +163,7 @@ def buildSplineTwist(start, end, controlCountOrCrv=4, twistInfDist=0, simplifyCu
         xform( crv.cv[0], ws=True, t=currentTrans[0] )
         xform( crv.cv[1], ws=True, t=xform(stretchingChain[1], q=True, ws=True, t=True) )
     
-    grp = group(em=True, p=lib.getNodes.mainGroup(), n=start.name() + "_splineTwist")
+    grp = group(em=True, p=node.mainGroup(), n=start.name() + "_splineTwist")
     
     controls = util.addControlsToCurve(name + 'Ctrl', crv, controlSpec['main'])
     for ctrl in controls:
@@ -336,7 +336,7 @@ def buildSplineTwist(start, end, controlCountOrCrv=4, twistInfDist=0, simplifyCu
             ctrl.setRotation( start.getRotation(space='world'), space='world' )
             core.dagObj.zero(ctrl)
         
-        space.addWorld(ctrl)
+        space.addMain(ctrl)
         space.add( ctrl, _parent, 'parent')
     
     for i, ctrl in enumerate(controls[1:]):

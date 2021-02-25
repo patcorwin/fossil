@@ -3,7 +3,7 @@ The thinking was other languages/setups could use other short and long words so
 you edit `sides`
 '''
 
-from ... import core
+from .... import core
 
 #from ...vendor.enum import Enum # When maya get python 3, the stdlib can replace this.
 
@@ -45,6 +45,9 @@ _settings = core.ui.Settings( 'Skeleton Tool Settings',
         
         'control_left':  'L',
         'control_right': 'R',
+        
+        'root_name': 'root',
+        'joint_prefix': '',
     }
 )
 

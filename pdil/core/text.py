@@ -13,8 +13,8 @@ def writeInBox(msg):
     largest = len(largest)
 
     newMsg = []
-    for l in msg.splitlines():
-        newMsg.append( '| {0:<{1}} |'.format(l, largest) )
+    for line in msg.splitlines():
+        newMsg.append( '| {0:<{1}} |'.format(line, largest) )
         
     return ' ' + '_' * (largest + 2) + '\n/' + ' ' * (largest + 2) + '\\\n' + \
             '\n'.join(newMsg) + '\n' + '\\' + '_' * (largest + 2) + '/'

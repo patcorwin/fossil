@@ -10,6 +10,7 @@ from .. import core
 
 from .fossil import controllerShape
 from .fossil import kinematicSwitch
+from .fossil import rig
 from .fossil import space
 
 
@@ -26,7 +27,7 @@ def switchSpaceGroup(objs, targetSpace):
     Switches a group of objects to a target space
     '''
     
-    with core.ui.NoUpdate():
+    with core.ui.NoUpdate(objs):
         if core.time.rangeIsSelected():
             switch = partial(space.switchRange, range=core.time.selectedTime())
             
@@ -94,23 +95,31 @@ def animationSwitchMenu(objName):
             Therefore it's a bunch of work to figure out if several things should be considered or not.
             '''
             sel = selected()
-            if len(sel) <= 1 and (sel[0] == obj if sel else True):
-                menuItem(l='Switch to ' + destType, c=core.alt.Callback(kinematicSwitch.ikFkSwitch, obj, s, e))
+            obj_under_cursor_is_selected = sel[0] == obj
+            
+            if len(sel) <= 1 and (obj_under_cursor_is_selected if sel else True):
+                menuItem(l='Switch to ' + destType, c=core.alt.Callback(kinematicSwitch.multiSwitch, [obj], s, e))
                 
             else:
                 sel = set(sel)
                 sel.add(obj)
                 
+                '''
                 switches = {}
+                
+                currentLeads = []
                 
                 for o in sel:
                     switchPlug = controllerShape.getSwitcherPlug(o)
                     switches[ switchPlug.rsplit('|')[-1] ] = o
+                    currentLeads.append()'''
                 
-                if len(switches) == 1:
-                    menuItem(l='Switch to ' + destType, c=core.alt.Callback(kinematicSwitch.ikFkSwitch, obj, s, e))
-                else:
-                    menuItem(l='Switch mutliple', c=core.alt.Callback(kinematicSwitch.multiSwitch, switches.values(), s, e))
+                currentLeads = [rig.getMainController(o) for o in sel if controllerShape.getSwitcherPlug(o)]
+                
+                if len(currentLeads) == 1:
+                    menuItem(l='Switch to ' + destType, c=core.alt.Callback(kinematicSwitch.multiSwitch, currentLeads, s, e))
+                elif len(currentLeads) > 1:
+                    menuItem(l='Switch mutliple', c=core.alt.Callback(kinematicSwitch.multiSwitch, currentLeads, s, e))
             
         #-------
         # Spaces

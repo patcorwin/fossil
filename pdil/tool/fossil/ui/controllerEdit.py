@@ -16,6 +16,8 @@ from .... import core
 from .. import controllerShape
 from .. import rig
 from .. import cardlister
+from .. import util
+
 
 if 'SHAPE_DEBUG' not in globals():
     SHAPE_DEBUG = False
@@ -93,7 +95,7 @@ class ShapeEditor(object):
         # Shapes
         self.copyShapes.clicked.connect( Callback(self.transferShape) )
         self.mirrorShapes.clicked.connect( Callback(self.transferShape, mirror=True) )
-        self.mirrorSide.clicked.connect( Callback(lambda: mirrorAllKinematicShapes(selected()[0])) )
+        self.mirrorSide.clicked.connect( Callback(lambda: mirrorAllKinematicShapes(selected())) )
         
         #self.mirrorSide.setContextMenuPolicy(Qt.QtCore.Qt.CustomContextMenu)
         #self.mirrorSide.customContextMenuRequested.connect(self.XXXcontextMenuEvent)
@@ -229,6 +231,7 @@ class ShapeEditor(object):
         if len(sel) > 1:
             for dest in sel[1:]:
                 controllerShape.copyShape(sel[0], dest, mirror=mirror)
+            select(sel)
     
     
     @staticmethod
@@ -459,20 +462,29 @@ class CurveColorEditor(object):
             self._colorChangeObjs = selected()
 
 
-def mirrorAllKinematicShapes(ctrl):
+def mirrorAllKinematicShapes(ctrls):
     '''
     Copies all the shapes for that motion type, ex, ik left -> ik right
     '''
-    main = rig.getMainController(ctrl)
     
-    if not main:
-        return
+    done = set()
     
-    other = main.getOppositeSide()
-    
-    if not other:
-        return
+    for ctrl in selected():
+        main = rig.getMainController(ctrl)
+        
+        if main in done:
+            continue
+        
+        if not main:
+            continue
+        
+        other = main.getOppositeSide()
+        
+        if not other:
+            continue
 
-    controllerShape.copyShape(main, other, mirror=True)
-    for name, ctrl in main.subControl.items():
-        controllerShape.copyShape(ctrl, other.subControl[name], mirror=True)
+        controllerShape.copyShape(main, other, mirror=True)
+        for name, ctrl in main.subControl.items():
+            controllerShape.copyShape(ctrl, other.subControl[name], mirror=True)
+        
+        done.add(main)

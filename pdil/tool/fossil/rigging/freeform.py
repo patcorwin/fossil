@@ -5,7 +5,6 @@ from pymel.core import group
 
 from .... import add
 from .... import core
-from .... import lib
 from .... import nodeApi
 
 from .. import controllerShape
@@ -13,6 +12,7 @@ from .. import controllerShape
 from ..cardRigging import MetaControl, ParamInfo, OutputControls
 
 from . import _util as util
+from .. import node
 
 
 log = logging.getLogger('fossil_controller_debug')
@@ -38,7 +38,7 @@ def buildFreeform(joints, translatable=False, mirroredTranslate=False, scalable=
     # Make a top level section for each lead joint in the subHierarchy
     #topLevel = [j for j in joints if j.getParent() not in joints]
 
-    topContainer = group(n=add.simpleName(joints[0], '{0}_Freeform'), p=lib.getNodes.mainGroup(), em=True)
+    topContainer = group(n=add.simpleName(joints[0], '{0}_Freeform'), p=node.mainGroup(), em=True)
     
     #top = container
     #leadOrient, leadPoint = None, None

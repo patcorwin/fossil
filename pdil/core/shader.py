@@ -2,10 +2,14 @@ from collections import OrderedDict
 
 import re
 
-from pymel.core import *
+from pymel.core import cmds, delete, ls, nt, sets, shadingNode
 
+from ..add import path
 
-from ..add import *
+try:
+    basestring
+except NameError:
+    basestring = str
 
 
 namedColors = OrderedDict([
@@ -253,9 +257,8 @@ def assign(obj, color):
             shader = createShader(color)
             sg = shader.outColor.listConnections(type='shadingEngine')[0]
     
-    for shape in obj.getShapes():
-        if shape.type() == 'nurbsSurface':
-            sets( sg, e=True, fe=shape )
+    # cmds is much faster, but `sets` vs `pymel.core.sets` has different args (pymel made it saner but I need speed)
+    cmds.sets( cmds.listRelatives(obj.name(), type='nurbsSurface', f=True), e=True, fe=sg.name() )
     
     
 def getShaders(obj):
@@ -292,7 +295,7 @@ def compare(a, b):
         
     if aColor and bColor:
         if isinstance(aColor[0], nt.File) and isinstance(bColor[0], nt.File):
-            if core.path.compare( aColor[0].fileTextureName.get(), bColor[0].fileTextureName.get() ):
+            if path.compare( aColor[0].fileTextureName.get(), bColor[0].fileTextureName.get() ):
                 return True
     
     return False
@@ -302,7 +305,7 @@ def consolidate(reassign=True):
     '''
     If materials have the same color or use the same texture, merge them together.
     
-    :param bool reassign:  If True (defaul), materials are actually merged and
+    :param bool reassign:  If True (default), materials are actually merged and
         excess deleted.
     
     :return: List of names of the duplicate materials.

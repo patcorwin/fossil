@@ -18,6 +18,7 @@ from .. import space
 
 from . import _util as util
 from .. import rig
+from .. import node
 
 
 @util.adds('stretch', 'bend', 'length')
@@ -36,7 +37,7 @@ def buildDogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.End
 
     boundChain = util.getChain(hipJoint, end)
 
-    container = group(n=name + '_dogHindleg', em=True, p=lib.getNodes.mainGroup())
+    container = group(n=name + '_dogHindleg', em=True, p=node.mainGroup())
     
     # &&& I think I want to turn this into the container for all extra stuff related to a given control
     chainGrp = group( p=container, n=name + "_ikChain", em=True )
@@ -220,17 +221,17 @@ def buildDogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.End
     
     footCtrl = nodeApi.RigController.convert(footCtrl)
     footCtrl.container = container
-    footCtrl.subControl['pv'] = pvCtrl
     footCtrl.subControl['socket'] = socketOffset
+    footCtrl.subControl['pv'] = pvCtrl
     
     # Add default spaces
-    space.addWorld( pvCtrl )
+    space.addMain( pvCtrl )
     space.add( pvCtrl, footCtrl )
     space.add( pvCtrl, footCtrl, mode=space.Mode.TRANSLATE)
     if hipJoint.getParent():
         space.add( pvCtrl, hipJoint.getParent())
     
-        space.addWorld( footCtrl )
+        space.addMain( footCtrl )
         space.add( footCtrl, hipJoint.getParent() )
     
     return footCtrl, constraints
@@ -240,8 +241,150 @@ class DogHindleg(MetaControl):
     ''' 4 joint dog hindleg. '''
     ik_ = 'pdil.tool.fossil.rigging.dogHindLeg.buildDogleg'
 
+    fkArgs = {'translatable': True}
+
     ikInput = OrderedDict( [
         ('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, 'Leg')),
         ('pvLen', ParamInfo('PV Length', 'How far the pole vector should be from the chain', ParamInfo.FLOAT, default=0) ),
         ('endOrientType', ParamInfo('Control Orient', 'How to orient the last control', ParamInfo.ENUM, default=util.EndOrient.TRUE_ZERO_FOOT, enum=util.EndOrient.asChoices())),
     ] )
+    
+    
+def activateIk(ctrl):
+
+    # Get the last ik chunk but expand it to include the rest of the limb joints
+    for ik in ctrl.listRelatives(type='ikHandle'):
+        if not ik.name().count( 'mainIk' ):
+            break
+    else:
+        raise Exception('Unable to determin IK handle on {0} to match'.format(ctrl))
+
+    chain = util.getChainFromIk(ik)
+    chain.insert( 0, chain[0].getParent() )
+    chain.insert( 0, chain[0].getParent() )
+    bound = util.getConstraineeChain(chain)
+    
+    # Move the main control to the end point
+    #xform(ctrl, ws=True, t=xform(bound[-1], q=True, ws=True, t=True) )
+    util.alignToMatcher(ctrl)
+
+    # Place the pole vector away
+    out = rig.calcOutVector(bound[0], bound[1], bound[-2])
+    length = abs(sum( [b.tx.get() for b in bound[1:]] ))
+    out *= length
+
+    pvPos = xform( bound[1], q=True, ws=True, t=True ) + out
+    xform( ctrl.subControl['pv'], ws=True, t=pvPos )
+
+    # Figure out the bend, (via trial and error at the moment)
+    def setBend():
+        angle, axis = util.angleBetween( bound[-2], bound[-1], chain[-2] )
+        current = ctrl.bend.get()
+
+        ''' This is an attempt to look at the axis to determine what direction to bend
+        if abs(axis[0]) > abs(axis[1]) and abs(axis[0]) > abs(axis[2]):
+            signAxis = axis[0]
+        elif abs(axis[1]) > abs(axis[0]) and abs(axis[1]) > abs(axis[2]):
+            signAxis = axis[1]
+        elif abs(axis[2]) > abs(axis[0]) and abs(axis[2]) > abs(axis[1]):
+            signAxis = axis[2]
+        '''
+
+        d = core.dagObj.distanceBetween(bound[-2], chain[-2])
+        ctrl.bend.set( current + angle )
+        if core.dagObj.distanceBetween(bound[-2], chain[-2]) > d:
+            ctrl.bend.set( current - angle )
+
+    setBend()
+
+    # Try to correct for errors a few times because the initial bend might
+    # prevent the foot from being placed all the way at the end.
+    # Can't try forever in case the FK is off plane.
+    '''
+    The *right* way to do this.  Get the angle between
+
+    cross the 2 vectors for the out vector
+    cross the out vector with the original vector for the "right angle" vector
+    Now dot that with the 2nd vector (and possibly get angle?) if it's less than 90 rotate one direction
+
+    '''
+    if core.dagObj.distanceBetween(bound[-2], chain[-2]) > 0.1:
+        setBend()
+        if core.dagObj.distanceBetween(bound[-2], chain[-2]) > 0.1:
+            setBend()
+            if core.dagObj.distanceBetween(bound[-2], chain[-2]) > 0.1:
+                setBend()
+                
+class activator(object):
+    @staticmethod
+    def prep(ctrl):
+        # Get the last ik chunk but expand it to include the rest of the limb joints
+        for ik in ctrl.listRelatives(type='ikHandle'):
+            if not ik.name().count( 'mainIk' ):
+                break
+        else:
+            raise Exception('Unable to determine IK handle on {0} to match'.format(ctrl))
+        
+        chain = util.getChainFromIk(ik)
+        chain.insert( 0, chain[0].getParent() )
+        chain.insert( 0, chain[0].getParent() )
+        bound = util.getConstraineeChain(chain)
+                
+        return {
+            'matcher': util.getMatcher(ctrl),
+            'hip': bound[0],
+            'knee': bound[1],
+            'ankle': bound[2],
+            'ball': bound[3],
+            'chain_2': chain[-2],
+        }
+        
+        
+    @staticmethod
+    def harvest(data):
+        return {
+            'matcher': util.worldInfo( data['matcher']),
+            'hip': util.worldInfo( data['hip']),
+            'knee': util.worldInfo( data['knee']),
+            'ankle': util.worldInfo( data['ankle']),
+            'ball': util.worldInfo( data['ball']),
+            'length': abs(sum( [b.tx.get() for b in (data['knee'], data['ankle'], data['ball'])] )),
+        }
+        
+    @staticmethod
+    def apply(data, values, ctrl):
+        out = rig.calcOutVector(dt.Vector(values['hip'][0]), dt.Vector(values['knee'][0]), dt.Vector(values['ball'][0]))
+        out *= values['length']
+
+        pvPos = values['knee'][0] + out
+        
+        util.applyWorldInfo(ctrl, values['matcher'])
+
+        xform( ctrl.subControl['pv'], ws=True, t=pvPos )
+        
+        # Figure out the bend, (via trial and error at the moment)
+        def setBend():
+            angle, axis = util.angleBetween( data['ankle'], data['ball'], data['chain_2'] )
+            current = ctrl.bend.get()
+
+            ''' This is an attempt to look at the axis to determine what direction to bend
+            if abs(axis[0]) > abs(axis[1]) and abs(axis[0]) > abs(axis[2]):
+                signAxis = axis[0]
+            elif abs(axis[1]) > abs(axis[0]) and abs(axis[1]) > abs(axis[2]):
+                signAxis = axis[1]
+            elif abs(axis[2]) > abs(axis[0]) and abs(axis[2]) > abs(axis[1]):
+                signAxis = axis[2]
+            '''
+
+            d = core.dagObj.distanceBetween(data['ankle'], data['chain_2'])
+            ctrl.bend.set( current + angle )
+            if core.dagObj.distanceBetween(data['ankle'], data['chain_2']) > d:
+                ctrl.bend.set( current - angle )
+        
+        setBend()
+        if core.dagObj.distanceBetween(data['ankle'], data['chain_2']) > 0.1:
+            setBend()
+            if core.dagObj.distanceBetween(data['ankle'], data['chain_2']) > 0.1:
+                setBend()
+                if core.dagObj.distanceBetween(data['ankle'], data['chain_2']) > 0.1:
+                    setBend()

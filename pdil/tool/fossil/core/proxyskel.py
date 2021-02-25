@@ -5,8 +5,8 @@ Contains the utilites to build the unselectable proxy skeleton.
 from pymel.core import *
 
 
-from ...add import simpleName, shortName
-from ... import core
+from ....add import simpleName, shortName
+from .... import core
 
 
 _DEFAULT_PROXY_RADIUS = 0.70
@@ -46,6 +46,7 @@ def makeProxy(tempJoint, parent=None, radius=_DEFAULT_PROXY_RADIUS):
     tempJoint.proxy = joint(parent)
     tempJoint.proxy.radius.set(radius)
     pointConstraint( tempJoint, tempJoint.proxy )
+    return tempJoint
 
 
 def pointer(parent, child):
@@ -68,10 +69,10 @@ def pointer(parent, child):
     grp = getProxyGroup()
 
     if not child.proxy:
-        makeProxy( child, grp, proxyRadius )
+        makeProxy( child, grp, child.radius.get() * _DEFAULT_PROXY_RADIUS )
 
     if not parent.proxy:
-        makeProxy( parent, grp, proxyRadius )
+        makeProxy( parent, grp, parent.radius.get() * _DEFAULT_PROXY_RADIUS )
 
     # If card parentage is established, manage vis
     if parent.cardCon.node() != child.cardCon.node():
@@ -81,9 +82,9 @@ def pointer(parent, child):
         child.proxy.setParent( grp )
 
         linkStart = joint(grp)
-        linkStart.radius.set(proxyRadius)
+        linkStart.radius.set( parent.radius.get() * proxyRadius)
         linkEnd = joint(linkStart)
-        linkEnd.radius.set(proxyRadius)
+        linkEnd.radius.set( child.radius.get() * proxyRadius)
 
         pointConstraint( parent, linkStart )
         pointConstraint( child, linkEnd )

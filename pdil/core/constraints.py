@@ -1,39 +1,67 @@
+'''
+
+`_constraintSerialize` returns a dict that is used as **kwargs to rebuild the constriant.
+An aimConstraint might produce this:
+
+{
+    "wuo": "upTarget",      # <-- constraint specifics live top level
+    "wut": "object",
+    "#": {                  # <-- extra info, like the target list, live underneath "#"
+        "targets": ["target_a",  "target_b"]
+    }
+}
+
+`_constraintSerialize` has an optional `nodeConv` param to convert PyNodes into something json serializable.
+This defaults into `str` to just dump it out as a string
+
+`_constraintDeerialize` has the reverse `nodeDeconv` to convert the input into something, defaulting to doing nothing.
+
+Fossil uses this to turn nodes into a dict, which provides several methods to find a node.
+
+'''
+
 from __future__ import print_function, absolute_import
 
 import copy
 
-try:
-    from typing import Any, Dict, List, Tuple, Union # noqa
-except ImportError:
-    pass
 
 from pymel.core import aimConstraint, parentConstraint, pointConstraint, orientConstraint
 from pymel.core import PyNode, dt
 import maya.cmds as cmds
 
-from .. import add
 
 # Dynamically accessed in `_constraintSerialize` on what flags to query.
 AIMCONSTRAINT_FLAGS = ['aim', 'u', 'wut', 'wu', 'wuo', 'o']
-POINTCONSTRAINT_FLAGS = [] # type: List[str]
-PARENTCONSTRAINT_FLAGS = [] # type: List[str]
-ORIENTCONSTRAINT_FLAGS = [] # type: List[str]
+POINTCONSTRAINT_FLAGS = []
+PARENTCONSTRAINT_FLAGS = []
+ORIENTCONSTRAINT_FLAGS = []
 
 
-def makeJsonSerializable(val): # type: (Union[PyNode, dt.Vector]) -> Union[Dict, List]
-    '''
-    Converts pymel vectors to lists and pynodes to dicts (in core.dagObj id format).
+affectsRotation = {
+    'orientConstraint': 'skip',
+    'parentConstraint': 'sr',
+    'aimConstraint': 'skip',
+}
+
+affectsTranslation = {
+    'parentConstraint': 'st',
+    'pointConstraint': 'skip'
+}
+
+
+def makeJsonSerializable(val, nodeConv=str):
+    ''' Converts pymel vectors to lists and PyNodes via `nodeConv` (defaults to `str`)
     '''
     if isinstance(val, dt.Vector):
         return [val[0], val[1], val[2]]
     
     if isinstance(val, PyNode):
-        return add.getIds(val)
+        return nodeConv(val)
     
     return val
 
 
-def _constraintSerialize(constType, obj): # type: (str, PyNode) -> Dict[str, Dict]
+def _constraintSerialize(constType, obj, nodeConv=str):
     '''
     Given a str for the constraint type, ex `pointConstraint` and a PyNode, returns
     a json-valid dict that can be used to reconstruct the contstraint.
@@ -47,20 +75,31 @@ def _constraintSerialize(constType, obj): # type: (str, PyNode) -> Dict[str, Dic
     const = cmds_constraint(str(obj), q=True)
 
     if not const:
-        return None
+        return None, None
 
     for flag in flags:
         val = pymel_constraint(const, q=True, **{flag: True})
-        data[flag] = makeJsonSerializable(val)
+        data[flag] = makeJsonSerializable(val, nodeConv)
 
-    data['#']['targets'] = [ add.getIds(o) for o in pymel_constraint(const, q=True, tl=True) ]
+    data['#']['targets'] = [ nodeConv(o) for o in pymel_constraint(const, q=True, tl=True) ]
 
-    return data
+    if constType in affectsRotation:
+        skipRotate = [axis for axis in 'xyz' if not cmds.listConnections( const + '.constraintRotate' + axis.upper() )]
+        if skipRotate:
+            skipFlag = affectsRotation[constType]
+            data[ skipFlag ] = skipRotate
+    
+    if constType in affectsTranslation:
+        skipTranslate = [axis for axis in 'xyz' if not cmds.listConnections( const + '.constraintTranslate' + axis.upper() )]
+        if skipTranslate:
+            skipFlag = affectsTranslation[constType]
+            data[skipFlag] = skipTranslate
+
+    return data, const
 
 
-def _constraintDeserialize(obj, kwargs): # type: (PyNode, Dict) -> Tuple[List[PyNode], Dict]
-    '''
-    Helper, return a <list of targets> and **kwargs for use in reconstructing a constraint, from `_constraintSerialize`.
+def _constraintDeserialize(kwargs, nodeDeconv=lambda n: n):
+    ''' Takes the kwargs used for a constraint and converts the targets to nodes (default to leaving as is).
     '''
     #kwargs = copy.deepcopy(data)
     kwargExtraData = kwargs['#']
@@ -71,92 +110,93 @@ def _constraintDeserialize(obj, kwargs): # type: (PyNode, Dict) -> Tuple[List[Py
         del kwargs['o']
         kwargs['mo'] = True
 
-    targets = [ add.findFromIds(o) for o in kwargExtraData['targets'] ]
+    targets = [ nodeDeconv(o) for o in kwargExtraData['targets'] ]
 
     # As of 2016, unicode keys don't work.  So stupid.
-    nonUnicode = {}
+    nonUnicodeKwargs = {}
     for k, v in kwargs.items():
-        nonUnicode[str(k)] = v
+        nonUnicodeKwargs[str(k)] = v
 
-    #aimConstraint(targets, obj, **nonUnicode )
-    return targets, nonUnicode
+    #aimConstraint(targets, obj, **nonUnicodeKwargs )
+    return targets, nonUnicodeKwargs
 
 
-def aimSerialize(obj): # type: (PyNode) -> Dict
-    return _constraintSerialize('aimConstraint', obj)
+def aimSerialize(obj, nodeConv=str):
+    return _constraintSerialize('aimConstraint', obj, nodeConv=nodeConv)[0]
     
     
-def aimDeserialize(obj, data): # type: (PyNode, Dict) -> None
+def aimDeserialize(obj, data, nodeDeconv=lambda n: n):
     # If the world up object is absent, remove it entirely.
     kwargs = copy.deepcopy(data)
     if not kwargs['wuo']:
         del kwargs['wuo']
     else:
-        kwargs['wuo'] = add.findFromIds(kwargs['wuo'])
+        kwargs['wuo'] = nodeDeconv(kwargs['wuo'])
     
-    targets, reformattedKwargs = _constraintDeserialize(obj, kwargs)
+    targets, reformattedKwargs = _constraintDeserialize(kwargs, nodeDeconv)
     if 'mo' in reformattedKwargs:
         del reformattedKwargs['mo']
     aimConstraint(targets, obj, mo=True, **reformattedKwargs)
     
     
-def pointSerialize(obj): # type: (PyNode) -> Dict
-    return _constraintSerialize('pointConstraint', obj)
+def pointSerialize(obj, nodeConv=str):
+    return _constraintSerialize('pointConstraint', obj, nodeConv=nodeConv)[0]
     
 
-def pointDeserialize(obj, data): # type: (PyNode, Dict) -> None
+def pointDeserialize(obj, data, nodeDeconv=lambda n: n):
     kwargs = copy.deepcopy(data)
-    targets, reformattedKwargs = _constraintDeserialize(obj, kwargs)
+    targets, reformattedKwargs = _constraintDeserialize(kwargs, nodeDeconv)
     if 'mo' in reformattedKwargs:
         del reformattedKwargs['mo']
     pointConstraint(targets, obj, mo=True, **reformattedKwargs)
     
     
-def orientSerialize(obj): # type: (PyNode) -> Dict
-    return _constraintSerialize('orientConstraint', obj)
+def orientSerialize(obj, nodeConv=str):
+    return _constraintSerialize('orientConstraint', obj, nodeConv=nodeConv)[0]
     
     
-def orientDeserialize(obj, data): # type: (PyNode, Dict) -> None
+def orientDeserialize(obj, data, nodeDeconv=lambda n: n):
     kwargs = copy.deepcopy(data)
-    targets, reformattedKwargs = _constraintDeserialize(obj, kwargs)
+    targets, reformattedKwargs = _constraintDeserialize(kwargs, nodeDeconv)
     if 'mo' in reformattedKwargs:
         del reformattedKwargs['mo']
     orientConstraint(targets, obj, mo=True, **reformattedKwargs)
     
     
-def parentSerialize(obj): # type: (PyNode) -> Dict
-    return _constraintSerialize('parentConstraint', obj)
+def parentSerialize(obj, nodeConv=str):
+    return _constraintSerialize('parentConstraint', obj, nodeConv=nodeConv)[0]
     
     
-def parentDeserialize(obj, data):  # type: (PyNode, Dict) -> None
+def parentDeserialize(obj, data, nodeDeconv=lambda n: n):
     kwargs = copy.deepcopy(data)
-    targets, reformattedKwargs = _constraintDeserialize(obj, kwargs)
+    targets, reformattedKwargs = _constraintDeserialize(kwargs, nodeDeconv)
     if 'mo' in reformattedKwargs:
         del reformattedKwargs['mo']
+    #print(targets, obj, reformattedKwargs)
     parentConstraint(targets, obj, mo=True, **reformattedKwargs)
     
     
-def fullSerialize(obj):
+def fullSerialize(obj, nodeConv=str):
     '''
     Try serializing all constraint, returning a dictionary of which ones apply.
     '''
     constraints = {}
     for func in [ aimSerialize, pointSerialize, orientSerialize, parentSerialize ]:
-        result = func(obj)
+        result = func(obj, nodeConv)
         if result:
             constraints[func.__name__.replace('Serialize', '')] = result
     return constraints
     
     
-def fullDeserialize(obj, alldata):
+def fullDeserialize(obj, alldata, nodeDeconv=lambda n: n):
     alldata = copy.deepcopy(alldata)
     for ctype, data in alldata.items():
         if 'mo' in data:
             del data['mo']
-        globals()[ ctype + 'Deserialize' ](obj, data)
+        globals()[ ctype + 'Deserialize' ](obj, data, nodeDeconv)
     
     
-def getOrientConstrainee(target): # type: (PyNode) -> PyNode
+def getOrientConstrainee(target):
     '''
     Given a target used in an orientConstraint, find the object that is orient
     constrained to it.
@@ -176,7 +216,7 @@ def getOrientConstrainee(target): # type: (PyNode) -> PyNode
         return None
         
         
-def getParentConstrainee(target): # type: (PyNode) -> PyNode
+def getParentConstrainee(target):
     '''
     Given a target used in an orientConstraint, find the object that is orient
     constrained to it.
@@ -196,7 +236,7 @@ def getParentConstrainee(target): # type: (PyNode) -> PyNode
         return None
         
         
-def pointConst(*args, **kwargs): # type: (*Any, **Any) -> PyNode
+def pointConst(*args, **kwargs):
     ''' pointConstraint wrapper that returns the controlling plug '''
     return pointConstraint(*args, **kwargs).getWeightAliasList()[-1]
 

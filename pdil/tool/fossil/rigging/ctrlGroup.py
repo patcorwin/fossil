@@ -10,9 +10,10 @@ from .... import nodeApi
 from .. import controllerShape
 
 from ..cardRigging import MetaControl, ParamInfo, OutputControls
-from .. import settings
+from ..core import config
 
 from . import _util as util
+from .. import node
 
 
 @util.adds()
@@ -32,7 +33,7 @@ def buildCtrlGroup(parentJoint, point, rotation, name='Group', translatable=True
     if parentJoint:
         parentConstraint( parentJoint, container, mo=False )
     
-    container.setParent( lib.getNodes.mainGroup() )
+    container.setParent( node.mainGroup() )
         
     ctrl = controllerShape.build(   name + "_ctrl",
                             controlSpec['main'],
@@ -108,9 +109,9 @@ class Group(MetaControl):
             kwargs['name'] = add.simpleName(card.start())
 
         if side == 'left':
-            kwargs['name'] += settings.sideSuffix('left')
+            kwargs['name'] += config.controlSideSuffix('left')
         elif side == 'right':
-            kwargs['name'] += settings.sideSuffix('right')
+            kwargs['name'] += config.controlSideSuffix('right')
 
         kwargs.update( sideAlteration(**fkControlSpec) )
         

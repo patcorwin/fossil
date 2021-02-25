@@ -7,7 +7,7 @@ import math
 import maya.OpenMaya
 
 from pymel.core import aimConstraint, addAttr, arclen, cluster, createNode, delete, duplicate, dt, group, hide, \
-    orientConstraint, parentConstraint, pointConstraint, scaleConstraint, selected, upAxis, warning, xform
+    orientConstraint, parentConstraint, pointConstraint, PyNode, scaleConstraint, selected, upAxis, warning, xform
 
 from ....add import simpleName
 from .... import core
@@ -505,7 +505,68 @@ def _makeStretchyPrep(controller, ik, stretchDefault=1):
     return start, chain, jointAxis, switcher
 
 
-# IK / Sline stuff -----------------------
+def makeStretchyNonSpline(controller, ik, stretchDefault=1):
+    start, chain, jointAxis, switcher = _makeStretchyPrep( controller, ik, stretchDefault )
+
+    dist, grp = core.dagObj.measure(start, ik)
+    grp.setParent( controller )
+    dist.setParent( ik.getParent() )
+    length = dist.distance
+    
+    lengthMax = chainLength(chain)
+    # Regular IK only stretches
+    # ratio = (abs distance between start and end) / (length of chain)
+    ratio = core.math.divide( length, lengthMax )
+    # multiplier is either 1 or a number greater than one needed for the chain to reach the end.
+    multiplier = core.math.condition( ratio, '>', 1.0, true=ratio, false=1 )
+
+    controller.addAttr( 'length', at='double', min=-10.0, dv=0.0, max=10.0, k=True )
+
+    '''
+    lengthMod is the below formula:
+
+    if controller.length >= 0:
+        controller.length/10.0 + 1.0 # 1.0 to 2.0 double the length of the limb
+    else:
+        controller.length/20.0  + 1.0 # .5 to 1.0 halve the length of the limb
+    '''
+    lengthMod = core.math.add(
+        core.math.divide(
+            controller.length,
+            core.math.condition(controller.length, '>=', 0, 10.0, 20.0)
+        ),
+        1.0
+    )
+    
+    jointLenMultiplier = core.math.multiply(switcher.output, lengthMod)
+    
+    multiplier >> switcher.input[1]
+    
+    for i, j in enumerate(chain[1:], 1):
+        saveRestLength(j, jointAxis)
+        #util.recordFloat(j, 'restLength', j.attr('t' + jointAxis).get() )
+            
+        # Make an attribute that is -10 to 10 map to multiplying the restLength by 0 to 2
+        attrName = 'segLen' + str(i)
+        controller.addAttr( attrName, at='double', k=True, min=-10, max=10 )
+        normalizedMod = core.math.add(core.math.divide( controller.attr(attrName), 10), 1)
+        
+        "j.attr('t' + jointAxis) = lockSwitcher.output = jointLenMultiplier * normalizedMod * j.restLength"
+        
+        # As of 2/9/2019 it looks to be fine to make this even if it's not used by the ik to lock the elbow (like in dogleg)
+        lockSwitcher = createNode('blendTwoAttr', n='lockSwitcher')
+        
+        core.math.multiply(
+            jointLenMultiplier,
+            core.math.multiply( normalizedMod, j.restLength)
+        ) >> lockSwitcher.input[0] # >> j.attr('t' + jointAxis)
+    
+        lockSwitcher.output >> j.attr('t' + jointAxis)
+    
+    return controller.attr('stretch'), jointLenMultiplier
+
+
+# IK / Spline stuff -----------------------
 
 def advancedTwist(start, end, baseCtrl, endCtrl, ik):
     # Setup advanced twist
@@ -608,29 +669,6 @@ def midAimer(start, end, midCtrl, name='aimer', upVector=None):
     return aimer
 
 
-
-def createMatcher(ctrl, target):
-    '''
-    Creates an object that follows target, based on ctrl so ctrl can match it
-    easily.
-    '''
-    matcher = duplicate(ctrl, po=True)[0]
-    parentConstraint( target, matcher, mo=True )
-
-    matcher.rename( ctrl.name() + '_matcher' )
-    hide(matcher)
-
-    if not ctrl.hasAttr( 'matcher' ):
-        ctrl.addAttr('matcher', at='message')
-
-    matcher.message >> ctrl.matcher
-    
-    if matcher.hasAttr('fossilCtrlType'):
-        matcher.deleteAttr( 'fossilCtrlType' )
-    
-    return matcher
-
-
 _45_DEGREES = math.radians(45)
 
 
@@ -648,15 +686,15 @@ def slerp(start, end, percent):
     
 def calcOutVector(start, middle, end):
     '''
-    Given the lead joint of 3, determine the vector pointing directly away along the xz plane.
+    Given the lead joint of 3 (or dt.Vectors), determine the vector pointing directly away along the xz plane.
     
     ..  todo::
         Gracefully handle if the ik is on the xz plane already.
     '''
-
-    s = dt.Vector( xform(start, q=1, ws=1, t=1) )
-    m = dt.Vector( xform(middle, q=1, ws=1, t=1) )
-    e = dt.Vector( xform(end, q=1, ws=1, t=1) )
+    
+    s = dt.Vector( xform(start, q=1, ws=1, t=1) ) if isinstance( start, PyNode) else start
+    m = dt.Vector( xform(middle, q=1, ws=1, t=1) ) if isinstance( middle, PyNode) else middle
+    e = dt.Vector( xform(end, q=1, ws=1, t=1) ) if isinstance( end, PyNode) else end
     
     up = s - e
     
@@ -682,19 +720,19 @@ def calcOutVector(start, middle, end):
         # Calculate a point perpendicular to the line created by the start and end
         # going through the middle
         theta = up.angle( m - e )
-
+        
         distToMidpoint = math.cos(theta) * (m - e).length()
-
+        
         midPoint = distToMidpoint * up.normal() + e
-
+        
         altOutFromKnee = m - midPoint
-
+        
         altOutFromKnee.normalize()
     
         # lerp between the vectors
         percent = (angleToVertical - _45_DEGREES) / _45_DEGREES # 45 to up axis will favor old, on y axis favors new
         outFromKnee = slerp(outFromKnee, altOutFromKnee, percent)
-
+    
     
     angleBetween = (m - s).angle( e - m )
     
@@ -705,6 +743,103 @@ def calcOutVector(start, middle, end):
     
     return outFromKnee
     
+
+# Ik/Fk Switching -----------------------
+
+def getChainFromIk(ikHandle):
+    '''
+    Given an ikHandle, return a chain of the joints affected by it.
+    '''
+    start = ikHandle.startJoint.listConnections()[0]
+    endEffector = ikHandle.endEffector.listConnections()[0]
+    end = endEffector.tx.listConnections()[0]
+
+    chain = getChain(start, end)
+    return chain
+
+
+def getConstraineeChain(chain):
+    '''
+    If the given chain has another rotate constrained to it, return it
+    '''
+    boundJoints = []
+    for j in chain:
+        temp = core.constraints.getOrientConstrainee(j)
+        if temp:
+            boundJoints.append(temp)
+        else:
+            break
+
+    return boundJoints
+
+
+def createMatcher(ctrl, target):
+    '''
+    Creates an object that follows target, based on ctrl so ctrl can match it
+    easily.
+    '''
+    matcher = duplicate(ctrl, po=True)[0]
+    parentConstraint( target, matcher, mo=True )
+
+    matcher.rename( ctrl.name() + '_matcher' )
+    hide(matcher)
+
+    if not ctrl.hasAttr( 'matcher' ):
+        ctrl.addAttr('matcher', at='message')
+
+    matcher.message >> ctrl.matcher
+    
+    if matcher.hasAttr('fossilCtrlType'):
+        matcher.deleteAttr( 'fossilCtrlType' )
+    
+    return matcher
+
+
+def getMatcher(ctrl):
+    try:
+        matcher = ctrl.matcher.listConnections()[0]
+        return matcher
+    except Exception:
+        warning('{0} does not have a matcher setup'.format(ctrl))
+
+
+def alignToMatcher(ctrl):
+    try:
+        matcher = getMatcher(ctrl)
+        xform( ctrl, ws=True, t=xform(matcher, q=True, ws=True, t=True) )
+        xform( ctrl, ws=True, ro=xform(matcher, q=True, ws=True, ro=True) )
+    except Exception:
+        warning('{0} does not have a matcher setup'.format(ctrl))
+
+
+def angleBetween( a, mid, c ):
+    # Give 3 points, return the angle and axis between the vectors
+    aPos = dt.Vector(xform(a, q=True, ws=True, t=True))
+    midPos = dt.Vector(xform(mid, q=True, ws=True, t=True))
+    cPos = dt.Vector(xform(c, q=True, ws=True, t=True))
+
+    aLine = midPos - aPos
+    bLine = midPos - cPos
+
+    aLine.normalize()
+    bLine.normalize()
+
+    axis = aLine.cross(bLine)
+
+    if axis.length() > 0.01:
+        return math.degrees(math.acos(aLine.dot(bLine))), axis
+    else:
+        return 0, axis
+
+
+def worldInfo(obj):
+    return [xform(obj, q=True, ws=True, t=True), xform(obj, q=True, ws=True, ro=True)]
+
+
+def applyWorldInfo(obj, info):
+    xform(obj, ws=True, t=info[0])
+    xform(obj, ws=True, ro=info[1])
+
 
 # -----------------------
 
@@ -924,7 +1059,6 @@ def driveConstraints(srcConstraintResult, destConstraintResult):
     
     srcConstraintResult.point >> destConstraintResult.point
     srcConstraintResult.orient >> destConstraintResult.orient
-
 
     
 def addControlsToCurve(name, crv=None,

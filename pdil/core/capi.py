@@ -1,5 +1,12 @@
+from __future__ import absolute_import, division, print_function
+
 from maya.api import OpenMaya
-import maya.OpenMaya
+
+
+try:
+    basestring
+except NameError:
+    basestring = str
 
 
 def asMObject(node):
@@ -15,25 +22,9 @@ def asMObject(node):
     return OpenMaya.MFnDependencyNode( _list.getDependNode( 0 ) )
 
 
-def asMObjectOld( otherMobject ):
+def asDagPath(obj):
+    ''' Returns the maya.api dagPath for the given object.
     '''
-    tries to cast the given obj to an mobject - it can be string
-    Taken from zoo.
-    '''
-    if isinstance( otherMobject, basestring ):
-        sel = maya.OpenMaya.MSelectionList()
-        sel.add( otherMobject )
-        
-        if '.' in otherMobject:
-            plug = maya.OpenMaya.MPlug()
-            sel.getPlug( 0, plug )
-            tmp = plug.asMObject()
-            tmp.__MPlug__ = plug
-        else:
-            tmp = maya.OpenMaya.MObject()
-            sel.getDependNode( 0, tmp )
-
-        return tmp
-
-    if isinstance( otherMobject, (maya.OpenMaya.MObject, maya.OpenMaya.MObjectHandle) ):
-        return otherMobject
+    sel = OpenMaya.MSelectionList()
+    sel.add(str(obj))
+    return sel.getDagPath(0)

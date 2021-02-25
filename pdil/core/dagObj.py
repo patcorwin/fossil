@@ -2,11 +2,17 @@ from pymel.core import parent, xform, dt, selected, move, spaceLocator, pointCon
 
 from ..add import alt, simpleName
 
+try:
+    basestring
+except NameError:
+    basestring = str
+
 
 class Solo(object):
     '''
     Context manager for temporarily unparenting any children an object might have.
     '''
+    
     def __init__(self, obj):
         self.obj = obj
         
@@ -90,10 +96,12 @@ class TemporaryUnlock(object):
 
 
 def getPos( obj ):
+    ''' Get worldspace position '''
     return dt.Vector( xform( obj, q=True, ws=True, t=True ) )
 
 
 def getRot( obj ):
+    ''' Get worldspace rotation '''
     return dt.Vector( xform( obj, q=True, ws=True, ro=True ) )
 
             
@@ -124,7 +132,13 @@ def unlock(objs=None):
     if not objs:
         objs = selected()
     
-    for obj in selected():
+    # Convert input to a list if needed
+    if isinstance(objs, PyNode):
+        objs = [objs]
+    elif isinstance(objs, basestring):
+        objs = [PyNode(objs)]
+    
+    for obj in objs:
         for t in 'trs':
             obj.attr(t).unlock()
             for a in 'xyz':
@@ -136,8 +150,6 @@ def unlock(objs=None):
 def distanceBetween(a, b):
     '''
     Returns the world space distance between two objects
-    
-    .. todo:: Should this be combined with `measure`?
     '''
     dist = dt.Vector(xform(a, q=True, ws=True, t=True)) - dt.Vector(xform(b, q=True, ws=True, t=True))
     return dist.length()
@@ -146,10 +158,6 @@ def distanceBetween(a, b):
 def measure( start, end, name='measureLocs'):
     '''
     Given 2 objects, makes and point constrains locators to them and measures.
-    
-    .. todo:: Should this be combined with `distanceBetween`?
-    
-    #--# was skeleton.util.measure
     '''
     
     a = spaceLocator()
@@ -160,16 +168,14 @@ def measure( start, end, name='measureLocs'):
     
     dist = distanceDimension( a, b )
         
-    #a.setParent( dist.getParent() )
-    #b.setParent( dist.getParent() )
     hide( a, b, dist)
         
     return dist.getParent(), group(a, b, name=name)
 
                     
-def matchPosByPivot(a, b):
-    pos = xform(b, q=True, ws=True, rp=True)
-    move( a, pos, rpr=True, ws=True )
+def matchPosByPivot(dest, src):
+    pos = xform(src, q=True, ws=True, rp=True)
+    move( dest, pos, rpr=True, ws=True )
     
     
 def moveTo(recipient, posOrObj):
@@ -185,19 +191,22 @@ def moveTo(recipient, posOrObj):
     xform( recipient, ws=True, t=pos )
 
 
-def matchTo(dest, src):
+def matchTo(dest, src, byPivot=False):
     '''
     Move the dest to the position and rotation of the src.
     '''
-
-    # Pymel keeps changing if this returns 6 numbers or 2 vectors, boo!
-    temp = src.getPivots(ws=True)
-    if len(temp) == 2:
-        trans = temp[0]
+    if byPivot:
+        matchPosByPivot(dest, src)
     else:
-        trans = temp[:3]
+        # Pymel keeps changing if this returns 6 numbers or 2 vectors, boo!
+        temp = src.getPivots(ws=True)
+        if len(temp) == 2:
+            trans = temp[0]
+        else:
+            trans = temp[:3]
 
-    dest.setTranslation( trans, space='world' )
+        dest.setTranslation( trans, space='world' )
+    
     dest.setRotation( src.getRotation(space='world'), space='world' )
 
 
@@ -228,8 +237,6 @@ def _contain(obj, suffix, name='', make=True):
     
     grp = group(em=True)
     matchTo( grp, obj )
-    #grp.setTranslation( obj.getPivots(ws=True)[0] , space='world' )
-    #grp.setRotation( obj.getRotation(space='world') , space='world' )
     
     if obj.getParent():
         grp.setParent( obj.getParent() )

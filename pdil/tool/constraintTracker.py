@@ -11,7 +11,7 @@ from .. import core
 class ConstraintTracker(object):
 
     @staticmethod
-    @core.alt.name('Constraint Tracker')
+    @core.alt.name('Constraint Tracker', 'Debug|Tools')
     def show():
         return ConstraintTracker()
 

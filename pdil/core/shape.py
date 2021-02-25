@@ -1,4 +1,7 @@
+from maya.api import OpenMaya
 from pymel.core import cmds, attributeQuery
+
+from . import capi  # &&& Need to move this to lib since it imports a neighbor
 
 sharedShapeTag = 'mo_is_shared'
 
@@ -27,3 +30,23 @@ def getShapes(rigController):
     return shapes
     
     
+def _getPoint(crvFn, val):
+    ''' Helper for `uniformPointsOnCurve`
+    '''
+    point = crvFn.getPointAtParam(
+        crvFn.findParamFromLength(crvFn.length() * val),
+        OpenMaya.MSpace.kWorld
+    )
+    return [point.x, point.y, point.z]
+
+
+def uniformPointsOnCurve(crv, count):
+    ''' Returns evenly spaced world points along the given curve.
+    '''
+    crvFn = OpenMaya.MFnNurbsCurve( capi.asDagPath(crv) )
+    
+    step = 1.0 / (count - 1)
+
+    points = [ _getPoint(crvFn, step * i) for i in range(count) ]
+        
+    return points

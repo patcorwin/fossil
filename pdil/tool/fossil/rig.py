@@ -99,6 +99,7 @@ from ... import nodeApi
 
 from . import controllerShape
 from . import log
+from . import node
 from . import space
 from . import util
 
@@ -175,12 +176,16 @@ def _getActiveControl(outputSide):
             return outputSide.fk
 
     
-def getMainController(obj):
+def getMainController(obj): # &&& TODO rename to `lead` controller, as there is already a main!  Which I did in `findNode`?  Ugg, this is worse than I thought.
     '''
     Given a controller, return the main RigController (possibly itself) or
     None if not found.
     '''
-    if isinstance(obj, nodeApi.RigController):
+    #print('GMC, ', obj, isinstance(obj, nodeApi.fossilNodes.RigController))
+    #print('   ', obj.__class__.__module__, obj.__class__.__name__)
+    #if isinstance(obj, nodeApi.RigController):
+    if obj.__class__.__name__ == 'RigController' and obj.__class__.__module__ == 'pdil.nodeApi.fossilNodes':
+        print('IS RIG')
         return obj
     else:
         objs = obj.message.listConnections(type=nodeApi.RigController)
@@ -403,12 +408,15 @@ def makeStretchyNonSpline(controller, ik, stretchDefault=1):
         attrName = 'segLen' + str(i)
         controller.addAttr( attrName, at='double', k=True, min=-10, max=10 )
         normalizedMod = core.math.add(core.math.divide( controller.attr(attrName), 10), 1)
+        #segmentLength = controller.attr(attrName)
+        # normalizedMod = core.path.parse(' (segmentLength / 10) + 1')
         
         "j.attr('t' + jointAxis) = lockSwitcher.output = jointLenMultiplier * normalizedMod * j.restLength"
         
         # As of 2/9/2019 it looks to be fine to make this even if it's not used by the ik to lock the elbow (like in dogleg)
         lockSwitcher = createNode('blendTwoAttr', n='lockSwitcher')
         
+        # core.math.parse('jointLenMultiplier * normalizedMod * j.restLength') >> lockSwitcher.input[0]
         core.math.multiply(
             jointLenMultiplier,
             core.math.multiply( normalizedMod, j.restLength)
@@ -550,11 +558,11 @@ def getIkGroup():
     Makes, if needed, and returns the group holding ik controls
     '''
     
-    for child in lib.getNodes.mainGroup().listRelatives():
+    for child in node.mainGroup().listRelatives():
         if shortName(child) == 'ikParts':
             return child
     
-    return group(em=True, name='ikParts', p=lib.getNodes.mainGroup())
+    return group(em=True, name='ikParts', p=node.mainGroup())
 
 
 def getControlGroup(name):
@@ -566,11 +574,11 @@ def getControlGroup(name):
     if not match or match.group(0) != name:
         raise Exception( "An invalid group name was given" )
     
-    for child in lib.getNodes.mainGroup().listRelatives():
+    for child in node.mainGroup().listRelatives():
         if shortName(child) == name:
             return child
     
-    g = group(em=True, name=name, p=lib.getNodes.mainGroup())
+    g = group(em=True, name=name, p=node.mainGroup())
     lockRot(g)
     lockScale(g)
     lockTrans(g)
@@ -588,13 +596,13 @@ def parentProxy(target):
     
     name = target.name() + '_Proxy'
     
-    for child in lib.getNodes.mainGroup().listRelatives():
+    for child in node.mainGroup().listRelatives():
         if shortName(child) == name:
             return child
     
     grp = group( em=True )
     grp.rename( name )
-    grp.setParent( lib.getNodes.mainGroup() )
+    grp.setParent( node.mainGroup() )
     
     parentConstraint( target, grp, mo=False )
     
@@ -618,15 +626,6 @@ def transferKeyableUserAttrs( src, dest ):
         newAttr.setMax( attr.getMax() )
 
 
-def createCurve():
-    node = createNode('animCurveUU')
-    ass = maya.OpenMayaAnim.MFnAnimCurve( core.capi.asMObjectOld(node) )
-
-    ass.addKey(.5, -5)
-    ass.addKey(1, 0)
-    ass.addKey(2, 5)
-        
-        
 def squashLinker(name, ctrlA, ctrlB):
     '''
     Name the control that will be made to handle the sizes of two squash controllers.
@@ -798,15 +797,18 @@ def getBPJoint(realJoint):
 
 @adds()
 @defaultspec( {'shape': 'sphere', 'color': 'orange 0.22', 'size': 10} )
-def fkChain(start, end, translatable=False, scalable=False, names=None, groupName='', controlSpec={} ):
+def fkChain(start, end, translatable=False, scalable=False, names=None, groupName='', mirroredTranslate=False, controlSpec={} ):
     '''
     Make an FK chain between the given joints.
     
-    :param PyNode start: Start of joint chain
-    :param PyNode end: End of chain
-    :param bool translatable: Default=False
-    :param dict controlSpec: Override default control details here.  Only has 'main'.
-    
+    Args:
+        start: PyNode, start of joint chain
+        end: PyNode, end of chain
+        translatable:
+        scalable:
+        names:
+        mirroredTranslate: If true, inverts scale of zeroGroup so translation mirrors just like rotation
+            
     ..  todo::
         I think I want to control spec housed elsewhere for easier accessibility.
     
@@ -818,7 +820,7 @@ def fkChain(start, end, translatable=False, scalable=False, names=None, groupNam
     
     container = parentGroup(start)
     
-    container.setParent( lib.getNodes.mainGroup() )
+    container.setParent( node.mainGroup() )
     
     container.rename( trimName(start) + '_fkChain' )
     
@@ -842,6 +844,9 @@ def fkChain(start, end, translatable=False, scalable=False, names=None, groupNam
         controls.append( ctrl )
         core.dagObj.matchTo( ctrl, j )
         space = core.dagObj.zero( ctrl )
+        
+        if mirroredTranslate:
+            space.s.set(-1, -1, -1,)
         
         # If the parent is a twist, make it a child of the most recent non-twist so twists are isolated.
         if top == container or (prevBPJ and not prevBPJ.info.get('twist')):
@@ -878,7 +883,7 @@ def fkChain(start, end, translatable=False, scalable=False, names=None, groupNam
         prevBPJ = getBPJoint(j)
         if not prevBPJ.info.get('twist'):
             validCtrl = ctrl
-            
+        
     #drive( start, CONTROL_ATTR_NAME, leadOrient )
     #drive( start, CONTROL_ATTR_NAME, leadPoint )
     
@@ -917,12 +922,12 @@ def splineEndTwist(start, end, name):
         
     controls = addControlsToCurve(crv)
     
-    space.addWorld( controls[0], mode=space.Mode.ROTATE )
+    space.addMain( controls[0], mode=space.Mode.ROTATE )
     space.add( controls[0], start.getParent(), mode=space.Mode.ROTATE )
     
     for prev, ctrl in zip( controls[:-1], controls[1:] ):
         space.add( ctrl, prev )
-        space.addWorld(ctrl)
+        space.addMain(ctrl)
 
 
 @adds('AutoTwistPower')
@@ -941,7 +946,7 @@ def twist(twist, twistDriver, twistLateralAxis=[0, 1, 0], driverLateralAxis=[0, 
     '''
     
     container = parentGroup(twist)
-    container.setParent( lib.getNodes.mainGroup() )
+    container.setParent( node.mainGroup() )
     container.rename( trimName(twist) + '_twist' )
     
     anchor = duplicate( twist, po=True )[0]
@@ -1002,7 +1007,7 @@ def splineChestFourJoint(start, end, name='Chest', groupName='', controlSpec={})
     if not name:
         name = trimName(start) + '_Spline'
     container = group( n=name + '_splineChest' )
-    container.setParent( lib.getNodes.mainGroup() )
+    container.setParent( node.mainGroup() )
     if start.getParent():
         parentConstraint(start.getParent(), container, mo=True)
    
@@ -1024,7 +1029,7 @@ def splineChestFourJoint(start, end, name='Chest', groupName='', controlSpec={})
     
     space.add( chestCtrl, start.getParent(), 'local' )
     space.add( chestCtrl, start.getParent(), 'local_posOnly', mode=space.Mode.TRANSLATE )
-    space.addWorld( chestCtrl )
+    space.addMain( chestCtrl )
     space.addTrueWorld( chestCtrl )
     
     # Main Ik
@@ -1101,7 +1106,7 @@ def splineChestThreeJoint(start, end, name='Chest', groupName='', controlSpec={}
     if not name:
         name = trimName(start) + '_Spline'
     container = group( n=name + '_grpX' )
-    container.setParent( lib.getNodes.mainGroup() )
+    container.setParent( node.mainGroup() )
     if start.getParent():
         parentConstraint(start.getParent(), container, mo=True)
    
@@ -1123,7 +1128,7 @@ def splineChestThreeJoint(start, end, name='Chest', groupName='', controlSpec={}
 
     space.add( chestCtrl, start.getParent(), 'local' )
     space.add( chestCtrl, start.getParent(), 'local_posOnly', mode=space.Mode.TRANSLATE )
-    space.addWorld( chestCtrl )
+    space.addMain( chestCtrl )
     space.addTrueWorld( chestCtrl )
 
     # Main Ik
@@ -1191,7 +1196,7 @@ def splineChest(start, end, name='Chest', numChestJoints=3, useTrueZero=True, gr
         
     midPoint = chain[1]  # &&& NEED TO FIGURE OUT REAL MID POINT
         
-    container = group(em=True, p=lib.getNodes.mainGroup(), n=name + "_controls")
+    container = group(em=True, p=node.mainGroup(), n=name + "_controls")
     container.inheritsTransform.set(False)
     container.inheritsTransform.lock()
     chain[0].setParent(container)
@@ -1225,7 +1230,7 @@ def splineChest(start, end, name='Chest', numChestJoints=3, useTrueZero=True, gr
     lockScale(chestCtrl)
     space.add( chestCtrl, start.getParent(), 'local' )
     space.add( chestCtrl, start.getParent(), 'local_posOnly', mode=space.Mode.TRANSLATE )
-    space.addWorld( chestCtrl )
+    space.addMain( chestCtrl )
     space.addTrueWorld( chestCtrl )
 
     # Put pivot point at the bottom
@@ -1333,7 +1338,7 @@ def splineChest(start, end, name='Chest', numChestJoints=3, useTrueZero=True, gr
         lockScale(lockTrans(neckCtrl))
         space.add( neckCtrl, chestCtrl, 'chest' )
         
-    space.addWorld(neckCtrl)
+    space.addMain(neckCtrl)
     
     # Constrain to spline proxy, up to the chest...
     constraints = []
@@ -1464,7 +1469,7 @@ def ikChain(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.TR
     ctrl = controllerShape.build( name, controlSpec['main'], type=controllerShape.ControlType.IK )
     
     container = group( n=name + '_grp' )
-    container.setParent( lib.getNodes.mainGroup() )
+    container.setParent( node.mainGroup() )
     
     core.dagObj.moveTo( ctrl, end )
     core.dagObj.zero( ctrl ).setParent( container )
@@ -1545,7 +1550,7 @@ def ikChain(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.TR
     ctrl.subControl['socket'] = socketOffset
 
     # Add default spaces
-    space.addWorld( pvCtrl )
+    space.addMain( pvCtrl )
     #space.add( pvCtrl, ctrl, spaceName=shortName(ctrl, '{0}_posOnly') )
     #space.add( pvCtrl, ctrl, spaceName=shortName(ctrl, '{0}_posOnly'), mode=space.TRANSLATE)
     space.add( pvCtrl, ctrl )
@@ -1620,7 +1625,7 @@ def ikChain2(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.T
     ctrl = controllerShape.build( name + '_Ik', controlSpec['main'], type=controllerShape.ControlType.IK )
     
     container = group( n=name + '_grp' )
-    container.setParent( lib.getNodes.mainGroup() )
+    container.setParent( node.mainGroup() )
     
     core.dagObj.moveTo( ctrl, end )
     core.dagObj.zero( ctrl ).setParent( container )
@@ -1856,7 +1861,7 @@ def ikChain2(start, end, pvLen=None, stretchDefault=1, endOrientType=EndOrient.T
         ctrl.subControl['bend%i' % i] = bend
 
     # Add default spaces
-    space.addWorld( pvCtrl )
+    space.addMain( pvCtrl )
     #space.add( pvCtrl, ctrl, spaceName=shortName(ctrl, '{0}_posOnly') )
     #space.add( pvCtrl, ctrl, spaceName=shortName(ctrl, '{0}_posOnly'), mode=space.TRANSLATE)
     space.add( pvCtrl, ctrl )
@@ -1927,7 +1932,7 @@ def chainedIk(start, end, driveChain, handleInfo, splineOptions={}, controlSpec=
     constraints = constrainAtoB( chain, controlChain )
     
     #container = parentGroup(joints[0])
-    #container.setParent( lib.getNodes.mainGroup() )
+    #container.setParent( node.mainGroup() )
     
     chunkStartIndex = 0
     

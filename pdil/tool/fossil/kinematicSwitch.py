@@ -1,20 +1,30 @@
 from __future__ import print_function, absolute_import
 
-from functools import partial
-import logging
-import math
+from collections import OrderedDict
 
-from pymel.core import dt, delete, keyframe, PyNode, xform, currentTime, setKeyframe, warning, setAttr, refresh, orientConstraint, listConnections, group
+from pymel.core import cutKey, getAttr, xform, currentTime, setKeyframe, orientConstraint
 
 from ... import core
+from ... import lib
 
-from ...nodeApi import fossilNodes
 
 from . import controllerShape
 from . import rig
 
+from . import rigging
+from . import space
 
-switch_logger = logging.getLogger('IK_FK_Switch')
+from .rigging import _util as util
+
+
+commands = {
+    'DogHindleg': rigging.dogHindLeg,
+    'SplineChest': rigging.splineChest,
+    #'SplineChestV2': rigging.splineChest,
+    'SplineNeck': rigging.splineNeck,
+    'IkChain': rigging.ikChain,
+    'FkChain': rigging.fkChain
+}
 
 
 def _getSwitchPlug(obj):  # WTF IS THIS??
@@ -32,100 +42,6 @@ def _getSwitchPlug(obj):  # WTF IS THIS??
         if target == obj:
             switchPlug = plug.listConnections(s=True, d=False, p=True)
             return switchPlug
-
-
-def getChainFromIk(ikHandle):
-    '''
-    Given an ikHandle, return a chain of the joints affected by it.
-    '''
-    start = ikHandle.startJoint.listConnections()[0]
-    endEffector = ikHandle.endEffector.listConnections()[0]
-    end = endEffector.tx.listConnections()[0]
-
-    chain = rig.getChain(start, end)
-    return chain
-
-
-def getConstraineeChain(chain):
-    '''
-    If the given chain has another rotate constrained to it, return it
-    '''
-    boundJoints = []
-    for j in chain:
-        temp = core.constraints.getOrientConstrainee(j)
-        if temp:
-            boundJoints.append(temp)
-        else:
-            break
-
-    return boundJoints
-
-
-def angleBetween( a, mid, c ):
-    # Give 3 points, return the angle and axis between the vectors
-    aPos = dt.Vector(xform(a, q=True, ws=True, t=True))
-    midPos = dt.Vector(xform(mid, q=True, ws=True, t=True))
-    cPos = dt.Vector(xform(c, q=True, ws=True, t=True))
-
-    aLine = midPos - aPos
-    bLine = midPos - cPos
-
-    aLine.normalize()
-    bLine.normalize()
-
-    axis = aLine.cross(bLine)
-
-    if axis.length() > 0.01:
-        return math.degrees(math.acos(aLine.dot(bLine))), axis
-    else:
-        return 0, axis
-
-
-def ikFkRange(control, start=None, end=None):
-    action = activateIk if control.fossilCtrlType.get() in ['ik'] else activateFk
-
-    otherObj = control.getOtherMotionType()
-    
-    drivePlug = controllerShape.getSwitcherPlug(control)
-    if drivePlug:
-        driver = lambda: setAttr(drivePlug, 1)  # noqa E731
-    else:
-        if control.fossilCtrlType.get() in ['ik']:
-            switch = _getSwitchPlug(otherObj)[0].node()
-            plug = switch.input1D.listConnections(p=True)[0]
-            driver = lambda: plug.set(1)  # noqa E731
-        else:
-            switch = _getSwitchPlug(control)[0].node()
-            plug = switch.input1D.listConnections(p=True)[0]
-            driver = lambda: plug.set(1)  # noqa E731
-
-    controls = [ ctrl for name, ctrl in otherObj.subControl.items() ] + [otherObj]
-    times = set()
-    
-    for c in controls:
-        times.update( keyframe(c, q=True, tc=True) )
-    
-    finalRange = []
-    for t in sorted(times):
-        if start is not None and t < start:
-            continue
-        if end is not None and t > end:
-            continue
-            
-        finalRange.append(t)
-        
-    targetControls = [ctrl for name, ctrl in control.subControl.items()] + [control]
-    
-    with core.ui.NoUpdate():
-        for t in finalRange:
-            currentTime(t)
-            driver()
-            action(control)
-            refresh()
-            setKeyframe(targetControls, shape=False)
-            
-            if drivePlug:
-                setKeyframe( drivePlug )
 
 
 def activateFk( fkControl ):
@@ -149,321 +65,210 @@ def activateFk( fkControl ):
         switchPlug[0].node().listConnections(p=1, s=True, d=0)[0].set(0)
 
 
-def ikFkSwitch(obj, start, end):
-    '''
-    Ik/Fk switch
-    
-    Takes any controller type (ik or fk) and switches to the other.
-    '''
-    
-    obj = PyNode(obj)
-    
-    if isinstance(obj, fossilNodes.RigController):
-        mainCtrl = obj
-    else:
-        mainCtrl = obj.message.listConnections(type=fossilNodes.RigController)[0]
-        
-    otherCtrl = mainCtrl.getOtherMotionType()
-        
-    # If we are changing to fk...
-    if otherCtrl.fossilCtrlType.get() in ['translate', 'rotate']:
-        
-        if start == end and start is not None:  # Might want ikFkRange to handle this distinction
-            activateFk(otherCtrl)
-        else:
-            ikFkRange(otherCtrl, start, end)
-    
-    # If we are changing to ik
-    else:
-        activateIk( otherCtrl, start, end )
-
-
 def multiSwitch(objs, start, end):
-    for obj in objs:
-        ikFkSwitch(obj, start, end)
-
-
-class ActivateIkDispatch(object):
+    ''' Takes a list of currently active controls and changes to the other kinematic state.
     '''
-    Ik matching is complex enough to be grouped but not so large yet to merit
-    its own module.
-    '''
-
-    def __call__(self, ikController, start=None, end=None, key=True):
-        '''
-        Manages determining the main control and appropriate type of switching.
-        
-        
-        If start and end are None, it means all keys.  If they are the same
-        values, it means a single frame.
-        '''
-        #print('start', start, end, key)
-        ikControl = rig.getMainController(ikController)
-        
-        # Determine what type of switching to employ.
-        card = ikControl.card
-        
-        if card.rigCommand == 'DogHindleg':
-            switchCmd = partial(self.activate_dogleg, ikControl)
-
-        elif card.rigCommand in ['SplineChest', 'SplineChestV2']:
-            switchCmd = partial(self.active_splineChest, ikControl)
-
-        elif card.rigCommand == 'SplineNeck':
-            switchCmd = partial(self.active_splineNeck, ikControl)
-
-        else:
-            switchCmd = partial(self.active_ikChain, ikControl)
-        
-        print( 'Switch called on', ikController, switchCmd.func )
-        
-        # Get the plug that controls the kinematic mode.
-        switcherPlug = controllerShape.getSwitcherPlug(ikControl)
-            
-        # Gather the times
-        if start is not None and end is not None and start == end:
-            finalRange = [start]
-        else:
-            key = True # If we are range switching, we have to key everything.
-            
-            fkMain = ikControl.getOtherMotionType()
-            fkControls = [ ctrl for name, ctrl in fkMain.subControl.items() ] + [fkMain]
-            times = set(keyframe(switcherPlug, q=True))
     
-            for c in fkControls:
-                times.update( keyframe(c, q=True, tc=True) )
-                
-            finalRange = []
-            for t in sorted(times):
-                if start is not None and t < start:
-                    continue
-                if end is not None and t > end:
-                    continue
-                    
-                finalRange.append(t)
-            
-            if finalRange:  # &&& it is possible this should be one scope up.
-                # Put keys at all frames that will be switched if not already there.
-                if not keyframe(switcherPlug, q=True):
-                    setKeyframe(switcherPlug, t=finalRange[0])
-                    
-                for t in finalRange:
-                    setKeyframe( switcherPlug, t=t, insert=True )
-                
-        # Finally, actually switch to ik.
-        ikControls = [ctrl for name, ctrl in ikControl.subControl.items()] + [ikControl, switcherPlug]
+    currentLeads = [rig.getMainController(obj) for obj in objs]
+    pairs = { obj: obj.getOtherMotionType() for obj in currentLeads }
+    
+    targetLeads = [other for obj, other in pairs.items() if other]
+    
+    
+    if start is None or end is None:
+        relevantControls = []
+        relevantControls += currentLeads
+        for leadControl in currentLeads:
+            relevantControls += [obj for name, obj in leadControl.subControl.items()]
+        for leadControl in targetLeads:
+            relevantControls += [obj for name, obj in leadControl.subControl.items()]
         
-        if not finalRange:
-            # Here means a switch range was selected on something with no keys, so just switch it
-            switchCmd()
-            setAttr(switcherPlug, 1)
-        else:
-            with core.ui.NoUpdate():
-                cur = currentTime(q=True)
+        times = lib.anim.findKeyTimes(relevantControls, start, end)
+        if start is None:
+            start = times[0]
+            
+        if end is None:
+            end = times[-1]
+        
+    animStateSwitch(targetLeads, start, end, spaces={})
+
+
+def activateIk(self, ikController, start=None, end=None, key=True):
+
+    leadControl = rig.getMainController(ikController)
+    
+    if start is None or end is None:
+        otherLead = leadControl.getOtherMotionType()
+        
+        relevantControls = leadControl + [obj for name, obj in leadControl.subControl.items()] + \
+            otherLead + [obj for name, obj in otherLead.subControl.items()]
+        
+        times = lib.anim.findKeyTimes(relevantControls, start, end)
+        if start is None:
+            start = times[0]
+            
+        if end is None:
+            end = times[-1]
+    
+    animStateSwitch([leadControl], start, end, spaces={})
+        
+
+def _clearKeys(objs, toClear):
+    if not toClear:
+        return
+        
+    start = toClear[0] + 1
+    end = toClear[-1]
+    if start < end:
+        #print('clearing', start, end)
+        cutKey(objs, t=(start, end), iub=False, cl=True, shape=False)
+
+
+def animStateSwitch(leads, start, end, spaces={}, dense=False):
+    ''' Kinematic and space switch over time as efficiently as possible.
+    
+    Args:
+        leads: The lead controllers that will be activated
+        start: Start frame
+        end: End frame
+        
+        ??? SPACES ???
+        
+        dense: Key at each frame, basically baking the animation
+        
+    '''
+    harvestTimes = OrderedDict()
+    prep = {}
+    harvestFunc = {}
+    applyFunc = {}
+    controls = {}
+    allTimes = set()
+    targets = {}
+    
+    controlsWithSpaces = spaces.keys()
+    
+    spaceOnlyData  = {}
+    spaceOnlyTimes = {}
+    spaceOnlyTargetValues = {}
+    
+    for lead in leads:
+        
+        other = lead.getOtherMotionType()
+        others = [obj for name, obj in other.subControl.items()] + [other]
                 
-                for t in finalRange:
-                    currentTime(t)
-                    switchCmd()
-                    setAttr(switcherPlug, 1)
-                    if key:
-                        setKeyframe(ikControls, shape=False)
+        switcher = controllerShape.getSwitcherPlug(lead)
+        target = 0 if lead.getMotionType().endswith('fk') else 1
+        opposite = (target + 1) % 2
+        #print('Target=', target, '   Opposite=', opposite)
+        
+        targets[switcher] = target
+        
+        times = lib.anim.findKeyTimes(others, start, end) if not dense else range(int(start), int(end + 1), 1)
+        # If there are no `times`, we might be switching outside of currently keyed range so force keys to start and end.
+        if not times:
+            times = [start] if start == end else [start, end]
+            
+        times = [t for t in times if getAttr(switcher, t=t) != target ]
+        
+        controls[lead] = [obj for name, obj in lead.subControl.items()] + [lead]
+        
+        if times:
+            harvestTimes[lead] = times
+            
+            #print(lead, times, controls[lead])
+            
+            if target == 1:
+                activator = commands[ lead.card.rigData['rigCmd'] ].activator
+            else:
+                activator = commands[ 'FkChain' ].activator
+            
+            prep[lead] = activator.prep(lead)
+            harvestFunc[lead] = activator.harvest
+            applyFunc[lead] = activator.apply
+            
+            allTimes.update(times)
+            
+            
+            toClear = []
                         
-                currentTime(cur)
-    
-    @classmethod
-    def active_splineNeck(cls, endControl):
+            for t in times:
+                if getAttr(switcher, t=t) == opposite:
+                    toClear.append(t)
+                else:
+                    _clearKeys(controls[lead], toClear)
+                    toClear = []
+                    
+            _clearKeys(controls[lead], toClear) # Clears the final span
+        
+        # Check if a control will be switched to so we can just pre-change its space
+        for ctrl in controlsWithSpaces[:]:
+            if ctrl in controls[lead]:
+                val = space.getNames(ctrl).index( spaces[ctrl] )
+                spaceTimes = lib.anim.findKeyTimes(ctrl.space, start, end, customAttrs=['space'])
+                spaceTimes = [t for t in spaceTimes if getAttr(ctrl.space, t=t) != val ]
                 
-        cls.alignToMatcher(endControl)
-        cls.alignToMatcher( endControl.subControl['mid'] )
-        cls.alignToMatcher( endControl.subControl['start'] )
+                requiredTimes = set(spaceTimes).difference( times )
+                if requiredTimes:
+                    allTimes.update(requiredTimes)
+                    spaceOnlyData[ctrl]  = {}
+                    spaceOnlyTimes[ctrl] = {}
+                
+                controlsWithSpaces.pop(ctrl)
         
-        # Reference for if matching needs to use relevant joints
-        #joints = card.getRealJoints( side=endControl.getSide() )
-        #skeletonTool.util.moveTo(endControl, joints[-1])
-        #skeletonTool.util.moveTo(endControl.subControl['start'], joints[-1])
-
-    @classmethod
-    def active_ikChain(cls, ikControl):
-        '''
-        Move the Ik control to where the bind joints are and switch to IK mode
-        Work on ik arms and legs
-        '''
-
-        ik = ikControl.listRelatives(type='ikHandle')
-        assert ik, "Could not determine ik handle for {0}".format( ikControl )
-        ik = ik[0]
-        try:
-            ikEndJoint = ik.endEffector.listConnections()[0].tx.listConnections()[0]
-        except Exception:
-            raise Exception( 'End joint of ikHandle {0} could not be determined, unable to active_ikChain()'.format(ik) )
-            
-        # Figure out what is constrained to the ik and match to it
-        endJnt = core.constraints.getOrientConstrainee( ikEndJoint )
-            
-        cls._matchIkToChain( ikControl, ikEndJoint, ikControl.subControl['pv'], ikControl.subControl['socket'], endJnt)
-
-    @classmethod
-    def active_splineChest(cls, chestCtrl):
-        '''
-        ..  todo::
-            Implement even number of stomach joints
-        '''
-        cls.alignToMatcher(chestCtrl)
-
-        midJnt = chestCtrl.subControl['mid'].listRelatives(type='joint')[0]
-
-        skin = listConnections(midJnt, type='skinCluster')
-        curveShape = skin[0].outputGeometry[0].listConnections(p=True)[0].node()
-        ikHandle = curveShape.worldSpace.listConnections( type='ikHandle' )[0]
-
-        chain = getChainFromIk(ikHandle)
-
-        boundJoints = getConstraineeChain(chain)
-
-        if len(boundJoints) % 2 == 1:
-            switch_logger.debug('Mid point ODD moved, # bound = {}'.format(len(boundJoints)))
-            i = int(len(boundJoints) / 2) + 1
-            xform( chestCtrl.subControl['mid'], ws=True, t=xform(boundJoints[i], q=True, ws=True, t=True) )
-        else:
-            i = int(len(boundJoints) / 2)
-            xform( chestCtrl.subControl['mid'], ws=True, t=xform(boundJoints[i], q=True, ws=True, t=True) )
-            switch_logger.debug('Mid point EVEN moved, # bound = {}'.format(len(boundJoints)))
-
-    @classmethod
-    def activate_dogleg(cls, ctrl):
-
-        # Get the last ik chunk but expand it to include the rest of the limb joints
-        for ik in ctrl.listRelatives(type='ikHandle'):
-            if not ik.name().count( 'mainIk' ):
-                break
-        else:
-            raise Exception('Unable to determin IK handle on {0} to match'.format(ctrl))
-
-        chain = getChainFromIk(ik)
-        chain.insert( 0, chain[0].getParent() )
-        chain.insert( 0, chain[0].getParent() )
-        bound = getConstraineeChain(chain)
-        
-        # Move the main control to the end point
-        #xform(ctrl, ws=True, t=xform(bound[-1], q=True, ws=True, t=True) )
-        cls.alignToMatcher(ctrl)
-
-        # Place the pole vector away
-        out = rig.calcOutVector(bound[0], bound[1], bound[-2])
-        length = abs(sum( [b.tx.get() for b in bound[1:]] ))
-        out *= length
-
-        pvPos = xform( bound[1], q=True, ws=True, t=True ) + out
-        xform( ctrl.subControl['pv'], ws=True, t=pvPos )
-
-        # Figure out the bend, (via trial and error at the moment)
-        def setBend():
-            angle, axis = angleBetween( bound[-2], bound[-1], chain[-2] )
-            current = ctrl.bend.get()
-
-            ''' This is an attempt to look at the axis to determine what direction to bend
-            if abs(axis[0]) > abs(axis[1]) and abs(axis[0]) > abs(axis[2]):
-                signAxis = axis[0]
-            elif abs(axis[1]) > abs(axis[0]) and abs(axis[1]) > abs(axis[2]):
-                signAxis = axis[1]
-            elif abs(axis[2]) > abs(axis[0]) and abs(axis[2]) > abs(axis[1]):
-                signAxis = axis[2]
-            '''
-
-            d = core.dagObj.distanceBetween(bound[-2], chain[-2])
-            ctrl.bend.set( current + angle )
-            if core.dagObj.distanceBetween(bound[-2], chain[-2]) > d:
-                ctrl.bend.set( current - angle )
-
-        setBend()
-
-        # Try to correct for errors a few times because the initial bend might
-        # prevent the foot from being placed all the way at the end.
-        # Can't try forever in case the FK is off plane.
-        '''
-        The *right* way to do this.  Get the angle between
-
-        cross the 2 vectors for the out vector
-        cross the out vector with the original vector for the "right angle" vector
-        Now dot that with the 2nd vector (and possibly get angle?) if it's less than 90 rotate one direction
-
-        '''
-        if core.dagObj.distanceBetween(bound[-2], chain[-2]) > 0.1:
-            setBend()
-            if core.dagObj.distanceBetween(bound[-2], chain[-2]) > 0.1:
-                setBend()
-                if core.dagObj.distanceBetween(bound[-2], chain[-2]) > 0.1:
-                    setBend()
-
-    @staticmethod
-    def alignToMatcher(ctrl):
-        try:
-            matcher = ctrl.matcher.listConnections()[0]
-            xform( ctrl, ws=True, t=xform(matcher, q=True, ws=True, t=True) )
-            xform( ctrl, ws=True, ro=xform(matcher, q=True, ws=True, ro=True) )
-        except Exception:
-            warning('{0} does not have a matcher setup'.format(ctrl))
-
-    @staticmethod
-    def _matchIkToChain(ikCtrl, ikJnt, pv, socket, chainEndTarget):
-        '''
-        Designed for 3 joint ik.
-        
-        :param ikCtrl: Ik controller
-        :param ikJnt: The joint the ik controller is manipulating
-        :param pv: Pole vector control
-        :param socket: The socket controller of the ik chain
-        :param Joint chainEndTarget: The joint at the end of the chain we want to match.
-
-
-        ..  todo::
-            Update to use a percentage of the length of the palm to offset the polevector length, probably .5 the length of the arm
-        '''
-
-        midJnt = chainEndTarget.getParent()
-        while rig.getBPJoint(midJnt).info.get('twist'):
-            midJnt = midJnt.getParent()
-        
-        startJnt = midJnt.getParent()
-        while rig.getBPJoint(startJnt).info.get('twist'):
-            startJnt = startJnt.getParent()
-
-        switch_logger.debug( 'ikCtrl={}\nikJnt={}\nmidJnt={}\nstartJnt={}\nchainEndTarget={}'.format(ikCtrl, ikJnt, midJnt, startJnt, chainEndTarget) )
-
-        # Draw a line from the start to end using the lengths to calc the elbow's projected midpoint
-        startPos = core.dagObj.getPos( startJnt )
-        midPos = core.dagObj.getPos( midJnt )
-        endPos = core.dagObj.getPos( chainEndTarget )
-        
-        toEndDir = endPos - startPos
-        a = ( midPos - startPos ).length()
-        b = ( endPos - midPos ).length()
-        midPoint = startPos + (toEndDir * (a / (a + b)))
-        
-        # The pv direction is from the above projected midpoint to the elbow
-        pvDir = midPos - midPoint
-        pvDir.normalize()
-        
-        armLength = rig.chainLength([startJnt, midJnt, chainEndTarget])
-        newPvPos = midPos + pvDir * armLength
-        
-        xform( socket, ws=True, t=startPos )
-        xform( ikCtrl, ws=True, t=endPos )
-        xform( pv, ws=True, t=newPvPos )
-
-        # Not sure how to do the math but this works to properly align the ik
-        tempAligner = group(em=True)
-        tempAligner.t.set( core.dagObj.getPos(ikCtrl) )
-        tempAligner.r.set( core.dagObj.getRot(ikCtrl) )
-        tempAligner.setParent( ikJnt )
-        tempAligner.r.lock()
-        tempAligner.setParent( chainEndTarget )
-        
-        xform( ikCtrl, ws=True, ro=core.dagObj.getRot(tempAligner) )
-        delete( tempAligner )
+    print(controlsWithSpaces, 'controlsWithSpaces')
+    # controlsWithSpaces are not in any kinematic switch
+    for ctrl in controlsWithSpaces:
+        val = space.getNames(ctrl).index( spaces[ctrl] )
+        #pairs = keyframe(ctrl.space, q=True, t=(start, end), iub=True, tc=True, vc=True)
+        #if pairs[0][0] != start:
+        #    pairs.insert( [start, getAttr(ctrl.space, t=start) ] )
+        #if pairs[-1][0] != end:
+        #    pairs.append( [end, getAttr(ctrl.space, t=end) ] )
+        times = lib.anim.findKeyTimes(ctrl.space, start, end, customAttrs=['space'])
+        times = [t for t in times if getAttr(ctrl.space, t=t) != val ]
+        print('imtes', times)
+        if times:
+            allTimes.update(times)
+            spaceOnlyData[ctrl] = {}
+            spaceOnlyTimes[ctrl] = times
+            spaceOnlyTargetValues[ctrl] = val
     
-        # In case the PV is spaced to the controller, put it back
-        xform( pv, ws=True, t=newPvPos )
+        #print( 'spaceOnlyTimes[ctrl]', spaceOnlyTimes[ctrl] )
+    
+    
+    harvestValues = { lead: {} for lead in prep }
+    allTimes = sorted(allTimes)
+    
+    print('AllTimes', allTimes[0], allTimes[-1], prep.keys())
+    # Harvest all the data first, so nothing is inadvertently altered
+    for t in allTimes:
+        currentTime(t)
+        for lead, times in harvestTimes.items():
+            if t in times:
+                harvestValues[lead][t] = harvestFunc[lead]( prep[lead] )
+
+        for ctrl, times in spaceOnlyTimes.items():
+            if t in times:
+                spaceOnlyData[ctrl][t] = util.worldInfo(ctrl)
+        
+
+    # Apply that results of the harvesting
+    for t in allTimes:
+        currentTime(t)
+        for lead, times in harvestTimes.items():
+            if t in times:
+                applyFunc[lead]( prep[lead], harvestValues[lead][t], lead )
+                setKeyframe( controls[lead], shape=False )
         
         
-activateIk = ActivateIkDispatch()
+        for ctrl, times in spaceOnlyTimes.items():
+            if t in times:
+                ctrl.space.set( spaceOnlyTargetValues[ctrl] )
+                util.applyWorldInfo(ctrl, spaceOnlyData[ctrl][t])
+                setKeyframe( ctrl, shape=False )
+                
+
+    for switcher, target in targets.items():
+        cutKey(switcher, t=(start, end))
+        setKeyframe(switcher, t=start, v=target)
+        setKeyframe(switcher, t=end, v=target)

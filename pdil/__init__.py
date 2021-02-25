@@ -3,6 +3,10 @@ from __future__ import print_function, absolute_import
 import inspect
 import os
 
+from .add import *  # noqa
+from .core import *  # noqa
+from .lib import *  # noqa
+
 
 def deprecatedStub(funcOrClass, error=False):
     '''

@@ -6,7 +6,6 @@ from pymel.core import duplicate, dt, joint, group, hide, ikHandle, move, orient
 
 from ....add import simpleName
 from .... import core
-from .... import lib
 from .... import nodeApi
 
 from ..cardRigging import MetaControl, ParamInfo
@@ -14,6 +13,7 @@ from .. import controllerShape
 from .. import space
 
 from . import _util as util
+from .. import node
 
 
 try:
@@ -51,7 +51,7 @@ def buildSplineNeck(start, end, name='', matchEndOrient=False, endOrient=util.En
     if not name:
         name = simpleName(start)
         
-    container = group(em=True, p=lib.getNodes.mainGroup(), n=name + "_controls")
+    container = group(em=True, p=node.mainGroup(), n=name + "_controls")
     container.inheritsTransform.set(False)
     container.inheritsTransform.lock()
     
@@ -128,7 +128,8 @@ def buildSplineNeck(start, end, name='', matchEndOrient=False, endOrient=util.En
     childSpace.rename('midChild_{0}'.format(start))
     childSpace.setParent(container)
     core.dagObj.matchTo(childSpace, midCtrl)
-    parentConstraint( startJnt, endJnt, childSpace, mo=True )
+    parentConst = parentConstraint( startJnt, endJnt, childSpace, mo=True )
+    parentConst.interpType.set( 2 ) # Set to `shortest`, which hopefully should always prevent flipping
     hide(childSpace)
     space.add( midCtrl, childSpace, spaceName='midChild')
     
@@ -137,7 +138,8 @@ def buildSplineNeck(start, end, name='', matchEndOrient=False, endOrient=util.En
     pntRotSpace.setParent(container)
     core.dagObj.matchTo(pntRotSpace, midCtrl)
     pointConstraint( startJnt, endJnt, pntRotSpace, mo=True )
-    orientConstraint( startJnt, endJnt, pntRotSpace, mo=True )
+    orientConst = orientConstraint( startJnt, endJnt, pntRotSpace, mo=True )
+    orientConst.interpType.set( 2 ) # Set to `shortest`, which hopefully should always prevent flipping
     hide(pntRotSpace)
     space.add( midCtrl, pntRotSpace, spaceName='midPointRot')
     
@@ -208,7 +210,7 @@ def buildSplineNeck(start, end, name='', matchEndOrient=False, endOrient=util.En
     util.driveConstraints( constraints, endConstraints )
     hide( startJnt, endJnt, midJoint )
     
-    space.addWorld(endCtrl)
+    space.addMain(endCtrl)
     space.add( endCtrl, start.getParent(), 'parent' )
     space.add( endCtrl, startCtrl, 'start' )
     
@@ -252,8 +254,8 @@ def buildSplineNeck(start, end, name='', matchEndOrient=False, endOrient=util.En
     
     endCtrl = nodeApi.RigController.convert(endCtrl)
     endCtrl.container = container
-    endCtrl.subControl['mid'] = midCtrl
     endCtrl.subControl['start'] = startCtrl
+    endCtrl.subControl['mid'] = midCtrl
 
     # Since the chain might have reversed, use the control chain for the twist axes.
     util.advancedTwist(controlChain[0], controlChain[1], startCtrl, endCtrl, mainIk)
@@ -297,3 +299,37 @@ class SplineNeck(MetaControl):
                 kwargs['duplicateCurve'] = False
                 
         return kwargs
+        
+        
+def activateIk(endControl):
+            
+    util.alignToMatcher( endControl )
+    util.alignToMatcher( endControl.subControl['mid'] )
+    util.alignToMatcher( endControl.subControl['start'] )
+    
+    
+class activator(object):
+    
+    @staticmethod
+    def prep(endControl):
+        return {
+            'end': util.getMatcher(endControl),
+            'mid': util.getMatcher(endControl.subControl['mid']),
+            'start': util.getMatcher(endControl.subControl['start']),
+        }
+
+    
+    @staticmethod
+    def harvest(data):
+        return {
+            'end': util.worldInfo( data['end'] ),
+            'mid': util.worldInfo( data['mid'] ),
+            'start': util.worldInfo( data['start'] ),
+        }
+        
+    
+    @staticmethod
+    def apply(data, values, endControl):
+        util.applyWorldInfo( endControl.subControl['start'], values['start'] ) # Can be space of end so must come first
+        util.applyWorldInfo( endControl, values['end'] )
+        util.applyWorldInfo( endControl.subControl['mid'], values['mid'] )

@@ -6,7 +6,6 @@ from __future__ import print_function
 
 import collections
 import functools
-import traceback
 
 from pymel.core import warning, scriptJob
 

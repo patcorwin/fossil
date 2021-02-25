@@ -1,7 +1,5 @@
 from __future__ import absolute_import
 import contextlib
-import importlib
-import os
 
 from pymel.core import about
 from maya import cmds
@@ -10,11 +8,47 @@ from maya import cmds
 from ..add import alt           # noqa
 from ..add import path          # noqa
 
-# Load all available python files
-_thisDir = os.path.dirname(__file__)
-for _f in os.listdir( _thisDir ):
-    if os.path.isfile( _thisDir + '/' + _f) and _f.lower().endswith('.py'):
-        globals()[_f[:-3]] = importlib.import_module('pdil.core.' + _f[:-3])
+
+__all__ = [
+    'capi',
+    'constraints',
+    'dagObj',
+    'debug',
+    'factory',
+    'findNode',
+    'keyModifier',
+    'layer',
+    'math',
+    'names',
+    'pubsub',
+    'shader',
+    'shape',
+    'text',
+    'time',
+    'ui',
+    'weights',
+
+    'version',
+    'undoBlock',
+]
+
+from . import capi  # noqa
+from . import constraints  # noqa
+from . import dagObj  # noqa
+from . import debug  # noqa
+from . import factory  # noqa
+from . import findNode  # noqa
+from . import keyModifier  # noqa
+from . import layer  # noqa
+from . import math  # noqa
+from . import names  # noqa
+from . import pubsub  # noqa
+from . import shader  # noqa
+from . import shape  # noqa
+from . import text  # noqa
+from . import time  # noqa
+from . import ui  # noqa
+from . import weights  # noqa
 
 
 def version(includeBitVersion=False):

@@ -56,10 +56,17 @@ ex:
 '''
 
 import collections
+import contextlib
 import json
 
 from pymel.core import hasAttr
 from pymel.core.general import PyNode
+
+try:
+    basestring
+except NameError:
+    basestring = str
+
 
 # Attribute access utilities --------------------------------------------------
 # They all have to use .node() in case it's a sub attr, like sequence[0].data
@@ -212,6 +219,7 @@ class StringAccess(object):
     Provides access to the attribute of the given name, defaulting to an
     empty string if the attribute doesn't exist.
     '''
+    
     def __init__(self, attrname):
         self.attr = attrname
     
@@ -227,6 +235,7 @@ class SingleConnectionAccess(object):
     Returns the object connected to the given attribute, or None if the attr
     doesn't exist or isn't connected.
     '''
+    
     def __init__(self, attrname):
         self.attr = attrname
     
@@ -241,6 +250,7 @@ class SingleStringConnectionAccess(object):
     '''
     Just like SingleConnection but is also a string for alternate values
     '''
+    
     def __init__(self, attrname):
         self.attr = attrname
     
@@ -250,12 +260,25 @@ class SingleStringConnectionAccess(object):
     def __set__(self, instance, value):
         _setSingleStringConnection(instance, self.attr, value)
 
+
+class Json(collections.OrderedDict):
+
+    def __init__(self, data, node, attr):
+        collections.OrderedDict.__init__(self, data)
+        self._node = node
+        self._attr = attr
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, type, value, traceback):
+        self._node.attr(self._attr).set( json.dumps(self) )
+
        
 class JsonAccess(object):
     '''
-    Auto tranform json data to/from a string.  Provides an actual dictionary so
-    you have to reassign the entire dict back if you want to make edits.  It
-    might be more streamlined to use `JsonAccessDirect` instead.
+    Auto tranform json data to/from a string.  Call in `with` statement and edit
+    the result to automatically assign the changes.
     '''
     
     def __init__(self, attrname, defaults={}):
@@ -266,44 +289,7 @@ class JsonAccess(object):
         res = _getStringAttr(instance, self.attr)
         if not res:
             return self.defaults.copy()
-        return json.loads(res, object_pairs_hook=collections.OrderedDict)
-            
-    def __set__(self, instance, value):
-        v = json.dumps(value)
-        _setStringAttr(instance, self.attr, v)
-
-
-class ProxyDict(object):
-    def __init__(self, d, inst, attr):
-        self.d = d
-        self.inst = inst
-        self.attr = attr
-
-    def __getattr__(self, a):
-        return self.d[a]
-    
-    def __setattr__(self, a, v):
-        self.d[a] = v
-        _setStringAttr(self.inst, self.attr, json.dumps(self.d) )
-    
-
-class JsonAccessDirect(object):
-    '''
-    Auto tranform json data to/from a string.  Returns a `ProxyDict`, which
-    manages updating values when the first level of keys is updated.
-    '''
-    
-    def __init__(self, attrname, defaults):
-        self.attr = attrname
-        self.defaults = defaults
-    
-    def __get__(self, instance, owner):
-        res = _getStringAttr(instance, self.attr)
-        d = self.defaults.copy()
-        if res:
-            d.update(json.loads(res, object_pairs_hook=collections.OrderedDict))
-            
-        return ProxyDict(d, instance, self.attr)
+        return Json(json.loads(res, object_pairs_hook=collections.OrderedDict), instance, self.attr )
             
     def __set__(self, instance, value):
         v = json.dumps(value)
@@ -315,6 +301,7 @@ class IntAccess(object):
     Provides access to the attribute of the given name, defaulting to an
     empty string if the attribute doesn't exist.
     '''
+    
     def __init__(self, attrname):
         self.attr = attrname
     
@@ -330,6 +317,7 @@ class FloatAccess(object):
     Provides access to the attribute of the given name, defaulting to an
     empty string if the attribute doesn't exist.
     '''
+    
     def __init__(self, attrname):
         self.attr = attrname
     

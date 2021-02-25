@@ -16,7 +16,7 @@ class QuickHideControls(object):
     mainShapes = None
 
     @staticmethod
-    @core.alt.name( 'Quick Hide Controls' )
+    @core.alt.name( 'Quick Hide Controls', 'Anim')
     def act():
         if not QuickHideControls.controlsToHide or all( [not o.exists() for o in QuickHideControls.controlsToHide] ):
             QuickHideControls.start()
@@ -66,7 +66,7 @@ class QuickHideControls(object):
                     plug[0].set(1)
                   
         
-@core.alt.name('Select Related Controllers')
+@core.alt.name('Select Related Controllers', 'Anim')
 def selectRelatedControllers():
     '''
     If any controllers are selected, all siblings are also selected.
@@ -79,7 +79,7 @@ def selectRelatedControllers():
             select(main, add=True)
             
             
-@core.alt.name('Select Children Controllers')
+@core.alt.name('Select Children Controllers', 'Anim')
 def selectChildrenControllers():
     '''
     If any controllers are selected, any subsequent controllers are selected.

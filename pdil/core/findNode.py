@@ -87,10 +87,10 @@ def controllers(main=None):
 
     '''
     
-    allControls = set( cmds.ls( '*.fossilCtrlType', o=True, r=True ) )
+    allControls = set( cmds.ls( '*.fossilCtrlType', o=True, r=True, l=True ) )
     
     if main:
-        mainTransforms = cmds.listRelatives(main.name(), ad=True, type='transform')
+        mainTransforms = cmds.listRelatives(main.name(), ad=True, type='transform', f=True)
         if mainTransforms:
             allControls.intersection_update( mainTransforms )
             controls = [PyNode(o) for o in allControls]
@@ -223,7 +223,7 @@ def rootMotion(main=None):
     
     if main:
                 
-        children = cmds.listRelatives(main.name(), ad=True, type='transform')
+        children = cmds.listRelatives(main.name(), ad=True, type='transform', f=True)
         if children:   # cmds returns None instead of emtpy list
             for child in children:
                 if child.rsplit('|', 1)[-1].rsplit(':', 1)[-1] == 'rootMotion':

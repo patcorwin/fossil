@@ -1,15 +1,17 @@
 from __future__ import print_function, absolute_import
 from functools import partial
+import json
 import itertools
+
 
 from ...vendor.Qt import QtWidgets, QtCore
 from ...vendor.Qt.QtCore import Qt
 
-from pymel.core import delete, select, selected
+from pymel.core import delete, select, selected, PyNode
 
 from ... import add
 from ... import core
-from . import proxy
+from .core import proxyskel
 from . import util
 
 
@@ -37,9 +39,92 @@ class JointLister(QtWidgets.QTableWidget):
     def __init__(self, *args, **kwargs):
         QtWidgets.QTableWidget.__init__(self, *args, **kwargs)
         self.displayedCard = None
+        self.installEventFilter(self)
         
     class FORCE_UPDATE:
         pass
+    
+    
+    def eventFilter(self, obj, event):
+        ''' Allow copy/paste of joint parent and orient data
+        '''
+        column = self.currentColumn()
+        if event.type() == QtCore.QEvent.Type.KeyPress \
+                and column in (self.JOINT_LISTER_ORIENT, self.JOINT_LISTER_CHILDOF):
+            
+            row = self.currentRow()
+            
+            if event.key() == QtCore.Qt.Key_C:
+                if QtWidgets.QApplication.keyboardModifiers() & QtCore.Qt.ControlModifier:
+                    
+                    bpJoint = self.displayedCard.joints[row]
+                    
+                    if column == self.JOINT_LISTER_CHILDOF:
+                        parent = bpJoint.parent
+                        mirror = bpJoint.info.get('mirroredSide', False)
+                    
+                        data = {'fossil_parent': {
+                            'name': parent.name(),
+                            'mirroredSide': mirror,
+                            'text': self.item(row, column).text()
+                        } }
+                        core.text.clipboard.set( json.dumps(data) )
+                    
+                    elif column == self.JOINT_LISTER_ORIENT:
+                        target = self.item(row, column).text()
+                        
+                        data = {'fossil_orient': { 'target': target if target else None } }
+                        
+                        core.text.clipboard.set( json.dumps(data) )
+                    
+                    return True
+                    
+            elif event.key() == QtCore.Qt.Key_V:
+                if QtWidgets.QApplication.keyboardModifiers() & QtCore.Qt.ControlModifier:
+                    bpJoint = self.displayedCard.joints[row]
+                                        
+                    if column == self.JOINT_LISTER_CHILDOF:
+                        try:
+                            data = json.loads(core.text.clipboard.get())
+                            parent = PyNode(data['fossil_parent']['name']) if data['fossil_parent']['name'] else None
+                            mirror = data['fossil_parent']['mirroredSide']
+                            text = data['fossil_parent']['text']
+                                                    
+                        except Exception:
+                            return False
+                        
+                        self.changeParent( bpJoint, parent, mirror, row, text)
+                    
+                    elif column == self.JOINT_LISTER_ORIENT:
+                        try:
+                            data = json.loads(core.text.clipboard.get())
+                            newTarget = data['fossil_orient']['target']
+                            
+                            if newTarget not in (None, '-as card-', '-as proxy-', '-world-'):
+                                newTarget = PyNode(newTarget)
+                            
+                        except Exception:
+                            return False
+                            
+                        self.setOrientTarget(row, bpJoint, newTarget)
+                    
+                    return True
+        
+        '''
+        if obj == self.ui.entry and event.type() == QtCore.QEvent.Type.KeyPress:
+            if self.option_count:
+                if event.key() == QtCore.Qt.Key_Up:
+                    self.ui.options.setCurrentRow( (self.ui.options.currentRow() - 1) % self.option_count)
+                    
+                elif event.key() == QtCore.Qt.Key_Down:
+                    self.ui.options.setCurrentRow( (self.ui.options.currentRow() + 1) % self.option_count)
+                    
+                elif event.key() == QtCore.Qt.Key_Return:
+                    print('RUN')
+        '''
+        #return super(self).eventFilter(obj, event)
+        return QtWidgets.QTableWidget.eventFilter(self, obj, event)
+    
     
     def setup(self, scale=1.0):
         '''
@@ -136,6 +221,7 @@ class JointLister(QtWidgets.QTableWidget):
         bpJoint = self.joints[row]
         
         if col == self.JOINT_LISTER_CHILDOF:
+            #t  = core.debug.Timer('ChildOf')
             menu = QtWidgets.QMenu()
             menu.addAction('-Clear-').triggered.connect( partial(self.changeParent, bpJoint, None, False, row, '') )
             
@@ -152,7 +238,8 @@ class JointLister(QtWidgets.QTableWidget):
                     
                     if len(names) > 1:
                         subMenu.addAction( names[1] ).triggered.connect( partial(self.changeParent, bpJoint, bpj, True, row, names[1]))
-            
+            #t.stop()
+            #t.results()
             menu.exec_(self.viewport().mapToGlobal(position))
         
         elif col == self.JOINT_LISTER_ORIENT:
@@ -186,24 +273,24 @@ class JointLister(QtWidgets.QTableWidget):
     
     def changeParent(self, bpJoint, newParent, mirroredSide, row, text):
         currentSelection = selected()
-        
+        # &&& Move setting info to a param of setBPParent()
         info = bpJoint.info
         self.item(row, self.JOINT_LISTER_CHILDOF).setText(text)
         
         if newParent is None:
             bpJoint.setBPParent(None)
             info.setdefault('options', {})['mirroredSide'] = False
-            proxy.unpoint( bpJoint )
+            proxyskel.unpoint( bpJoint )
         
         elif not mirroredSide:
             bpJoint.setBPParent(newParent)
             info.setdefault('options', {})['mirroredSide'] = False
-            proxy.pointer( newParent, bpJoint )
+            proxyskel.pointer( newParent, bpJoint )
         
         else:
             bpJoint.setBPParent(None)
             info.setdefault('options', {})['mirroredSide'] = True
-            proxy.pointer( newParent, bpJoint )
+            proxyskel.pointer( newParent, bpJoint )
             
         bpJoint.info = info
         
@@ -246,6 +333,7 @@ class JointLister(QtWidgets.QTableWidget):
         else:
             self.item(row, self.JOINT_LISTER_ORIENT).setText(add.simpleName(newTarget))
             bpJoint.orientTarget = newTarget
+            bpJoint.customOrient = None
         
     @classmethod
     def clearCustomOrient(cls, tempJoint):

@@ -393,20 +393,23 @@ def selectedJoints():
 
 
 def runOnEach(func, completedMessage=''):
-    
+
     sel = selectedCards()
     if not sel:
         confirmDialog( m='No cards selected' )
         return
     
-    errors = {}
-    for i, card in enumerate(sel):
-        try:
-            func( card )
-        except Exception:
-            #print( traceback.format_exc() )
-            errors[card] = traceback.format_exc()
-    
+    with core.ui.progressWin(title='Working on ' + completedMessage, max=len(sel) ) as prog:
+        
+        errors = {}
+        for i, card in enumerate(sel):
+            try:
+                func( card )
+            except Exception:
+                #print( traceback.format_exc() )
+                errors[card] = traceback.format_exc()
+            prog.update()
+        
     if not errors:
         print( completedMessage )
     else:
@@ -415,3 +418,64 @@ def runOnEach(func, completedMessage=''):
             print( text )
         
         warning( 'An error occured on {}, see above for the errors'.format(len(errors)) )
+        
+
+def makeFakeBone():
+    ''' Used by polySkeleton '''
+    bone = polyCylinder()[0]
+    bone.ty.set(1)
+    makeIdentity(bone, t=True, apply=True)
+    xform(bone, ws=True, piv=(0, 0, 0))
+    #scale -r -p -1.19209e-07cm 2cm -1.78814e-07cm 0.0229933 0.0229933 0.0229933 ;
+    scale( bone.vtx[20:39], (0, 0, 0), r=True, p=(0, 2, 0) )
+    return bone
+
+
+def polySkeleton(cards=None):
+    ''' Make cylinders to represent a skeleton (for use in zbrush).
+    '''
+
+    if not cards:
+        cards = core.findNode.allCards()
+
+    jointGroup = group(em=True, n='jointGroup')
+    # Make cylinders to represent joints
+    made = {}
+    for card in cards:
+        
+        for j in card.joints:
+            p = j.parent
+            
+            if p:
+                bone = makeFakeBone()
+                core.dagObj.moveTo(bone, p)
+                s = core.dagObj.distanceBetween(j, p) * 0.5
+                bone.sy.set(s)
+                delete(aimConstraint(j, bone, aim=(0, 1, 0), u=(0, 0, 1)))
+                makeIdentity(bone, apply=True, s=True)
+                made[j] = bone
+
+    # Setup fake joints parentage since they all exist
+    for j, bone in made.items():
+        p = j.parent
+        if p in made:
+            bone.setParent( made[p] )
+        else:
+            bone.setParent( jointGroup )
+
+        
+    # Make polygon cards
+    cardGroup = group(em=True, n='jointGroup')
+    for card in cards:
+        points  = [ xform( x, q=True, ws=True, t=True) for x in card.cv ]
+        
+        poly = polyPlane(sh=True, sw=True)[0]
+        poly.setParent(cardGroup)
+        
+        core.dagObj.matchTo(poly, card)
+        
+        for p, v in zip(points, poly.vtx):
+            xform(v, ws=True, t=p)
+
+
+

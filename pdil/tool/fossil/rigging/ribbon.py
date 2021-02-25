@@ -15,6 +15,7 @@ from .. import controllerShape
 from ..cardRigging import MetaControl, ParamInfo
 
 from . import _util as util
+from .. import node
 
 
 @util.adds()
@@ -31,7 +32,7 @@ def buildRibbon(start, end, normal, numControls=3, name='Ribbon', groupName='', 
         name = 'Ribbon'
     
     container = util.parentGroup(chain[0])
-    container.setParent( lib.getNodes.mainGroup() )
+    container.setParent( node.mainGroup() )
     
     world = group(em=True)
     hide(world)

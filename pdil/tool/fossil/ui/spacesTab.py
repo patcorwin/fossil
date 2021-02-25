@@ -37,41 +37,45 @@ def addMultiOrientSpace():
 def addSpace(mode):
     sel = selected()
     
+    controlType = sel[0].fossilCtrlType.get() if sel[0].hasAttr('fossilCtrlType') else None
+    
     if mode == '#WORLD':
 
-        if sel[0].tx.isKeyable() and sel[0].fossilCtrlType.get() == 'fk':
+        if sel[0].tx.isKeyable() and controlType == 'fk':
             space.addWorldToTranslateable( sel[0] )
         else:
-            space.addWorld( sel[0] )
+            space.addMain( sel[0] )
         
     elif mode == '#TRUEWORLD':
         space.addTrueWorld( sel[0] )
 
-    elif mode == '#EXTERNALWORLD':
-        space.addExternalWorld( sel[0] )
+    #elif mode == '#EXTERNALWORLD':
+    #    space.addExternalWorld( sel[0] )
 
     elif mode == '#PARENT':
         
-        if sel[0].fossilCtrlType.get() in ['translate', 'rotate']:
+        for ctrl in selected():
+        
+            if ctrl.fossilCtrlType.get() in ['translate', 'rotate']:
 
-            bindBone = core.constraints.getOrientConstrainee(sel[0])
-            if not bindBone:
-                # Handle Group cards
-                try:
-                    if sel[0].card.rigData['rigCmd']:
-                        side = sel[0].getSide()
-                        if side == 'Center':
-                            parent = sel[0].card.joints[0].parent.real
-                        elif side == 'Left':
-                            raise Exception('Left side group parent not implemented yet')
-                        elif side == 'Right':
-                            raise Exception('Right side group parent not implemented yet')
-                except:
-                    raise
-            else:
-                parent = bindBone.getParent()
+                bindBone = core.constraints.getOrientConstrainee(ctrl)
+                if not bindBone:
+                    # Handle Group cards
+                    try:
+                        if ctrl.card.rigData['rigCmd']:
+                            side = ctrl.getSide()
+                            if side == 'Center':
+                                parent = ctrl.card.joints[0].parent.real
+                            elif side == 'Left':
+                                raise Exception('Left side group parent not implemented yet')
+                            elif side == 'Right':
+                                raise Exception('Right side group parent not implemented yet')
+                    except:
+                        raise
+                else:
+                    parent = bindBone.getParent()
 
-            space.add( sel[0], parent, 'parent', space.Mode.ROTATE_TRANSLATE )
+                space.add( ctrl, parent, 'parent', space.Mode.ROTATE_TRANSLATE )
     
     elif mode == '#NOROT':
         # &&& Gross, need to rework this so getSpaceName() isn't duplicated with the exit.

@@ -1,9 +1,8 @@
 try:
-    import mayaHooks.dagMenuProc
-    mayaHooks.dagMenuProc.overrideDagMenuProc()
-    
+    import mayaHooks.override.dagMenuProc
     import pdil.tool.animDagMenu
-    mayaHooks.dagMenuProc.registerMenu(pdil.tool.animDagMenu.animationSwitchMenu)
+    
+    mayaHooks.override.dagMenuProc.callback_customDagMenu.register(pdil.tool.animDagMenu.animationSwitchMenu)
     
 except Exception:
     import traceback

@@ -527,12 +527,15 @@ def applyShapeInfo(obj, info, space):
                     xform( cv, ws=True, t=pos )
 
 
-def loadControlShapes(rigControl, lines, useObjectSpace=True):
-    '''
-    Given a `RigControl` and a list of lines (via .split() or file id), parse
-    for cv position info and apply.
+def loadControlShapes(leadControl, lines, useObjectSpace=True, targetCtrlKeys=None):
+    ''' Load shape info onto leadControl and it's sub controls, or a portion of them.
     
-    :param rigControl: The control with sub controls to load the given shape info onto.
+    Args:
+        leadControl: A `RigControl` node
+        lines:
+        useObjectSpace: Load the objects space values if True (default), otherwise load into worldspace
+        targetCtrlKeys: Optional list of specific subcontrols to load, defaulting to all of them
+
     :param lines: An iterable of lines containing data from _saveControlShapes.
     
     ..  todo::
@@ -548,11 +551,19 @@ def loadControlShapes(rigControl, lines, useObjectSpace=True):
         allInfo = None
     
     if allInfo:
+        if not targetCtrlKeys:
+            targetCtrlKeys = allInfo.keys()
+            
         for ctrlKey, info in allInfo.items():
+            if ctrlKey not in targetCtrlKeys:
+                continue
+            
             if ctrlKey == 'main':
-                applyShapeInfo(rigControl, info, 'os' if useObjectSpace else 'ws')
+                applyShapeInfo(leadControl, info, 'os' if useObjectSpace else 'ws')
             else:
-                applyShapeInfo(rigControl.subControl[ctrlKey], info, 'os' if useObjectSpace else 'ws')
+                # Just skip over missing sub controls in case a chain is shortend, then re-lengthend
+                if ctrlKey in leadControl.subControl:
+                    applyShapeInfo(leadControl.subControl[ctrlKey], info, 'os' if useObjectSpace else 'ws')
         
         return
     

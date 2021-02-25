@@ -11,7 +11,7 @@ from pymel.core import PyNode, xform, rotate, nurbsPlane, polyCylinder, scale, d
 from pdil.add import simpleName, meters
 from pdil import core
 
-from . import proxy
+from .core import proxyskel
 from . import moveCard
 from . import util
 
@@ -202,7 +202,7 @@ def makeCard(jointCount=5, jointNames={'repeat': 'DEFAULT'}, rigInfo=None, size=
     arrow.t.set(0, 0, 0)
     arrow.r.set(0, 0, -90)
     hide(arrow)
-    card.setParent( proxy.masterGroup() )
+    card.setParent( proxyskel.masterGroup() )
 
     # Place all the joints
 
@@ -215,9 +215,9 @@ def makeCard(jointCount=5, jointNames={'repeat': 'DEFAULT'}, rigInfo=None, size=
         
     if len(joints) > 1:
         for parentBpj, childBpj in zip( joints[0:-1], joints[1:] ):
-            proxy.pointer( parentBpj, childBpj )
+            proxyskel.pointer( parentBpj, childBpj )
     elif joints:
-        proxy.makeProxy(joints[0], proxy.getProxyGroup())
+        proxyskel.makeProxy(joints[0], proxyskel.getProxyGroup())
         joints[0].ty.set(0)
     
     if joints:
@@ -342,7 +342,7 @@ def mirrorCard(card):
 
 def duplicateCard(card):
     d = duplicate( card )[0]
-    proxy.relink( card, d )
+    proxyskel.relink( card, d )
     if card.parentCard:
         d.parentCardLink = card.parentCard
     return d
@@ -379,7 +379,7 @@ def customUp(jnt, arrow=None):
 def customOrient(bpJoint):
     newNodes = importFile( os.path.dirname(__file__) + '/Axis.ma', rnn=True, renameAll=True )
     transform = ls(newNodes, type='transform')[0]
-    masterGroup = proxy.masterGroup()
+    masterGroup = proxyskel.masterGroup()
     for child in masterGroup.listRelatives():
         if child.name() == 'customOrients':
             customGroup = child
@@ -551,7 +551,7 @@ def spineCard(spineCount, orientation=Orientation.VERTICAL, isStart=True):
         pelvis.start().t.lock()
         moveCard.toObjByCenter( pelvis, spine.start() )
         pelvis.rigCommand = 'TranslateChain'
-        #proxy.pointer( pelvis.start(), spine.start())
+        #proxyskel.pointer( pelvis.start(), spine.start())
         spine.start().setBPParent( pelvis.start() )
         pointConstraint( spine.start(), pelvis)
         util.annotateSelectionHandle( pelvis.start(), 'Pelvis (top joint)', (0, 0, -2) )
@@ -564,7 +564,7 @@ def spineCard(spineCount, orientation=Orientation.VERTICAL, isStart=True):
         hips.start().t.lock()
         moveCard.toObjByCenter( hips, spine.start() )
         hips.rigCommand = 'RotateChain'
-        #proxy.pointer( pelvis.start(), hips.start() )
+        #proxyskel.pointer( pelvis.start(), hips.start() )
         hips.start().setBPParent( pelvis.start() )
         pointConstraint( spine.start(), hips)
         util.annotateSelectionHandle( hips.start(), 'Hips', (0, -2, 0) )
@@ -579,9 +579,9 @@ def spineCard(spineCount, orientation=Orientation.VERTICAL, isStart=True):
 
     if isStart:
         if hasPelvis:
-            pelvis.start().proxy.setParent( proxy.getProxyGroup() )
+            pelvis.start().proxy.setParent( proxyskel.getProxyGroup() )
         else:
-            spine.start().proxy.setParent( proxy.getProxyGroup() )
+            spine.start().proxy.setParent( proxyskel.getProxyGroup() )
     
     return spine, hips
 
@@ -598,7 +598,7 @@ def arm(clav, side):
     
     moveCard.to( leftArm, clav.end() )
     moveCard.farther( leftArm, meters(.25) )
-    #proxy.pointer( clav.end(), leftArm.start() )
+    #proxyskel.pointer( clav.end(), leftArm.start() )
     leftArm.start().setBPParent( clav.end() )
     return leftArm
 
@@ -830,7 +830,6 @@ def addTwistCard(jnt):
     card.extraNode[0] = jnt
     card.suffix.set( suffix )
     card.rigCommand = 'TwistHelper'
-    card.rigOptions = '-visGroup Twist'
     
     card.sz.set( max(card.sy.get() / 4.0, 1.0) )
     

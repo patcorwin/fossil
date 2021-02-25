@@ -8,18 +8,26 @@ Utilities to manage and use space switching.
 from __future__ import print_function, absolute_import
 
 import collections
+import logging
+import numbers
 import operator
 
 from pymel.core import *
 
-from ...add import simpleName, shortName, cardPath
+from ...add import simpleName, shortName
 from ... import core
 from ... import lib
 
 
 from . import util
+from . import node
 from . import log as skelLog
-from . import settings
+
+from .core import ids
+
+
+log = logging.getLogger(__name__)
+
 
 globalSettings = core.ui.Settings(
     "space switching",
@@ -69,6 +77,7 @@ class Mode(object):
 
     FREEFORM = 10           # Allows several targets in different configurations, I do what I want!
     USER = 11               # User constrains this object as needed
+    POINT_ROT = 12          # Point rotate
 
     values = {}
     _classmap = {}
@@ -113,8 +122,8 @@ class USER(object):
 
     @staticmethod
     def getTargets(target):
-        mainData = core.constraints.fullSerialize(target)
-        alignData = core.constraints.fullSerialize(target.getParent())
+        mainData = core.constraints.fullSerialize(target, ids.toIdSpec)
+        alignData = core.constraints.fullSerialize(target.getParent(), ids.toIdSpec)
         extra = {'main': mainData if mainData else {},
                 'align': alignData if alignData else {} }
         #extra = None
@@ -354,6 +363,51 @@ class MULTI_ORIENT(object):
         return target, extra, rotConst
 
 
+# &&& Is this space actually needed?  I think it's a failed experiment
+class POINT_ROT(object):
+    DEFAULT_SPACENAME = 'multi_pointOrient'
+    @classmethod
+    def build(cls, target, spaceName, spaceContainer, constraintWeights, control, space):
+        '''  In this mode, target is a list of targets and constraintWeights is an optional list of weights
+        Args:
+            target: List of targets, but the first is the "fallback" space use to move the whole system
+            constraintWegiths: Optional dict of weights for the constraints {'points': [p1, p2, p3], 'orients': [o1, o2, o3]}
+        '''
+        if not spaceName:
+            spaceName = cls.DEFAULT_SPACENAME
+        wrapper = group(em=True, name=simpleName(control, '{0}_wrapMultiPR'), p=spaceContainer)
+        #core.dagObj.matchTo(wrapper, PyNode(target[0]))  # Not sure if this actually matters
+        parentConstraint(target[0], wrapper)
+        trueTarget = group(em=True, name=simpleName(control, '{0}_multiPR'), p=wrapper)
+        core.dagObj.matchTo(trueTarget, control)  # It's actually important so this can follow correctly.
+        if constraintWeights:
+            points = constraintWeights.get( 'points', [1.0] * (len(target) - 1) )
+            orients = constraintWeights.get( 'orients', [1.0] * (len(target) - 1) )
+        else:
+            points = [1.0] * (len(target) - 1)
+            orients = [1.0] * (len(target) - 1)
+        for t, p, o in zip(target[1:], points, orients):
+            oc = orientConstraint(t, trueTarget, w=o, mo=True)
+            pointConstraint(t, trueTarget, w=p, mo=True)
+        oc.interpType.set(2)
+        return trueTarget, spaceName
+    @staticmethod
+    def getTargets(target):
+        oConst = target.listRelatives(type='orientConstraint')[0]
+        pConst = target.listRelatives(type='pointConstraint')[0]
+        targets = oConst.getTargetList()
+        #wrapper = core.constraints.getParentConstrainee( target.getParent() )
+        wrapper = parentConstraint(target.getParent(), q=True, tl=True)[0]
+        targets.insert(0, wrapper)
+        #rotConst = constraints[0] if constraints[0].hasAttr('rotTarget') else constraints[1]
+        #temp = tuple(parentConstraint(rotConst, q=True, tl=True))
+        extra = {
+            'point': [a.get() for a in pConst.getWeightAliasList()],
+            'orient': [a.get() for a in oConst.getWeightAliasList()]
+        }
+        return tuple(targets), extra, (oConst, pConst)
+
+
 class FREEFORM(object):
     ORIENT = 0
     POINT = 1
@@ -391,7 +445,7 @@ class FREEFORM(object):
             These should be handled gracefully in some way
         '''
 
-        main = core.findNode.mainController(control)
+        main = core.findNode.leadController(control)
 
         if main:
             if main.getMotionType().endswith('.ik'):
@@ -591,24 +645,32 @@ for var, val in Mode.__dict__.items():
 #------------------------------------------------------------------------------
 # Because the main group needs root motion, which needs spaces, and spaces
 # have helpers to target the main group, they have to live together here.
-def getMainGroup(create=True):
+def getMainGroup(create=True, fromControl=None):
     '''
     Wraps lib.anim.getMainGroup() so code that simply needs to obtain the group
     can do so while this function actually builds all the needed parts.
+    
+    fromControl ensures the right mainGroup is found.
     '''
 
-    existing = lib.getNodes.mainGroup(create=False)
+    if fromControl:
+        path = fromControl.fullPath().split('|')[1:]
+        for i, name in enumerate(path):
+            if attributeQuery( core.findNode.MAIN_CONTROL_TAG, ex=1, node=name ):
+                return PyNode('|' + '|'.join( path[:i + 1] ))
+
+    existing = node.mainGroup(create=False)
     if existing:
         return existing
     
     if create:
-        main = lib.getNodes.mainGroup()
+        main = node.mainGroup()
         addRootMotion(main)
         return main
 
 
 def addRootMotion(main=None):
-    rootMotion = lib.getNodes.rootMotion(create=False, main=main)
+    rootMotion = node.rootMotion(create=False, main=main)
     
     if not rootMotion:
         rootMotion = core.getNodes.getRootMotion(create=True, main=main)
@@ -815,7 +877,7 @@ def setNames(ctrl, names):
     addAttr( ctrl.attr(ENUM_ATTR), e=True, enumName=':'.join(names) )
 
 
-def remove(control, spaceName, shuffleRemove=False):
+def remove(control, spaceNameOrIndex, shuffleRemove=False):
     '''
     Remove the space from the control.  If `shuffleRemove` is `True`, keep the
     same number of enum but make the last one marked for delete.  This means
@@ -823,7 +885,13 @@ def remove(control, spaceName, shuffleRemove=False):
         * shuffleRemove
         * move the anim curves to the appropriate connection in ref'ed files
         * Fully remove the end spaces marked for delete.
-        
+    
+    Args:
+        controls - The control with a space to be removed
+        spaceNameOrIndex - String name or the index (in case a name was duplicated on accident)
+        shuffleRemove - Retains the same number of spaces, but puts a 'DELETE' space at the end.
+            The intention is to preserve the count if referenced, but probably not actually useful.
+    
     ..  todo::
         Option to allow specifying the actual space target instead of just the name?
         
@@ -834,22 +902,25 @@ def remove(control, spaceName, shuffleRemove=False):
     
     names = getNames(control)
     
-    index = names.index(spaceName)
+    if isinstance(spaceNameOrIndex, numbers.Number):
+        index = spaceNameOrIndex
+    else:
+        index = names.index(spaceNameOrIndex)
     
     conditionToDelete = None
     plugToDelete = None
     # Find target and shift all the values above down to closes the gap.
-    for condition in control.listConnections( type='condition' ):
+    for condition in control.attr(ENUM_ATTR).listConnections( type='condition' ):
         if condition.secondTerm.get() == index:
             conditionToDelete = condition
             plugToDelete = condition.outColorR.listConnections(p=True)[0] if condition.outColorR.listConnections() else None
             break
             
-    for condition in control.listConnections( type='condition' ):
+    for condition in control.attr(ENUM_ATTR).listConnections( type='condition' ):
         if condition.secondTerm.get() > index:  # Shuffle all terms down
             condition.secondTerm.set( condition.secondTerm.get() - 1 )
-        
-    names.remove( spaceName )
+    
+    del names[index]
         
     if shuffleRemove:
         names.append( 'DELETE' )
@@ -935,16 +1006,17 @@ def addWorldToTranslateable(control, **kwargs):
     bindBone = core.constraints.getOrientConstrainee(control)
     parent = bindBone.getParent()
     
-    add(control, parent, 'main', mode=Mode.ALT_ROTATE, rotateTarget=getMainGroup())
+    add(control, parent, 'main', mode=Mode.ALT_ROTATE, rotateTarget=getMainGroup(fromControl=control))
 
 
-def addWorld(control, *args, **kwargs): # &&& TODO: rename to addRoot()
+def addMain(control, *args, **kwargs):
     '''
     Convenience func for adding root space, has same args as `add()`
     '''
-    add( control, getMainGroup(), 'main', *args, **kwargs )
+    add( control, getMainGroup(fromControl=control), 'main', *args, **kwargs )
 
 
+"""
 def addExternalWorld(control, *args, **kwargs):
     '''
     Convenience func for adding world space, has same args as `add()`
@@ -954,9 +1026,10 @@ def addExternalWorld(control, *args, **kwargs):
 
 def addExternalTarget(control, targetName, trans=None, rot=None, *args, **kwargs):
     add( control, getExternalProxy(targetName, trans=trans, rot=rot), external=True, *args, **kwargs )
+"""
 
 
-def addTrueWorld(control, *args, **kwargs):
+def addTrueWorld(control, *args, **kwargs): # &&& TODO: rename to addWorld
     '''
     Convenience func for adding world space, has same args as `add()`
     '''
@@ -1007,6 +1080,9 @@ def add(control, target, spaceName='', mode=Mode.ROTATE_TRANSLATE, enum=True, ro
         if targetInfo.type == mode and targetInfo.target == target:
             print( "Target already exists", mode, target)
             return
+    
+    if spaceName in getNames(control):
+        return
     # End early outs
 
     rotateLocked = False
@@ -1022,7 +1098,7 @@ def add(control, target, spaceName='', mode=Mode.ROTATE_TRANSLATE, enum=True, ro
     
     with core.dagObj.TemporaryUnlock(control, trans=not translateLocked, rot=not rotateLocked):
         space = core.dagObj.zero(control, apply=False)
-        spaceContainer = getGroup(mode)
+        spaceContainer = getGroup(mode, main=getMainGroup(fromControl=control) )
 
         # -----------------------
         # ACTUAL SPACE ADDED HERE
@@ -1062,6 +1138,78 @@ def add(control, target, spaceName='', mode=Mode.ROTATE_TRANSLATE, enum=True, ro
             control.addAttr( name, at='float', min=0.0, max=1.0, k=True)
             
             control.attr(name) >> constraintAttr
+
+
+
+
+class SpaceType(object):
+    # Pretty sure this is trash
+
+    #EXTERNAL = -1           # Here for taking advantage of the get group code.
+
+    #ROTATE_TRANSLATE = 0    # Acts just like a child of the target
+    SINGLE_PARENT = 'single_parent'
+
+    MULTI_PARENT = 'multi_parent'
+    # DUAL_PARENT = 5         # ParentConstraint to two objs
+    # MULTI_PARENT = 7        # The base of a "rivet"
+    # ALT_ROTATE = 3          # Acts as a child of the target positionally but is rotationally follows the second target
+    #   Adjust weights so 1st parent is p=1, o=0 and second is p=0 o=1
+    # MULTI_ORIENT = 8        # Only has an orient constraint
+    #   target 0 is parent obj, p=1,o=0 and the remainder are p=0,o>0
+    # ROTATE = 2              # Only follows rotation, not translation.  Probably only ever for rotate only controls
+    #   identical to multi orient but a single target
+
+
+    # Not actualy needed, I think. SINGLE_FOLLOW = 'single_follow'
+    #DUAL_FOLLOW = 6         # A point and orient to two objs (aka position is alway linearly interpreted between points regardless of target rotation)
+    MULTI_FOLLOW = 'multi_follow'
+    # TRANSLATE = 1           # If the target translates, it follows but not if the target rotates
+    #   p=1, o=0
+    
+    # REMOVE
+    #POINT_ORIENT = 4        # Does a point and orient, which is only relevant if doing non-enum attr
+    
+    # Get rid of this since the new multis have weighting powers and `user` allows for other nonesense
+    # FREEFORM = 10           # Allows several targets in different configurations, I do what I want!
+    USER = 'user'               # User constrains this object as needed
+
+
+
+
+
+def add_NEW(control, spec):
+    '''
+        [ { 'name': 'Parent',
+        'target': ['b_Spine01', 'PyNode("SpineCard").outputCenter.fk'],
+        'type': 1},
+        { 'name': 'DoubleConstraint',
+        'targets': [
+            ['b_Spine01', 'PyNode("SpineCard").outputCenter.fk'],
+            ['b_Spine02', 'PyNode("SpineCard").outputCenter.fk.subControls["2"]'],
+            ]
+        'type': 7}, ]
+    '''
+    spaceName = spec['name']
+    mode = spec['type']
+
+
+def reorder(ctrl, newOrder):
+    '''
+    Make sure the spaces on `ctrl` are in the `newOrder`, ex `reorder( handCtrl, ['World', 'Root', 'Chest', 'Shoulder'])`.
+    '''
+    names = getNames(ctrl)
+    if names == newOrder:
+        return
+    
+    assert len(names) == len(newOrder), 'Cannot reorder spaces on {}, new order has a different number of spaces'.format(ctrl)
+    
+    assert set(names).issubset(newOrder), 'Cannot reorder spaces on {}, new order has different names'.format(ctrl)
+    
+    for targetIndex in range( len(names) - 1 ): # Skip the last item since ordering the second-to-last guarantees it.
+        if names[targetIndex] != newOrder[targetIndex]:
+            subIndex = names.index( newOrder[targetIndex] )
+            swap(ctrl, targetIndex, subIndex)
 
 
 def swap(ctrl, spaceAIndex, spaceBIndex):
@@ -1214,14 +1362,14 @@ def serializeSpaces(control):
         if isinstance(spaceInfo.target, tuple):
             targets.append(
                 {'name': spaceInfo.name,
-                 'targets': [(t.name(), cardPath(t)) for t in spaceInfo.target],
+                 'targets': [(t.name(), ids.cardPath(t)) for t in spaceInfo.target],
                  'type': spaceInfo.type,
                  'extra': spaceInfo.extra}
             )
         else:
             targets.append(
                 {'name': spaceInfo.name,
-                 'target': (spaceInfo.target.name(), cardPath(spaceInfo.target)),
+                 'target': (spaceInfo.target.name(), ids.cardPath(spaceInfo.target)),
                  'type': spaceInfo.type}
             )
             if spaceInfo.extra:
@@ -1235,7 +1383,7 @@ def deserializeSpaces(control, data):
     Apply spaces obtained from `serializeSpaces()` to the given control.
     '''
     errors = []
-
+    
     def parseTarget(target):
         if objExists(target[0]):
             return PyNode(target[0])
@@ -1245,10 +1393,20 @@ def deserializeSpaces(control, data):
                 return obj
         return None
 
+    names = getNames(control)
+
     for spaceInfo in data:
         if isinstance(spaceInfo, dict):
             name = spaceInfo['name']
+            
+            if name in names:
+                continue
+            
             type = spaceInfo['type']
+            log.debug('Name: {}  -  Type: {}'.format(name, type))
+            #print('Name: {}  -  Type: {}'.format(name, type))
+            
+            log.debug( spaceInfo )
 
             if type == Mode.USER:
                 # Delete the existing object if it exists.
@@ -1259,11 +1417,11 @@ def deserializeSpaces(control, data):
                 target = addUserDriven(control, name)
                 
                 # Rebuild the constraints on it.
-                for constraintType, data in spaceInfo['extra']['main']:
+                for constraintType, data in spaceInfo['extra']['main'].items():
                     getattr(core.constraints, constraintType + 'Deserialize')(target, data)
 
                 align = target.getParent()
-                for constraintType, data in spaceInfo['extra']['align']:
+                for constraintType, data in spaceInfo['extra']['align'].items():
                     getattr(core.constraints, constraintType + 'Deserialize')(align, data)
 
             elif 'target' in spaceInfo:
@@ -1312,10 +1470,12 @@ def deserializeSpaces(control, data):
             else:
                 errors.append( target )
     
+    reorder(control, [si['name'] for si in data])
+    
     if errors:
         skelLog.msg(
-            'Error with spaces on ' + str(control) + ' missing Targets:\n    ' +
-            '\n    '.join(errors)
+            'Error with spaces on ' + str(control) + ' missing Targets:\n    '
+            + '\n    '.join(errors)
         )
 
 

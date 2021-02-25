@@ -12,17 +12,18 @@ import traceback
 
 from collections import OrderedDict
 
-from pymel.core import textField, optionMenu, warning, checkBox, intField, floatField, duplicate, move, confirmDialog, selected
+from pymel.core import textField, optionMenu, warning, checkBox, intField, floatField, selected
 #from pymel.core import *
 
+import pdil
 from ...add import shortName
 from ... import core
-from ... import lib
 
 from . import controllerShape
 from . import log
+from . import node
 from . import rig
-from . import settings
+from .core import config
 from . import space
 from . import util
 
@@ -468,12 +469,12 @@ class MetaControl(object):
                 kwargs[argName] = paramInfo.default
                 
             validNames.add(argName)
-        print(validNames, 'Valid names')
+        #print(validNames, 'Valid names')
         userOverrides = card.rigData.get('ikParams', {}) # ParamInfo.toDict( card.rigParams )
-        print(userOverrides)
+        #print(userOverrides)
         # Not sure if decoding nodes is best done here or passed through in ParamInfo.toDict
         for key, val in userOverrides.items():
-            print('VALID', key, key in validNames)
+            #print('VALID', key, key in validNames)
             if key in validNames:  # Only copy over valid inputs, incase shenanigans happen
                 if val == 'NODE_0':
                     kwargs[key] = card.extraNode[0]
@@ -526,9 +527,12 @@ class MetaControl(object):
             kwargs['controlSpec'].update( cls.fkControllerOptions )
             kwargs.update( sideAlteration(**fkControlSpec) )
             
+            if not isMirroredSide and 'mirroredTranslate' in kwargs:
+                del kwargs['mirroredTranslate']
+            
             names = card.nameList(excludeSide=True)
             if side:
-                names = [n + settings.controlSideSuffix(side) for n in names]
+                names = [n + config.controlSideSuffix(side) for n in names]
             kwargs['names'] = names
             
             fkCtrl, fkConstraints = cls.fk( start, end, groupName=fkGroupName, **kwargs )
@@ -565,9 +569,9 @@ class MetaControl(object):
             name = card.nameList(excludeSide=1)[0]
         
         if side == 'left':
-            name += settings.controlSideSuffix('left')
+            name += config.controlSideSuffix('left')
         elif side == 'right':
-            name += settings.controlSideSuffix('right')
+            name += config.controlSideSuffix('right')
             
         kwargs['name'] = name
 
@@ -591,7 +595,6 @@ class MetaControl(object):
         log.TooStraight.targetCard(card)
         
         side = card.findSuffix()
-        
         if not side or card.isAsymmetric():
             
             if side:
@@ -605,7 +608,7 @@ class MetaControl(object):
                 card.outputCenter.fk = ctrls.fk
         else:
             # Build one side...
-            #side = settings.letterToWord[mirrorCode]
+            #side = config.letterToWord[mirrorCode]
             ctrls = cls._buildSide(card, card.start().real, card.end().real, False, side, buildFk=buildFk)
             if ctrls.ik:
                 card.getSide(side).ik = ctrls.ik
@@ -613,9 +616,9 @@ class MetaControl(object):
                 card.getSide(side).fk = ctrls.fk
             
             # ... then flip the side info and build the other
-            #side = settings.otherLetter(side)
-            otherSide = settings.otherSideCode(side)
-            #side = settings.otherWord(side)
+            #side = config.otherLetter(side)
+            otherSide = config.otherSideCode(side)
+            #side = config.otherWord(side)
             ctrls = cls._buildSide(card, card.start().realMirror, card.end().realMirror, True, otherSide, buildFk=buildFk)
             if ctrls.ik:
                 card.getSide(otherSide).ik = ctrls.ik
@@ -674,7 +677,8 @@ class RotateChain(MetaControl):
     ''' Rotate only controls.  Unless this is a single joint, lead joint is always translatable too. '''
     fkArgs = {'translatable': False}
     fkInput = OrderedDict( [
-        ('scalable', ParamInfo('Scalable', 'Scalable', ParamInfo.BOOL, default=False))
+        ('scalable', ParamInfo('Scalable', 'Scalable', ParamInfo.BOOL, default=False)),
+        ('mirroredTranslate', ParamInfo( 'Mirror Translate', 'Translation is also mirrored on mirrored side', ParamInfo.BOOL, default=False)),
     ] )
 
 
@@ -682,59 +686,9 @@ class TranslateChain(MetaControl):
     ''' Translatable and rotatable controls. '''
     fkArgs = {'translatable': True}
     fkInput = OrderedDict( [
-        ('scalable', ParamInfo('Scalable', 'Scalable', ParamInfo.BOOL, default=False))
+        ('scalable', ParamInfo('Scalable', 'Scalable', ParamInfo.BOOL, default=False)),
+        ('mirroredTranslate', ParamInfo( 'Mirror Translate', 'Translation is also mirrored on mirrored side', ParamInfo.BOOL, default=False)),
     ] )
-
-
-class IkChain(MetaControl):
-    ''' Basic 3 joint ik chain. '''
-    ik_ = 'pdil.tool.fossil.rig.ikChain2'
-    ikInput = OrderedDict( [
-        ('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, '')),
-        ('pvLen', ParamInfo('PV Length', 'How far the pole vector should be from the chain', ParamInfo.FLOAT, default=0) ),
-        ('stretchDefault', ParamInfo('Stretch Default', 'Default value for stretch (set when you `zero`)', ParamInfo.FLOAT, default=1, min=0, max=1)),
-        ('endOrientType', ParamInfo('Control Orient', 'How to orient the last control', ParamInfo.ENUM, enum=rig.EndOrient.asChoices(), default=rig.EndOrient.TRUE_ZERO)),
-        ('makeBendable', ParamInfo('Make Bendy', 'Adds fine detail controls to adjust each joint individually', ParamInfo.BOOL, default=False) ),
-    ] )
-    
-    ikArgs = {}
-    fkArgs = {'translatable': True}
-    
-    @classmethod
-    def readIkKwargs(cls, card, isMirroredSide, sideAlteration):
-        kwargs = super(IkChain, cls).readIkKwargs(card, isMirroredSide, sideAlteration)
-        '''
-        try:
-            kwargs['twists'] = json.loads( kwargs['twists'] )
-        except Exception:
-            kwargs['twists'] = {}
-        
-        print( 'Parsed into ' + str(type(kwargs['twists'])) + ' ' + str(kwargs['twists']) )
-        '''
-        
-        # Determine the twist joints
-        twists = {}
-
-        primaryIndex = -1
-        dividerCount = 0
-        for j in card.joints:
-            if j.info.get('twist'):
-                dividerCount += 1
-            else:
-                if dividerCount:
-                    twists[primaryIndex] = dividerCount
-                  
-                primaryIndex += 1
-                dividerCount = 0
-        
-        kwargs['twists'] = twists
-                
-        return kwargs
-
-
-
-
-
 
 
 
@@ -764,12 +718,12 @@ def buildRig(cards):
     print( 'Building Cards:\n    ', '    \n'.join( str(c) for c in cards ) )
     
     # Ensure that main and root motion exist
-    main = lib.getNodes.mainGroup()
+    main = node.mainGroup()
     
     rootMotion = core.findNode.rootMotion(main=main)
     if not rootMotion:
-        rootMotion = lib.getNodes.rootMotion(main=main)
-        space.addWorld(rootMotion)
+        rootMotion = node.rootMotion(main=main)
+        space.addMain(rootMotion)
         space.addTrueWorld(rootMotion)
     
     # Build all the rig components
@@ -793,10 +747,10 @@ def buildRig(cards):
         for card, err in errors:
             print( core.text.writeInBox( str(card) + '\n' + err ) )
     
-        print( core.text.writeInBox( "The following cards had errors:\n" +
-                '\n'.join([str(card) for card, err in errors]) ) ) # noqa e127
-                
-        confirmDialog( m='Errors occured!  See script editor for details.' )
+        print( core.text.writeInBox( "The following cards had errors:\n"
+            + '\n'.join([str(card) for card, err in errors]) ) ) # noqa e127
+        
+        pdil.ui.notify( m='Errors occured!  See script editor for details.' )
         
         if raiseErrors:
             raise Exception( 'Errors occured on {0}'.format( errors ) )

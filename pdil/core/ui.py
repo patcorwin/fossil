@@ -11,6 +11,8 @@ import xml.etree.ElementTree as xml
 
 from maya import OpenMayaUI
 
+from pymel.core import confirmDialog as confirmDialog_orig
+
 # I think the * imports are for the compiling in loadUiType
 from ..vendor.Qt.QtGui import *
 from ..vendor.Qt.QtCore import *
@@ -194,55 +196,32 @@ def loadUiType(uiFile):
     return form_class, base_class
 
 
-class VerticalLabel(QtWidgets.QWidget):
-    '''
-    Almost works!  'Below the line' letters like 'g' get cut off.
-    '''
-    
-    def __init__(self, *args, **kwargs):
-        super(self.__class__, self).__init__(*args, **kwargs)
-        #self.text = ''
-        self.setText('')
-
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        #painter.setPen(Qt.black)
-        painter.translate(self.textWidth, self.textHeight)
-        painter.rotate(-90)
-        if self.text:
-            painter.drawText(0, 0, self.text)
-        painter.end()
-        
-    def setText(self, text):
-        self.text = text
-        s = self.fontMetrics().size(0, text)
-        
-        # Rotating means the vals get swapped
-        self.textWidth = s.height() + 4
-        self.textHeight = s.width()
-        
-        self.resize(self.textWidth, self.textHeight)
-
-
-class NoUpdate(object):
+@contextlib.contextmanager
+def NoUpdate(keepVisible=[]):
     '''
     Context manager to disable updating of modeling panels
-    '''
-
-    @staticmethod
-    def getModelingPanels():
-        return [p for p in getPanel(vis=True) if getPanel(to=p) == 'modelPanel']
-
-    def __enter__(self):
-        for panel in self.getModelingPanels():
-            isolateSelect( panel, state=True )
-                
     
-    def __exit__(self, type, value, traceback):
-        empty = selectionConnection()
-        for panel in self.getModelingPanels():
-            isolateSelect( panel, state=False )
-            modelEditor( panel, e=True, mlc=empty )
+    CAVEAT!  This used to be a great way to speed up stepping through the timeline
+    but at some point (prior to 2019), this STOPS calculating, I'm assuming it's
+    a parallel eval issue.
+    
+    Work around - add the things I'll be querying to the displayable.  They don't
+    necessarily display but it does update properly.
+    '''
+    
+    panels = [p for p in getPanel(vis=True) if getPanel(to=p) == 'modelPanel']
+    
+    for panel in panels:
+        isolateSelect( panel, state=True)
+        for obj in keepVisible:
+            isolateSelect(panel, ado=obj)
+            
+    yield
+    
+    empty = selectionConnection()
+    for panel in panels:
+        isolateSelect( panel, state=False )
+        modelEditor( panel, e=True, mlc=empty )
 
 
 class NoFilePrompt(object):
@@ -424,46 +403,55 @@ def setGeometry(qwindow, geo):
     # Takes a list from `getGeometry()`, really for symmetry more than necessity.
     qwindow.setGeometry(*geo)
     
+
+class ProgressHelper(object):
+    amount = 0
     
-class NagCheck(object):
+    @classmethod
+    def update(cls, increment=1, status=None):
+        kwargs = {} if not status else {'status': status}
+        cls.amount += increment
+        progressWindow(e=True, progress=cls.amount, **kwargs )
+
+    @staticmethod
+    def isCancelled():
+        return progressWindow(q=True, isCancelled=True)
+
+
+@contextlib.contextmanager
+def progressWin(title='', max=100, status=''):
+    ''' Helper for progressWindow, passes in args
     '''
-    Makes a function to easily track if a message should be disabled for a time.
+    ProgressHelper.amount = 0
+    progressWindow(title=title, max=max, status=status)
+    yield ProgressHelper
+    progressWindow(endProgress=True)
     
-    Used in warnOtherUsersCheckout()
     
-    Ex:
-    
-        someCheck = lib.util.NagCheck('countTooHigh')
+NOTIFY_ENABLED = True
+
+
+def notify(*args, **kwargs):
+    ''' Wrapper for confirmDialog that returns nothing and is easily disabled for testing '''
+    global NOTIFY_ENABLED
+    if NOTIFY_ENABLED:
+        confirmDialog_orig(*args, **kwargs)
+    else:
         
-        if count > 8 and someCheck():
-                
-            if confirmDialog( m='The count is too high!',
-                b=['Ok', 'Ok and skip this check today']) == 'Ok and skip this check today':
-                someCheck.disable()
-    
-    '''
-    
-    day = 60 * 60 * 24  # Number of seconds in a day
-    
-    def __init__(self, timestampKey, secondsTillReset=day):
-        self.timestampKey = timestampKey
-        self.secondsTillReset = secondsTillReset
-        if self.timestampKey in optionVar:
-            self.active = bool(time.time() - optionVar[self.timestampKey] > self.secondsTillReset)
+        if 'm' in kwargs:
+            message = kwargs['m']
+        elif 'message' in kwargs:
+            message = kwargs['message']
         else:
-            self.active = True
+            message = '<no message>'
         
-    def __call__(self):
-        if self.active:
-            return True
-        else:
-            if time.time() - optionVar[self.timestampKey] > self.secondsTillReset:
-                self.active = True
-                return True
-            else:
-                return False
-        
-    def disable(self):
-        self.timestampKey in optionVar
-        optionVar[self.timestampKey] = time.time()
-        self.active = False
+        print('confirmDialog disabled with message "{}"'.format(message))
+
+
+@contextlib.contextmanager
+def disableNotify():
+    global NOTIFY_ENABLED
+    prev = NOTIFY_ENABLED
+    NOTIFY_ENABLED = False
+    yield
+    NOTIFY_ENABLED = prev

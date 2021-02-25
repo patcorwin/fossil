@@ -6,7 +6,7 @@ the users can be warned appropriately.
 from pymel.core import cmds, dt, listRelatives
 
 from ... import core
-from ... import lib
+from . import node
 
 
 def findRotatedBones(joints=None):
@@ -15,7 +15,7 @@ def findRotatedBones(joints=None):
     '''
 
     if not joints:
-        obj = core.findNode.getRoot()
+        obj = node.getTrueRoot()
         joints = listRelatives(obj, ad=True, type='joint')
 
     rotated = []

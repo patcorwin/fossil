@@ -6,7 +6,6 @@ from __future__ import print_function, absolute_import
 import collections
 import itertools
 import logging
-import math
 import re
 import traceback
 
@@ -14,21 +13,23 @@ from maya.api import OpenMaya
 
 import pymel.api
 from pymel.core import cmds, select, objExists, PyNode, ls, nt, listRelatives, joint, hasAttr, removeMultiInstance, \
-    xform, delete, warning, dt, connectAttr, pointConstraint, getAttr, orientConstraint
+    xform, delete, warning, dt, connectAttr, pointConstraint, getAttr
 
 from ..add import simpleName, shortName, meters
 from .. import core
 from .. import lib
 
-
 from ..tool.fossil import cardRigging
 from ..tool.fossil import controllerShape
 from ..tool.fossil import rig
 from ..tool.fossil import log
-from ..tool.fossil import proxy
-from ..tool.fossil import settings
+from ..tool.fossil.core import proxyskel
+from ..tool.fossil.core import ids
+from ..tool.fossil.core import config
 from ..tool.fossil import space
 from ..tool.fossil import util
+
+from ..tool.fossil.lib import misc
 
 from . import registerNodeType
 
@@ -42,6 +43,8 @@ def findConstraints(ctrl):
     align = core.dagObj.align(ctrl)
 
     '''
+    &&& Can I just use contstraints.fullSerialize/fullDeserialize here?
+    
     ctrlAim = core.constraints.aimSerialize(ctrl)
     alignAim = core.constraints.aimSerialize(align)
 
@@ -56,10 +59,10 @@ def findConstraints(ctrl):
     constTypes = ['aim', 'point', 'parent', 'orient']
     res = {}
     for const in constTypes:
-        ctrlConst = getattr( core.constraints, const + 'Serialize' )(ctrl)
+        ctrlConst = getattr( core.constraints, const + 'Serialize' )(ctrl, ids.toIdSpec)
         
         if align:
-            alignConst = getattr( core.constraints, const + 'Serialize' )(align)
+            alignConst = getattr( core.constraints, const + 'Serialize' )(align, ids.toIdSpec)
         else:
             alignConst = None
     
@@ -80,6 +83,8 @@ def applyConstraints(ctrl, data):
     if 'align' in data:
         align = core.dagObj.align(ctrl)
         core.constraints.aimDeserialize(align, data['align'])
+        
+    &&& Can I just use contstraints.fullSerialize/fullDeserialize here?
     '''
     #print( ctrl, data, 'DATA' )
 
@@ -88,19 +93,19 @@ def applyConstraints(ctrl, data):
     for const in constTypes:
         ctrlConst = data.get(const + ' ctrl')
         if ctrlConst:
-            getattr(core.constraints, const + 'Deserialize')(ctrl, ctrlConst)
+            getattr(core.constraints, const + 'Deserialize')(ctrl, ctrlConst, ids.fromIdSpec)
         
         alignConst = data.get(const + ' align')
         if alignConst:
-            getattr(core.constraints, const + 'Deserialize')(align, alignConst)
+            getattr(core.constraints, const + 'Deserialize')(align, alignConst, ids.fromIdSpec)
 
 
 def findSDK(ctrl):
     align = core.dagObj.align(ctrl)
     
     data = {
-        'main': lib.anim.findSetDrivenKeys(ctrl),
-        'align': lib.anim.findSetDrivenKeys( align ) if align else []
+        'main': misc.findSDK(ctrl),
+        'align': misc.findSDK(align) if align else []
     }
     
     if data['main'] or data['align']:
@@ -110,8 +115,8 @@ def findSDK(ctrl):
 
 
 def applySDK(ctrl, info):
-    lib.anim.applySetDrivenKeys(ctrl, info['main'])
-    lib.anim.applySetDrivenKeys(core.dagObj.align(ctrl), info['align'])
+    misc.applySDK(ctrl, info['main'])
+    misc.applySDK(core.dagObj.align(ctrl), info['align'])
     
 
 def getLinks(ctrl):
@@ -434,12 +439,12 @@ class Card(nt.Transform):
     # This actually only does ik params.  Probably should be renamed to reflect this.
     rigParams = core.factory.StringAccess('rigParameters')
     
-    
+        
     def updateToRigData(self):
         rigData = self.rigData
         
         if self.hasAttr('nameInfo'):
-            head, repeat, tail = util.parse(self.nameInfo.get())
+            head, repeat, tail = util.parse(self.attr('nameInfo').get())
             rigData.update( {'nameInfo': {'head': head, 'repeat': repeat, 'tail': tail}} )
         
         if self.hasAttr('rigCmd'):
@@ -670,14 +675,15 @@ class Card(nt.Transform):
         
         if mirrorCode and not excludeSide:
             if mirroredSide:
-                suffix = settings.jointSideSuffix( settings.otherSideCode(mirrorCode) )
+                suffix = config.jointSideSuffix( config.otherSideCode(mirrorCode) )
             else:
-                suffix = settings.jointSideSuffix( mirrorCode )
+                suffix = config.jointSideSuffix( mirrorCode )
         else:
             suffix = ''
         
         
-        prefix = settings.prefix if usePrefix else ''
+        #prefix = config.prefix if usePrefix else ''
+        prefix = config._settings['joint_prefix'] if usePrefix else ''
         
         names = self.rigData.get('nameInfo')
         if names:
@@ -774,9 +780,9 @@ class Card(nt.Transform):
             primarySide = 'Center'
             otherSide = ''
         else:
-            #primarySide = settings.letterToWord[suffix]
+            #primarySide = config.letterToWord[suffix]
             primarySide = sideName
-            otherSide = settings.otherSideCode(primarySide)
+            otherSide = config.otherSideCode(primarySide)
 
         result = []
         for j in self.joints:
@@ -888,8 +894,8 @@ class Card(nt.Transform):
         
         if mode != JointMode.bind:
             self.removeBones()
-                
-        trueRoot = core.findNode.getRoot(make='root')
+        
+        trueRoot = getTrueRoot()
 
         core.layer.putInLayer(trueRoot, 'Joints')
         trueRoot.drawStyle.set(2)
@@ -973,6 +979,7 @@ class Card(nt.Transform):
             
             if bpJoint.parent:
                 
+                # ! CRITICAL ! Changes to this logic need to be reflected in tpose.reposerToBind
                 if bpJoint.info.get('options', {}).get('mirroredSide'):
                     j.setParent( redirect(bpJoint.parent.realMirror) )
                 else:
@@ -1070,6 +1077,8 @@ class Card(nt.Transform):
                         mj.setParent( redirect( bpJoint.parent.realMirror) )
                     else:
                         mj.setParent( redirect( bpJoint.parent.real) )
+                else:
+                    mj.setParent(trueRoot)
         
         return outputJoints
                 
@@ -1137,7 +1146,7 @@ class Card(nt.Transform):
         
         if parent:
             for child in children:
-                proxy.pointer(parent, child)
+                proxyskel.pointer(parent, child)
            
         proxyParent = jnt.proxy.getParent()
         for child in jnt.proxy.listRelatives(type='joint'):
@@ -1145,6 +1154,9 @@ class Card(nt.Transform):
            
         delete( jnt.proxy )
         delete( jnt )
+        
+        # &&& THis needs to clean up the list order too via jnt.cardCon
+        
            
     def insertJoint(self, previousJoint):
         '''
@@ -1162,7 +1174,7 @@ class Card(nt.Transform):
         
         i = joints.index(previousJoint)
 
-        proxy.pointer(previousJoint, newJoint)
+        proxyskel.pointer(previousJoint, newJoint)
         previousJointPos = dt.Vector( xform(previousJoint, q=True, ws=True, t=True) )
         
         # If the final pos isn't at the end, all the connections need shifting.
@@ -1175,7 +1187,7 @@ class Card(nt.Transform):
             
             newJoint.message >> insertPoint.jmsg
             
-            proxy.pointer(newJoint, followingJoint)
+            proxyskel.pointer(newJoint, followingJoint)
             
             # Position the new joint in between
             followingJointPos = dt.Vector( xform(followingJoint, q=True, ws=True, t=True) )
@@ -1185,7 +1197,7 @@ class Card(nt.Transform):
             pos = previousJointPos + dt.Vector( meters(0.1, 0.1, 0.1) )
             
         for child in previousChildren:
-            proxy.pointer(newJoint, child)
+            proxyskel.pointer(newJoint, child)
             
         xform( newJoint, ws=True, t=pos )
         
@@ -1319,7 +1331,8 @@ class Card(nt.Transform):
                     else:
                         jnt.rename(targetName)
             else:
-                jnt.rename('_helper_pbj')
+                #jnt.rename('_helper_bpj')
+                jnt.rename( simpleName(self, '{}_helper_bpj') )
         
         for jnt, targetName in queued.items():
             jnt.rename(targetName)
@@ -1481,46 +1494,38 @@ class Card(nt.Transform):
             shapeInfo = core.text.asciiCompress(shapeInfo)
             core.factory._setStringAttr( self, 'outputShape' + side + type, shapeInfo)
                     
-    def restoreShapes(self, objectSpace=True):
+    def restoreShapes(self, objectSpace=True, targetKeys=None, targetSide=None, targetMotion=None):
         '''
         Apply any shape data saved via saveShapes
         '''
         for node, side, type in self._outputs():
+            print(side, type)
+            if targetSide and targetSide != side:
+                continue
+            
+            if targetMotion and targetMotion != type:
+                continue
+            
             shapeInfo = core.factory._getStringAttr( self, 'outputShape' + side + type)
             if shapeInfo:
                 shapeInfo = core.text.asciiDecompress(shapeInfo)
-                controllerShape.loadControlShapes( node, shapeInfo.splitlines(), useObjectSpace=objectSpace)
+                controllerShape.loadControlShapes( node, shapeInfo.splitlines(), useObjectSpace=objectSpace, targetCtrlKeys=targetKeys)
         
-    def _saveData(self, function, returnData=False):
+    def _saveData(self, function):
         '''
-        Wrapper for storing controller data for all the controls made by this
-        card.  Data must be json serializable.
+        Runs `function` on each control made by the card, returning a dict like:
         
-        Results in something like:
-            self.attrName = {
+            {
                 '<side> <kinematic type>': {
-                    'main': <main data>,
-                    'socket': <socket data>,
+                    'main': <return of function(main)>,
+                    'socket': <return of function(socket)>,
                 }
             }
             
-            or, more specifcally
-            
-            self.MoVisGroup = {
-                'Left ik': {
-                    'main': 'hands',
-                    'socket': 'sockets',
-                }
-            }
-        
-        :param string attrName: The name that will be stored on the card
-        :param function function:  The function that will be run on each control
-            to harvest data in the form of:
-            
-                def harvest(ctrl):
-                    return <json serializable>
-        
+        <side> is "Left" "Right" or "Center" and <kinematic type> is "ik" of "fk"
+        so the keys are things like "Left fk"
         '''
+
         allData = {}
         
         for ctrl, side, type in self._outputs():
@@ -1542,16 +1547,11 @@ class Card(nt.Transform):
         
     def _restoreData(self, function, info):
         '''
-        The other side of _saveData, except `function` must be in the form of:
-            def applyData(ctrl, data):
-                pass
-        
-        `ctrl` is obviously the rig control.
-        `data` is whatever you stored with _saveData.
-        
-        :param info: Is when you feed it something instead of getting it from an attr
-
+        The other side of _saveData, running `function` on each control, passing the
+        appropriate `info`.
         '''
+        
+        issues = []
         
         for side_type, value in info.items():
             side, type = side_type.split()
@@ -1563,8 +1563,16 @@ class Card(nt.Transform):
                     ctrl = mainCtrl
                 else:
                     ctrl = mainCtrl.subControl[id]
-            
-                function(ctrl, ctrlInfo)
+                try:
+                    function(ctrl, ctrlInfo)
+                except Exception:
+                    print('> > > --------------', ctrl, ctrlInfo)
+                    print( traceback.format_exc() )
+                    print('< < < --------------')
+                    issues.append( traceback.format_exc() )
+        
+        if issues:
+            raise Exception('\n\n'.join(issues))
                 
     def removeRig(self):
         # Sometimes deleting the rig flips things out, so try deleting the constraints first
@@ -1595,12 +1603,29 @@ class Card(nt.Transform):
         ('lockedAttrs', findLockedAttrs,                    lockAttrs),
     ]
     
+    toSave = collections.OrderedDict( [
+        ('visGroup',    (lib.sharedShape.getVisGroup,        lib.sharedShape.connect)),
+        ('connections', (getLinks,                           setLinks)),
+        ('setDriven',   (findSDK,                            applySDK)),
+        ('customAttrs', (controllerShape.identifyCustomAttrs, controllerShape.restoreAttr)),
+        ('spaces',      (space.serializeSpaces,              space.deserializeSpaces)),
+        ('constraints', (findConstraints,                    applyConstraints)),
+        ('lockedAttrs', (findLockedAttrs,                    lockAttrs)),
+    ] )
+    
     def saveState(self):
         allData = self.rigState
 
-        for niceName, harvestFunc, restoreFunc in self.thingsToSave:
+        for niceName, (harvestFunc, restoreFunc) in self.toSave.items():
             data = self._saveData(harvestFunc)
-            allData[niceName] = data
+
+            # I think this is a good idea.  Helping the corner case if you accidentally go fk
+            # to preserve ik data instead of clobbering it.
+            
+            if niceName not in allData:
+                allData[niceName] = data
+            else:
+                allData[niceName].update( data )
 
         self.rigState = allData
         
@@ -1612,14 +1637,14 @@ class Card(nt.Transform):
 
     def restoreState(self, shapesInObjectSpace=True):
         '''
-        Restores everything listed in `thingsToSave`, returning a list of ones that failed.
+        Restores everything listed in `toSave`, returning a list of ones that failed.
         '''
 
         allData = self.rigState
         
         issues = []
 
-        for niceName, harvestFunc, restoreFunc in self.thingsToSave:
+        for niceName, (harvestFunc, restoreFunc) in self.toSave.items():
             if niceName in allData and allData[niceName]:
                 try:
                     self._restoreData(restoreFunc, allData[niceName])
@@ -1663,7 +1688,24 @@ class Card(nt.Transform):
         except Exception:
             return NOT_FOUND
 
-
+    def autoRename(self):
+        ''' Renames based on the name pattern
+        '''
+        
+        nameInfo = self.rigData.get('nameInfo', {})
+        name = nameInfo.get('head', '')
+        if name:
+            self.rename( name + '_card' )
+            
+        name = nameInfo.get('repeat', '')
+        if name:
+            self.rename( name + '_card' )
+            
+        name = nameInfo.get('tail', '')
+        if name:
+            self.rename( name + '_card' )
+            
+        
 '''
 def findConstraints(ctr):
     align = core.dagObj.align(ctrl)
@@ -1680,7 +1722,13 @@ class NOT_FOUND:
 
 
 def getTrueRoot():
-    trueRoot = PyNode('b_root') if objExists( 'b_root' ) else joint(None, n='b_root')
+    ''' Returns the root joint according the 'root_name', building it if needed.
+    
+    &&& DUPLICATED CODE IN fossileNodes
+    '''
+    rootName = config._settings['root_name']
+    
+    trueRoot = PyNode(rootName) if objExists( rootName ) else joint(None, n=rootName)
     trueRoot.drawStyle.set(2)
     return trueRoot
 
@@ -1711,7 +1759,6 @@ def getReparentCommand(tempJoint):
 class BPJoint(nt.Joint):
 
     postCommand     = core.factory.StringAccess('postCommand')
-    parent          = core.factory.SingleConnectionAccess('parent')
     real            = core.factory.SingleConnectionAccess('realJoint')
     suffixOverride  = core.factory.StringAccess('suffixOverride')
     customUp        = core.factory.SingleConnectionAccess('customUp')
@@ -1719,6 +1766,11 @@ class BPJoint(nt.Joint):
     proxy           = core.factory.SingleConnectionAccess('proxy')
     orientTarget    = core.factory.SingleStringConnectionAccess('orientTargetJnt')
     info            = core.factory.JsonAccess('fossilInfo')
+
+    
+    # &&& I need to deprecate this to remove any conflicts with pymel and replace it with property `bpParent`
+    # AND change the local storage to something like fslBPParent
+    parent          = core.factory.SingleConnectionAccess('parent')
 
     @classmethod
     def _isVirtual(cls, obj, name):
@@ -1740,6 +1792,14 @@ class BPJoint(nt.Joint):
             return connections
         else:
             return []
+        
+    @property
+    def bpParent(self):
+        return core.factory._getSingleConnection(self, 'parent')
+    
+    @bpParent.setter
+    def bpParent(self, val):
+        self.setBPParent(val)
         
     @property
     def realMirror(self):
@@ -1811,12 +1871,6 @@ class BPJoint(nt.Joint):
         '''
         
         '''
-        set Machine  Wrist R
-        Planter needs 3
-        stoneSkin clavs
-        Tank issues?
-
-                
         temps = [t for t in ls(type='joint') if isinstance(t, nodeApi.BPJoint) and t.real]
 
         for t in temps:
@@ -2027,7 +2081,7 @@ class BPJoint(nt.Joint):
                 if self.parent and self.parent.card != self.card:
                     self.card.parentCardLink = None
                     
-                proxy.unpoint(self)
+                proxyskel.unpoint(self)
                 return
             
             if self.card != parent.card:
@@ -2054,10 +2108,10 @@ class BPJoint(nt.Joint):
             else:
                 # Don't know why someone would need this, but they could freeform mutliple top level joints.
                 self.parent = None
-                proxy.unpoint(self.parent)
+                proxyskel.unpoint(self.parent)
             
         # point them
-        proxy.pointer(parent, self)
+        proxyskel.pointer(parent, self)
 
 
 def findSimilarOutput(side, otherCard, fallbackDirection):
@@ -2197,7 +2251,19 @@ class RigController(nt.Transform):
         outLink = self.message.listConnections(p=True, type=Card)[0]
         side = outLink.attrName(longName=True)[ len('outputLink'): ]
         return side
-                
+    
+    @property
+    def isPrimarySide(self):
+        side = self.getSide()
+        if side == 'Center':
+            return True
+        
+        if side == self.card.findSuffix().title():
+            return True
+        
+        return False
+        
+    
     def getOtherMotionType(self):
         '''
         If this is FK, returns Ik and vise-versa
@@ -2380,8 +2446,8 @@ class RigController(nt.Transform):
                 self.src.controlLinks[i].controlName.set(name)
                 subControl.message >> self.src.controlLinks[i].controlLink
 
-    def cardPath(self):
-        return _cardPath(self)
+    #def cardPath(self):
+    #    return _cardPath(self)
 
 
 class SubController(nt.Transform):
@@ -2420,8 +2486,8 @@ class SubController(nt.Transform):
 
                 return PyNode(node), getAttr( (node + '.' + plug)[:-11] + 'controlName' )
     
-    def cardPath(self):
-        return _cardPath(self)
+    #def cardPath(self):
+    #    return _cardPath(self)
             
 
 def _cardPath(ctrl):
@@ -2451,8 +2517,3 @@ registerNodeType( SubController )
 registerNodeType( RigController )
 registerNodeType( Card )
 registerNodeType( BPJoint )
-
-#nodeTypes.BPJoint = TempJoint
-#nodeTypes.Card = CardNode
-#nodeTypes.SubController = SubController
-#nodeTypes.RigController = RigController

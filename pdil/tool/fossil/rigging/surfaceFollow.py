@@ -6,7 +6,6 @@ from functools import partial
 from pymel.core import dt, geometryConstraint, normalConstraint, pointConstraint, spaceLocator, xform
 
 from .... import core
-from .... import lib
 from .... import nodeApi
 
 from ..cardRigging import MetaControl, ParamInfo, OutputControls, colorParity
@@ -15,6 +14,7 @@ from .. import log
 from .. import space
 
 from . import _util as util
+from .. import node
 
 
 def getUpVectors(j):
@@ -31,7 +31,7 @@ def buildSurfaceFollow(joints, groupOrigin, surface=None, controlSpec={}):
     
     groupOrigin = dt.Vector(groupOrigin)
     container = util.parentGroup(joints[0])
-    container.setParent( lib.getNodes.mainGroup() )
+    container.setParent( node.mainGroup() )
     
     mainCtrl = controllerShape.build(
         util.trimName(joints[0].getParent()) + 'Surface_ctrl',

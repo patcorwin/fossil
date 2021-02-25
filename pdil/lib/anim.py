@@ -5,7 +5,8 @@ import os
 
 from pymel.core import cmds, keyframe, selected, currentTime, PyNode, setAttr, hasAttr, setKeyframe, copyKey, pasteKey, warning, delete, exportSelected, playbackOptions, createNode, listAttr, select, objExists, cutKey, setDrivenKeyframe, keyTangent, dt, mel
 
-from ..add import findFromIds, getIds
+#from ..add import findFromIds, getIds, simpleName
+from ..add import simpleName
 from .. import core
 
 
@@ -15,9 +16,32 @@ if '_loadAlterPlug' not in globals():
     _loadAlterPlug = None
 
 
+class loadAlterPlug_caselessLookup(object):
+    '''
+    Helper to do a caseless simple name lookup on the existing controllers in the scene.
+    
+    ```
+    _loadAlterPlug = loadAlterPlug_caselessLookup( pdil.core.findNode.controllers() )
+    ```
+    '''
 
-def findKeyTimes(obj, start=None, end=None, customAttrs=[], includeCaps=True):
-    ''' Returns a list of all the frames the given obj has keyframes at.
+    def __call__(self, plugStr):
+        node, attr = plugStr.split('.')
+        
+        node = node.rsplit(':', 1)[-1].rsplit('|', 1)[-1].lower()
+        
+        if node in self.pool:
+            return self.pool[node], None
+        
+        return plugStr, None
+        
+    
+    def __init__(self, objs):
+        self.pool = { simpleName(c).lower(): c.name() for c in objs }
+
+
+def findKeyTimes(obj_s, start=None, end=None, customAttrs=[], includeCaps=True):
+    ''' Returns a list of all the frames the given obj or objects has keyframes at.
 
     Args:
         start: Optionally specify a beginning
@@ -37,7 +61,7 @@ def findKeyTimes(obj, start=None, end=None, customAttrs=[], includeCaps=True):
     attrs = customAttrs[:] + [t + a for t in 'trs' for a in 'xyz']
 
     
-    times = set(keyframe( obj, at=attrs, q=True, tc=True, t=(start, end)))
+    times = set(keyframe( obj_s, at=attrs, q=True, tc=True, t=(start, end)))
     
     if includeCaps:
         if start and start not in times and times:
@@ -314,6 +338,16 @@ def load(filename, insertTime=None, alterPlug=None, bufferKeys=True, targetPool=
 def findSetDrivenKeys(control):
     '''
     Return a list of strings specially formatted with setDrivenKey data.
+    
+    ex: AAA.tx drives control.length, so the return would be:
+    [
+        [ 'length', PyNode('AAA'), 'tx', '<string of curve data>' ]
+    ]
+    
+    return = [
+        ('control attr name', <Input pynode>, 'input attr name' , 'str representing curve'),
+        ...
+    ]
     '''
     sdkCurves = control.listConnections(s=True, d=False, type=['animCurveUA', 'animCurveUT', 'animCurveUU', 'animCurveUL'])
     
@@ -323,7 +357,8 @@ def findSetDrivenKeys(control):
         input = sdkCurve.input.listConnections(p=1, scn=True)[0]
         dest = sdkCurve.output.listConnections(p=1, scn=True)[0].attrName()
         
-        curveText.append( (dest, getIds(input.node()), input.attrName(), curveToData(sdkCurve) ) )
+        #curveText.append( (dest, getIds(input.node()), input.attrName(), curveToData(sdkCurve) ) )
+        curveText.append( [dest, input.node(), input.attrName(), curveToData(sdkCurve)] )
     
     return curveText
 
@@ -337,15 +372,15 @@ def applySetDrivenKeys(ctrl, infos):
     for info in infos:
         drivenAttr, driveNode, driveAttr, data = info
         
-        node = findFromIds(driveNode)
+        #node = findFromIds(driveNode)
         cutKey(ctrl.attr(drivenAttr), cl=True)
         
         #keyData = [KeyData(*d) for d in data]
         
         if isinstance(data, list):
-            setDrivenKeyframe( ctrl, at=[drivenAttr], v=-.14, cd=node.attr(driveAttr), dv=[data[0]['time']] )
+            setDrivenKeyframe( ctrl, at=[drivenAttr], v=-.14, cd=driveNode.attr(driveAttr), dv=[data[0]['time']] )
         else:
-            setDrivenKeyframe( ctrl, at=[drivenAttr], v=-.14, cd=node.attr(driveAttr), dv=[data['keys'][0]['time']] )
+            setDrivenKeyframe( ctrl, at=[drivenAttr], v=-.14, cd=driveNode.attr(driveAttr), dv=[data['keys'][0]['time']] )
                 
         dataToCurve(data, ctrl.attr(drivenAttr) )
         
@@ -560,54 +595,3 @@ def _forwardCross(a, b):
 
 def _reverseCross(a, b):
     return b.cross(a)
-    
-
-if 'FBX_ANIM_PRESETS_FILE' not in globals():
-    FBX_ANIM_PRESETS_FILE = ''
-    # Path to an fbx presents file used by `fbxExport`, protected against development reset.
-
-
-def preFbxExport(*args):
-    # Replace this with a function taking the same args as fbxExport to do anything
-    # special, like check out the file.
-    pass
-
-
-def postFbxExport(*args):
-    # Replace this with a function taking the same args as fbxExport to do anything
-    # special, like check in the file.
-    pass
-
-
-def fbxExport(objs, start, end, filepath):
-    '''
-    Convenience function to export fbx animations.
-    
-    :param node/list objs: An object, or list, to export.  Most likely Rig:b_root.
-    :param int start: The beginning of the range to export.
-    :param int end: The end of the range to export.
-    :param string filepath: The full name to export.
-    '''
-    assert os.path.exists(FBX_ANIM_PRESETS_FILE), 'FBX presets file "%s" does not exist' % FBX_ANIM_PRESETS_FILE
-    
-    # Ensure directories exist
-    filepath = filepath.replace('\\', '/')
-    if not os.path.exists( os.path.dirname(filepath) ):
-        os.makedirs( os.path.dirname(filepath) )
-    
-    select(objs)
-    
-    mel.FBXPushSettings()
-    mel.FBXResetExport()
-    
-    # Preset path MUST use forward slashes.
-    mel.eval('FBXLoadExportPresetFile -f "{0}"'.format(FBX_ANIM_PRESETS_FILE.replace('\\', '/')) )
-    mel.eval('FBXExportBakeComplexStart -v {0}'.format(start) )
-    mel.eval('FBXExportBakeComplexEnd -v {0}'.format(end) )
-
-    try:
-        preFbxExport(objs, start, end, filepath)
-        mel.eval('FBXExport -f "%s" -s' % filepath)
-        postFbxExport(objs, start, end, filepath)
-    finally:
-        mel.FBXPopSettings()

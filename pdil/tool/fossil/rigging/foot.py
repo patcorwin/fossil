@@ -6,14 +6,13 @@ This should hook into the ik/fk of the leg, and doesn't unbuild properly, you ha
 '''
 from __future__ import absolute_import, division, print_function
 
-import collections
+#import collections
 
 from functools import partial
 
-from pymel.core import group, hide, ikHandle, joint, move, rotate, select, xform, upAxis
+from pymel.core import createNode, group, hide, ikHandle, joint, move, rotate, select, xform, upAxis
 
 from .... import core
-from .... import lib
 from .... import nodeApi
 
 from .. import controllerShape
@@ -21,7 +20,9 @@ from .. import controllerShape
 
 from ..cardRigging import MetaControl, OutputControls, colorParity
 from .. import log
+from .. import node
 from .. import space
+from ..core import config
 
 from . import _util as util
 
@@ -36,12 +37,12 @@ MAYA_UP = upAxis(q=True, ax=True)
                 toeTap={'shape': 'cuff',      'size': 10, 'color': 'green 0.22'},
              heelRaise={'shape': 'cuff',      'size': 10, 'color': 'red 0.22', 'align': MAYA_UP},
                 )
-def buildFoot(ballJnt, toePos, heelPos, legControl, side, controlSpec={}):
+def buildFoot(ballJnt, toePos, ballPos, heelPos, legControl, side, controlSpec={}):
     if not side:
         side = ''
     
     # The foot container
-    container = group(n='FancyFoot_{}'.format(side.title()), em=True, p=lib.getNodes.mainGroup())
+    container = group(n='FancyFoot_{}'.format(side), em=True, p=node.mainGroup())
     
     # Fake joints for IK/FK switching tech
     ankle = joint(None, n='FakeAnkle')
@@ -49,52 +50,57 @@ def buildFoot(ballJnt, toePos, heelPos, legControl, side, controlSpec={}):
     toe = joint(n='FakeToe')
     hide(ankle)
     
+    # Place the "Fake" joints
+    core.dagObj.moveTo(ankle, legControl)
+    core.dagObj.moveTo(ball, ballPos)
+    core.dagObj.moveTo(toe, toePos)
+    
     # IK gathering
     ballIk, effector = ikHandle(solver='ikSCsolver', sj=ankle, ee=ball)
     toeIk, effector = ikHandle(solver='ikSCsolver', sj=ball, ee=toe)
     hide(ballIk, toeIk)
-    
-    # Place the "Fake" joints
-    core.dagObj.moveTo(ankle, legControl)
-    core.dagObj.moveTo(ball, ballJnt)
-    core.dagObj.moveTo(toe, toePos)
-    
+        
     #Foot Control
-    footCtrl = controllerShape.build( "Foot_" + side + "_ctrl", controlSpec['main'], type=controllerShape.ControlType.TRANSLATE )
+    footCtrl = controllerShape.build( "Foot" + side + "_ctrl", controlSpec['main'], type=controllerShape.ControlType.TRANSLATE )
     core.dagObj.moveTo(footCtrl, heelPos)
     footCtrl.setParent(container)
     core.dagObj.zero(footCtrl)
     footCtrl = nodeApi.RigController.convert(footCtrl)
     footCtrl.container = container
-        
+    
+    # HeelTilt (for Roll automation)
+    heelRoll = group(em=True, n='heel' + side + '_tweak')
+    core.dagObj.moveTo(heelRoll, heelPos)
+    heelRoll.setParent(footCtrl)
+    
     # Toe Control
-    toeCtrl = controllerShape.build( "Toe_" + side + "_ctrl", controlSpec['toeControl'], type=controllerShape.ControlType.TRANSLATE )
+    toeCtrl = controllerShape.build( 'Toe' + side + '_tweak', controlSpec['toeControl'], type=controllerShape.ControlType.TRANSLATE )
     core.dagObj.matchTo(toeCtrl, toe)
     #toeCtrl.setRotation( legControl.getRotation(space='world'), space='world' )
-    toeCtrl.setParent(footCtrl)
+    toeCtrl.setParent(heelRoll)
     ankle.setParent(toeCtrl)
     core.dagObj.zero(toeCtrl)
     footCtrl.subControl['toe'] = toeCtrl
     
     # Ball Control
-    ballCtrl = controllerShape.build( "Ball_" + side + "_ctrl", controlSpec['ballPivot'], type=controllerShape.ControlType.TRANSLATE )
-    core.dagObj.moveTo(ballCtrl, ballJnt)
+    ballCtrl = controllerShape.build( 'Ball' + side + '_tweak', controlSpec['ballPivot'], type=controllerShape.ControlType.TRANSLATE )
+    core.dagObj.moveTo(ballCtrl, ballPos)
     ballIk.setParent(ballCtrl)
     ballCtrl.setParent(toeCtrl)
     core.dagObj.zero(ballCtrl)
     footCtrl.subControl['ball'] = ballCtrl
     
     # Toe Tap Control
-    toeTapCtrl = controllerShape.build( "ToeTap_" + side + "_ctrl", controlSpec['toeTap'], type=controllerShape.ControlType.ROTATE )
-    core.dagObj.moveTo(toeTapCtrl, ballJnt)
+    toeTapCtrl = controllerShape.build( 'ToeTap' + side + '_tweak', controlSpec['toeTap'], type=controllerShape.ControlType.ROTATE )
+    core.dagObj.moveTo(toeTapCtrl, ballPos)
     toeIk.setParent(toeTapCtrl)
     toeTapCtrl.setParent(ballCtrl)
     core.dagObj.zero(toeTapCtrl)
     footCtrl.subControl['toeTap'] = toeTapCtrl
     
     # Heel Raise Control
-    heelRaiseCtrl = controllerShape.build( "HeelRaise_" + side + "_ctrl", controlSpec['heelRaise'], type=controllerShape.ControlType.ROTATE )
-    core.dagObj.moveTo(heelRaiseCtrl, ballJnt)
+    heelRaiseCtrl = controllerShape.build( 'HeelRaise' + side + '_tweak', controlSpec['heelRaise'], type=controllerShape.ControlType.ROTATE )
+    core.dagObj.moveTo(heelRaiseCtrl, ballPos)
     footCtrl.subControl['heel'] = heelRaiseCtrl
     
     # Put the heelRaiseCtrl shape at the heel, not at it's pivot
@@ -104,22 +110,121 @@ def buildFoot(ballJnt, toePos, heelPos, legControl, side, controlSpec={}):
         move(shape.cv[:], delta, r=True)
     
     
+    footSpace = 'foot'
+    if footSpace in space.getNames(legControl):
+        space.remove(legControl, footSpace)
+    
+    # If there aren't any spaces, also add a main as well as the foot space
+    if not space.getNames(legControl):
+        space.addMain(legControl)
+        
     select(d=True)
-    space.add(legControl, heelRaiseCtrl)
+    space.add(legControl, heelRaiseCtrl, footSpace)
     heelRaiseCtrl.setParent(ballCtrl)
     core.dagObj.zero(heelRaiseCtrl)
     
     # Set the leg control Pivot to the heel
-    xform(legControl, ws=True, rp=heelPos)
+    # (how was this useful?) xform(legControl, ws=True, rp=heelPos)
+    
+    
+    #toeZero.setParent(heelRoll)
     
     # Drive the align groups for common motions to keep down on clutter
-    util.drive(footCtrl, 'tiptoe', toeCtrl.getParent().rx, dv=0, minVal=0)
-    util.drive(footCtrl, 'heelRaise', heelRaiseCtrl.getParent().rx, dv=0, maxVal=0, flipped=True)
-    util.drive(footCtrl, 'toeTap', toeTapCtrl.getParent().rx, dv=0, minVal=0, flipped=True)
+    #util.drive(footCtrl, 'tiptoe', toeCtrl.getParent().rx, dv=0, minVal=0)
+    #util.drive(footCtrl, 'heelRaise', heelRaiseCtrl.getParent().rx, dv=0, maxVal=0, flipped=True)
+    util.drive(footCtrl, 'toeTap', toeTapCtrl.getParent().rx, dv=0, minVal=-30, flipped=True)
     util.drive(footCtrl, 'ballPivot', ballCtrl.getParent().attr('r' + MAYA_UP), dv=0)
     
     
-    constraints = util.constrainAtoB( [ballJnt], [ball], mo=True )
+    rollMin = -2
+    rollMax = 10
+    
+    zero = -rollMin / float(rollMax - rollMin)
+    mid = ((rollMax / 2) - rollMin) / float(rollMax - rollMin)
+    
+    footCtrl.addAttr('roll', at='double', min=rollMin, max=rollMax, k=True)
+    footCtrl.addAttr('heelBack', at='double', dv=-25, k=True)
+    footCtrl.addAttr('heelLift', at='double', dv=45, k=True)
+    footCtrl.addAttr('toeLift', at='double', dv=60, k=True)
+    
+    
+    heelBackRemap = createNode('remapValue', n='heelBack')
+    heelBackRemap.value[0].value_FloatValue.set(1)
+    heelBackRemap.value[1].value_Position.set( zero )
+    heelBackRemap.value[1].value_FloatValue.set(0)
+    
+    heelBackRemap.inputMin.set(-2)
+    heelBackRemap.inputMax.set(10)
+    heelBackRemap.outputMin.set(0)
+    footCtrl.heelBack >> heelBackRemap.outputMax
+    
+    
+    heelLiftRemap = createNode('remapValue', n='heelLift')
+    heelLiftRemap.value[0].value_Position.set( zero )
+    heelLiftRemap.value[0].value_FloatValue.set(0)
+    
+    heelLiftRemap.value[1].value_Position.set( mid )
+    heelLiftRemap.value[1].value_FloatValue.set(1)
+    
+    heelLiftRemap.value[2].value_Position.set(1)
+    heelLiftRemap.value[2].value_FloatValue.set(0)
+    
+    heelLiftRemap.inputMin.set(-2)
+    heelLiftRemap.inputMax.set(10)
+    heelLiftRemap.outputMin.set(0)
+    footCtrl.heelLift >> heelLiftRemap.outputMax
+    
+    
+    tipToeRemap = createNode('remapValue', n='tipToe')
+    tipToeRemap.value[0].value_Position.set( mid )
+    tipToeRemap.value[0].value_FloatValue.set(0)
+    
+    tipToeRemap.value[1].value_Position.set( 1 )
+    tipToeRemap.value[1].value_FloatValue.set(1)
+    
+    tipToeRemap.inputMin.set(-2)
+    tipToeRemap.inputMax.set(10)
+    tipToeRemap.outputMin.set(0)
+    footCtrl.toeLift >> tipToeRemap.outputMax
+    
+    
+    heelBackRemap.outValue >> heelRoll.rx
+    heelLiftRemap.outValue >> heelRaiseCtrl.getParent().rx
+    tipToeRemap.outValue >> toeCtrl.getParent().rx
+    
+    footCtrl.roll >> heelBackRemap.inputValue
+    footCtrl.roll >> heelLiftRemap.inputValue
+    footCtrl.roll >> tipToeRemap.inputValue
+    
+    
+    '''
+    
+    o.value[0].value_Position.get()
+    o.value[0].value_FloatValue.set(0)
+    
+    o.value[1].value_Position.get()
+    o.value[1].value_FloatValue.set(0)
+    
+    Roll attribute
+    Roll=-2 ???
+    Roll=5 -> HeelRoll = -45
+    Roll=10 -> HeelRoll = 0, tipToe = 60
+    
+    
+    
+    '''
+    
+    ballOffset = joint(ball, n='ballOffset')
+    core.dagObj.matchTo(ballOffset, ballJnt)
+    core.dagObj.lockAll( ballOffset )
+    
+    core.dagObj.lockScale( footCtrl )
+    core.dagObj.lockTrans( core.dagObj.lockScale( toeCtrl ) )
+    core.dagObj.lockTrans( core.dagObj.lockScale( ballCtrl ) )
+    core.dagObj.lockTrans( core.dagObj.lockScale( toeTapCtrl ) )
+    core.dagObj.lockTrans( core.dagObj.lockScale( heelRaiseCtrl ) )
+    
+    constraints = util.constrainAtoB( [ballJnt], [ballOffset], mo=True )
     
     return footCtrl, constraints
     
@@ -133,10 +238,15 @@ class Foot(MetaControl):
         '''
         '''
         
-        assert len(card.joints) > 2, 'You need 3 joints, the toe, a helper representing the toe tip, and a helper representing the back of the heel.'
+        assert len(card.joints) > 3, 'You need 4 joints, the toe, a helper representing the toe tip, helpr for ball pivot point, and a helper representing the back of the heel.'
         
-        toe = card.joints[1]
-        heel = card.joints[2]
+        toePivotHelper = card.joints[-3]
+        ballPivotHelper = card.joints[-2]
+        heelPivotHelper = card.joints[-1]
+
+        toePos = xform(toePivotHelper, q=True, ws=True, t=True)
+        ballPos = xform(ballPivotHelper, q=True, ws=True, t=True)
+        heelPos = xform(heelPivotHelper, q=True, ws=True, t=True)
         
         previousJoint = card.joints[0].parent
         assert previousJoint.card.rigCommand in ('Leg', 'IkChain')
@@ -150,28 +260,31 @@ class Foot(MetaControl):
         if not side or card.isAsymmetric():
             legControl = legCard.outputCenter.ik
             suffix = card.findSuffix()
+            
             if suffix:
-                ctrls = cls._buildSide(card, card.joints[0].real, xform(toe, q=True, ws=True, t=True), xform(heel, q=True, ws=True, t=True), legControl, False, suffix)
+                ctrls = cls._buildSide(card, card.start().real, card.end().real, toePos, ballPos, heelPos, legControl, False, suffix)
             else:
-                ctrls = cls._buildSide(card, card.joints[0].real, xform(toe, q=True, ws=True, t=True), xform(heel, q=True, ws=True, t=True), legControl, False)
+                ctrls = cls._buildSide(card, card.start().real, card.end().real, toePos, ballPos, heelPos, legControl, False)
 
             card.outputCenter.ik = ctrls.ik
+            card.outputCenter.fk = ctrls.fk
             
         else:
-            toePos = xform(toe, q=True, t=True, ws=True)
-            heelPos = xform(heel, q=True, t=True, ws=True)
-            
-            leftLegControl = legCard.outputLeft.ik
-            ctrls = cls._buildSide(card, card.joints[0].real, toePos, heelPos, leftLegControl, True, 'L')
-            card.outputLeft.ik = ctrls.ik
+            legControl = legCard.getSide(side).ik
+            #suffix = config.controlSideSuffix(side)
+            ctrls = cls._buildSide(card, card.start().real, card.end().real, toePos, ballPos, heelPos, legControl, False, side)
+            card.getSide(side).ik = ctrls.ik
+            card.getSide(side).fk = ctrls.fk
 
-
-            rightLegControl = legCard.outputRight.ik
+            otherSide = config.otherSideCode(side)
+            #otherSuffix = config.controlSideSuffix(otherSide)
+            otherLegControl = legCard.getSide(otherSide).ik
             toePos[0] *= -1
+            ballPos[0] *= -1
             heelPos[0] *= -1
-            ctrls = cls._buildSide(card, card.joints[0].realMirror, toePos, heelPos, rightLegControl, False, 'R')
-            card.outputRight.ik = ctrls.ik
-        
+            ctrls = cls._buildSide(card, card.start().realMirror, card.end().realMirror, toePos, ballPos, heelPos, otherLegControl, True, otherSide)
+            card.getSide(otherSide).ik = ctrls.ik
+            card.getSide(otherSide).fk = ctrls.fk
         
         
         #pivotPoint = xform(card.joints[-1], q=True, ws=True, t=True)
@@ -181,7 +294,7 @@ class Foot(MetaControl):
         
     
     @classmethod
-    def _buildSide( cls, card, ballJoint, toePos, heelPos, legControl, isMirroredSide, side=None, buildFk=False ):
+    def _buildSide( cls, card, ballJoint, end, toePos, ballPos, heelPos, legControl, isMirroredSide, side=None, buildFk=True ):
         
         log.Rotation.check([ballJoint], True)
         if side == 'left':
@@ -197,12 +310,18 @@ class Foot(MetaControl):
             fkControlSpec = cls.controlOverrides(card, 'fk')
             fkGroupName = card.getGroupName( **fkControlSpec )
             
-            kwargs = collections.defaultdict(dict)
+            #kwargs = collections.defaultdict(dict)
+            kwargs = cls.readFkKwargs(card, isMirroredSide, sideAlteration)
             kwargs.update( cls.fkArgs )
             kwargs['controlSpec'].update( cls.fkControllerOptions )
             kwargs.update( sideAlteration(**fkControlSpec) )
             
-            fkCtrl, fkConstraints = cls.fk( ballJoint, ballJoint, groupName=fkGroupName, **kwargs )
+            names = card.nameList(excludeSide=True)
+            if side:
+                names = [n + config.controlSideSuffix(side) for n in names]
+            kwargs['names'] = names
+            
+            fkCtrl, fkConstraints = cls.fk( ballJoint, end, groupName=fkGroupName, **kwargs )
             
             # Ik is coming, disable fk so ik can lay cleanly on top.  Technically it shouldn't matter but sometimes it does.
             for const in fkConstraints:
@@ -216,12 +335,12 @@ class Foot(MetaControl):
         kwargs.update( sideAlteration(**ikControlSpec) )
         
         #fkCtrl, fkConstraints = rig.fkChain(ballJoint, ballJoint, translatable=True)
-        print('ik args', ballJoint, toePos, heelPos, legControl, side)
-        ikCtrl, ikConstraints = cls.ik( ballJoint, toePos, heelPos, legControl, side, **kwargs )
+        #print('ik args', ballJoint, toePos, ballPos, heelPos, legControl, side)
+        suffix = config.controlSideSuffix(side)
+        ikCtrl, ikConstraints = cls.ik( ballJoint, toePos, ballPos, heelPos, legControl, suffix, **kwargs )
         
-        switchPlug = None
         if cls.ik and cls.fk and buildFk:
-            switchPlug = controllerShape.ikFkSwitch( 'FootFKSwitch', ikCtrl, ikConstraints, fkCtrl, fkConstraints )
+            controllerShape.ikFkSwitch( ikCtrl.name(), ikCtrl, ikConstraints, fkCtrl, fkConstraints )
         
         #switchPlug = controller.ikFkSwitch( ballJoint.name(), ikCtrl, ikConstraints, fkCtrl, fkConstraints )
         

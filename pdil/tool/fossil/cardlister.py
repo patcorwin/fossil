@@ -12,6 +12,32 @@ from . import cardRigging
 from . import util
 
 
+class ComboBox(QtWidgets.QComboBox):
+    '''
+    The sole purpose of this is to prevent scrolling when the mouse is on top, only allowing if it actually has focus.
+    '''
+    
+    def __init__(self, *args, **kwargs):
+        super(ComboBox, self).__init__(*args, **kwargs)
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.isInteracting = False
+
+    def showPopup(self, *args, **kwargs):
+        self.isInteracting = True
+        super(ComboBox, self).showPopup(*args, **kwargs)
+
+    def hidePopup(self, *args, **kwargs):
+        self.isInteracting = False
+        super(ComboBox, self).hidePopup(*args, **kwargs)
+
+    def wheelEvent(self, event):
+        #if self.hasFocus():
+        if self.isInteracting:
+            return QtWidgets.QComboBox.wheelEvent(self, event)
+        else:
+            event.ignore()
+
+
 class CardRow(QtWidgets.QTreeWidgetItem):
     
     options = ['-'] + cardRigging.availableControlTypeNames()
@@ -51,18 +77,16 @@ class CardRow(QtWidgets.QTreeWidgetItem):
     
     def rigTypeChanged(self, index):
         #print( self.options[index], self.card )
-        rigData = self.card.rigData
+        with self.card.rigData as rigData:
         
-        if self.options[index] == '-':
-            del rigData['rigCmd']
-        else:
-            rigData['rigCmd'] = self.options[index]
-            
-        self.card.rigData = rigData
+            if self.options[index] == '-':
+                del rigData['rigCmd']
+            else:
+                rigData['rigCmd'] = self.options[index]
 
     
     def mirrorChanged(self, index):
-        print( self.mirrorOptions[index], self.card )
+        #print( self.mirrorOptions[index], self.card )
         #rigData = self.card.rigData
         if self.mirrorOptions[index] == '-':
             self.card.mirror = None
@@ -81,18 +105,16 @@ class CardRow(QtWidgets.QTreeWidgetItem):
     
     
     def sideChanged(self, index):
-        rigData = self.card.rigData
+        with self.card.rigData as rigData:
         
-        if self.sideOptions[index] == '-':
-            rigData['mirrorCode'] = ''
-    
-        elif self.sideOptions[index] == '<':
-            rigData['mirrorCode'] = 'left'
+            if self.sideOptions[index] == '-':
+                rigData['mirrorCode'] = ''
         
-        elif self.sideOptions[index] == '>':
-            rigData['mirrorCode'] = 'right'
-        
-        self.card.rigData = rigData
+            elif self.sideOptions[index] == '<':
+                rigData['mirrorCode'] = 'left'
+            
+            elif self.sideOptions[index] == '>':
+                rigData['mirrorCode'] = 'right'
         
         self.card.setTempNames()
             
@@ -101,7 +123,7 @@ class CardRow(QtWidgets.QTreeWidgetItem):
     
     def buildControls(self):
         # Make the rig type option
-        self.type = QtWidgets.QComboBox()
+        self.type = ComboBox()
         self.type.addItems( self.options )
         self.treeWidget().setItemWidget(self, 2, self.type)
         
@@ -118,7 +140,7 @@ class CardRow(QtWidgets.QTreeWidgetItem):
         self.type.currentIndexChanged.connect( self.rigTypeChanged )
         
         # Make the mirror options
-        self.mirror = QtWidgets.QComboBox()
+        self.mirror = ComboBox()
         self.mirror.addItems( self.mirrorOptions )
         self.treeWidget().setItemWidget(self, self.MIRROR_COL, self.mirror)
         
@@ -141,7 +163,7 @@ class CardRow(QtWidgets.QTreeWidgetItem):
         self.mirror.currentIndexChanged.connect( self.mirrorChanged )
         
         # Make the side option
-        self.side = QtWidgets.QComboBox()
+        self.side = ComboBox()
         self.side.addItems( self.sideOptions )
         self.treeWidget().setItemWidget(self, self.SIDE_COL, self.side)
         
@@ -423,24 +445,22 @@ class CardLister(QtWidgets.QTreeWidget):
             item.setText(CardRow.CARD_NAME, item.card.shortName())
         
         if (CardRow.NAME_HEAD <= column <= CardRow.NAME_TAIL):  # or column == CardRow.SIDE_COL:
-            rigData = item.card.rigData
-            names = rigData.get( 'nameInfo', {'head': [], 'repeat': '', 'tail': []} )
-            if column == 3:
-                names['head'] = item.text(column).strip().split()
+            with item.card.rigData as rigData:
+                names = rigData.get( 'nameInfo', {'head': [], 'repeat': '', 'tail': []} )
+                if column == 3:
+                    names['head'] = item.text(column).strip().split()
+                    
+                elif column == 4:
+                    names['repeat'] = item.text(column).strip()
+                    
+                elif column == 5:
+                    names['tail'] = item.text(column).strip().split()
                 
-            elif column == 4:
-                names['repeat'] = item.text(column).strip()
+                elif column == CardRow.SIDE_COL:
+                    rigData['mirrorCode'] = item.text(column).strip()
+                    print( 'setting', rigData['mirrorCode'] )
                 
-            elif column == 5:
-                names['tail'] = item.text(column).strip().split()
-            
-            elif column == CardRow.SIDE_COL:
-                rigData['mirrorCode'] = item.text(column).strip()
-                print( 'setting', rigData['mirrorCode'] )
-            
-            rigData['nameInfo'] = names
-        
-            item.card.rigData = rigData
+                rigData['nameInfo'] = names
             
             item.card.setTempNames()
             

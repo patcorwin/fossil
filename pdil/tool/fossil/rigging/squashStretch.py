@@ -16,6 +16,8 @@ from .. import log
 from .. import space
 
 from . import _util as util
+from .. import node
+from ..lib import misc
 
 
 @util.adds()
@@ -31,7 +33,7 @@ def buildSquashAndStretch(joints, squashCenter, orientAsParent=True, rangeMin=-5
     
     squashCenter = dt.Vector(squashCenter)
     container = util.parentGroup(joints[0])
-    container.setParent( lib.getNodes.mainGroup() )
+    container.setParent( node.mainGroup() )
     
     mainCtrl = controllerShape.build(   util.trimName(joints[0].getParent()) + "SquashMain_ctrl",
                                 controlSpec['main'],
@@ -41,7 +43,7 @@ def buildSquashAndStretch(joints, squashCenter, orientAsParent=True, rangeMin=-5
     
     mainCtrl.addAttr( 'size', at='double', min=rangeMin, max=rangeMax, dv=0.0, k=True )
     
-    core.dagObjlockScale(mainCtrl)
+    core.dagObj.lockScale(mainCtrl)
     
     if orientAsParent:
         core.dagObj.matchTo( mainCtrl, joints[0].getParent() )
@@ -60,7 +62,7 @@ def buildSquashAndStretch(joints, squashCenter, orientAsParent=True, rangeMin=-5
         subCtrl.setParent(container)
         core.dagObj.zero(subCtrl)
         core.dagObj.lockRot(subCtrl)
-        core.dagObjlockScale(subCtrl)
+        core.dagObj.lockScale(subCtrl)
         
         scalingLoc = spaceLocator()
         scalingLoc.rename( util.trimName(j) + '_squasher' )
@@ -68,7 +70,7 @@ def buildSquashAndStretch(joints, squashCenter, orientAsParent=True, rangeMin=-5
         hide(scalingLoc)
         scalingLoc.setParent(mainCtrl)
         
-        space.add(subCtrl, scalingLoc)
+        space.add(subCtrl, scalingLoc, 'standard')
                 
         ctrlPos = dt.Vector(xform(subCtrl, q=True, ws=True, t=True))
         
@@ -100,7 +102,9 @@ class SquashStretch(MetaControl):
     ''' Special controller providing translating bones simulating squash and stretch. '''
     displayInUI = False
 
-    ik_ = 'pdil.tool.fossil.rigging.buildSquashAndStretch'
+    #ik_ = 'pdil.tool.fossil.rigging.buildSquashAndStretch'
+    ik_ = __name__ + '.' + buildSquashAndStretch.__name__
+    
     ikInput = OrderedDict( [
         ('rangeMin', ParamInfo( 'Min Range', 'Lower bounds of the keyable attr.', ParamInfo.FLOAT, -5.0)),
         ('rangeMax', ParamInfo( 'Max Range', 'Upper bounds of the keyable attr.', ParamInfo.FLOAT, 5.0)),
@@ -173,7 +177,7 @@ class SquashStretch(MetaControl):
         sdkInfo = {}
         for ctrl, side, kinematicType in card.getMainControls():
             if kinematicType == 'ik':
-                sdkInfo[side] = [ lib.anim.findSetDrivenKeys(o) for o in cls.getSquashers(ctrl) ]
+                sdkInfo[side] = [ misc.findSDK(o) for o in cls.getSquashers(ctrl) ]
                 
         state = card.rigState
         state['squasherSDK'] = sdkInfo
@@ -191,4 +195,4 @@ class SquashStretch(MetaControl):
                     curves = state['squasherSDK'][side]
                     squashers = cls.getSquashers(ctrl)
                     for squasher, crv in zip(squashers, curves):
-                        lib.anim.applySetDrivenKeys(squasher, crv)
+                        misc.applySDK(squasher, crv)

@@ -842,7 +842,8 @@ def screenshotControlShapes():
 
     for shape in shapes:
         destfile = os.path.dirname(ui.__file__) + '/shapes/' + shape + '_large.png'
-        if os.path.exists(destfile):
+        regfile =  os.path.dirname(ui.__file__) + '/shapes/' + shape + '.png'
+        if os.path.exists(destfile) or os.path.exists(regfile):
             continue
         print('Grabbing', shape)
         obj = SHAPES[shape](*args)
@@ -863,3 +864,5 @@ def screenshotControlShapes():
         os.rename( filename, destfile)
         delete(obj)
     print('Done')
+    
+    #pfx thumbnail --img-path ..."ui\shapes\planePair_large.png" --output ..."ui\shapes\planePair.png"

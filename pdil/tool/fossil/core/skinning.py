@@ -29,9 +29,10 @@ if 'WEIGHTS' not in globals():
     WEIGHTS = {}
     
     
-def cacheWeights(cards):
+def cacheWeights(cards, weightCache=None):
     global WEIGHTS
-    WEIGHTS = {}
+    if not weightCache:
+        weightCache = WEIGHTS
     
     skinClusters = getSkinClusters(cards)
     
@@ -40,11 +41,15 @@ def cacheWeights(cards):
         geo.update( skin.getGeometry() )
         
     for g in geo:
-        WEIGHTS[g] = pdil.weights.get(g)
+        weightCache[g] = pdil.weights.get(g)
         
         
-def loadCachedWeights():
+def loadCachedWeights(weightCache=None):
     global WEIGHTS
+    if not weightCache:
+        weightCache = WEIGHTS
     
-    for g, skinData in WEIGHTS.items():
+    for g, skinData in weightCache.items():
         pdil.weights.apply(g, skinData)
+    
+    weightCache = {}

@@ -21,6 +21,10 @@ def saveWeightsLocally():
 
 @alt.name('Load Weights Locally', 'Weights')
 def loadWeightsLocally():
+    ''' Loads the weights in this session, applying to the same objects or the selection.
+    
+    Useful in case the namespaces changed.
+    '''
     global _WEIGHTS
     multiLoadWeights( _WEIGHTS )
 
@@ -38,11 +42,15 @@ def saveWeightsToClipboard():
 
 @alt.name('Load Weights From Clipboard', 'Weights')
 def loadWeightsFromClipboard():
+    ''' Loads the weights from json in the clipboard on the same objects or the selection.
+    
+    Useful in case the namespaces changed.
+    '''
     multiLoadWeights( json.loads( core.text.clipboard.get() ) )
 
 
 def multiLoadWeights(data):
-    ''' Data is a dict of {obj:weight_info}, applies by name, or to selection.
+    ''' Takes dict of {obj:weight_info}, applies by name, or to selection.
     '''
     allObjsExist = True
     for name in data:

@@ -3,7 +3,7 @@ from itertools import chain
 import json
 import os
 
-from pymel.core import cmds, keyframe, selected, currentTime, PyNode, setAttr, hasAttr, setKeyframe, copyKey, pasteKey, warning, delete, exportSelected, playbackOptions, createNode, listAttr, select, objExists, cutKey, setDrivenKeyframe, keyTangent, dt, mel
+from pymel.core import cmds, keyframe, selected, currentTime, PyNode, setAttr, hasAttr, setKeyframe, copyKey, pasteKey, warning, delete, exportSelected, playbackOptions, createNode, listAttr, select, objExists, cutKey, setDrivenKeyframe, keyTangent, dt, mel, getAttr
 
 #from ..add import findFromIds, getIds, simpleName
 from ..add import simpleName
@@ -378,9 +378,11 @@ def applySetDrivenKeys(ctrl, infos):
         #keyData = [KeyData(*d) for d in data]
         
         if isinstance(data, list):
-            setDrivenKeyframe( ctrl, at=[drivenAttr], v=-.14, cd=driveNode.attr(driveAttr), dv=[data[0]['time']] )
+            setDrivenKeyframe( ctrl, at=[drivenAttr], v=-.14,
+                currentDriver=driveNode.attr(driveAttr), driverValue=[data[0]['time']] )
         else:
-            setDrivenKeyframe( ctrl, at=[drivenAttr], v=-.14, cd=driveNode.attr(driveAttr), dv=[data['keys'][0]['time']] )
+            setDrivenKeyframe( ctrl, at=[drivenAttr], v=-.14,
+                currentDriver=driveNode.attr(driveAttr), driverValue=[data['keys'][0]['time']] )
                 
         dataToCurve(data, ctrl.attr(drivenAttr) )
         
@@ -595,3 +597,14 @@ def _forwardCross(a, b):
 
 def _reverseCross(a, b):
     return b.cross(a)
+
+
+
+def sdk( driverPlug, drivenPlug, driveDrivenPairs, itt='linear', ott='linear'):
+    ''' setDrivenKeyframe wrapper, takes pairs of (<drive value>, <driven value>)
+    '''
+
+    for driveValue, drivenValue in driveDrivenPairs:
+        setDrivenKeyframe( drivenPlug, v=drivenValue,
+            currentDriver=driverPlug, driverValue=driveValue,
+            itt=itt, ott=ott)

@@ -402,7 +402,16 @@ def getGeometry(qwindow):
 def setGeometry(qwindow, geo):
     # Takes a list from `getGeometry()`, really for symmetry more than necessity.
     qwindow.setGeometry(*geo)
-    
+
+
+def autoRedistribute(layout):
+    ''' verticalLayout/horizontalLayout helper to strecht the last item.
+    '''
+    children = layout.children()
+    stretch = [0] * len(children)
+    stretch[-1] = 1
+    layout.redistribute(*stretch)
+
 
 class ProgressHelper(object):
     amount = 0

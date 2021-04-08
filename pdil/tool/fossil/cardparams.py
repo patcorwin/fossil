@@ -3,6 +3,7 @@ from __future__ import print_function, absolute_import
 import contextlib
 from functools import partial
 import itertools
+from textwrap import dedent
 
 from ...vendor.Qt import QtWidgets
 from ...vendor.Qt.QtCore import Qt
@@ -261,9 +262,12 @@ def update(self, card):
         except Exception:
             rigClass = None
         
+        description = ''
         if rigClass:
             if rigClass.__doc__:
-                self.ui.cardDescription.setText(rigClass.__doc__)
+                description = dedent(rigClass.__doc__)
+                
+        self.ui.cardDescription.setText(description)
                 
     else:
         self.ui.cardName.setText( '<None selected>' )

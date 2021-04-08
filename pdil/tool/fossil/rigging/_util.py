@@ -16,7 +16,7 @@ from .... import lib
 from .. import log
 
 from .. import controllerShape
-
+from .. import node
 
 ConstraintResults = collections.namedtuple( 'ConstraintResults', 'point orient' )
 
@@ -857,7 +857,7 @@ def parentGroup(target):
     grp = group( em=True, name=name )
 
     # Don't constrain top level nodes since they need to follow main, not b_Root
-    if target.getParent() != core.findNode.getRoot():
+    if target.getParent() != node.getTrueRoot():
         parentConstraint( target.getParent(), grp, mo=False )
 
     return grp

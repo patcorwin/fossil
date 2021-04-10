@@ -16,12 +16,17 @@ import math
 import operator
 import re
 
-from pymel.core import cmds, delete, dt, duplicate, group, hasAttr, joint, listRelatives, ls, makeIdentity, move, objExists, parentConstraint, PyNode, rotate, selected, showHidden, xform
+from pymel.core import cmds, delete, dt, duplicate, group, hasAttr, joint, listRelatives, ls, makeIdentity, move, objExists, parentConstraint, PyNode, rotate, showHidden, xform, evalDeferred
+
+from pymel.core import columnLayout, button, separator, Callback
+from pymel.core import displaySmoothness # noqa for an evalDeferred
+
 
 from ...add import simpleName
 
 from . import cardlister
 from . import util
+from .core import proxyskel
 
 from ... import core
 
@@ -56,6 +61,19 @@ def getRCard(card, validCards=None):
         if plug.attrName() == 'bpCard':
             if plug.node() in validCards:
                 return plug.node()
+
+
+def getReposeContainer():
+    name = 'ReposeContainer'
+    
+    mainBP = proxyskel.masterGroup()
+    for obj in listRelatives(mainBP):
+        if obj.name() == name:
+            return obj
+    
+    grp = group(n=name, em=True)
+    grp.setParent(mainBP)
+    return grp
 
 
 def lockRYZ(j):
@@ -223,7 +241,7 @@ def makeMirrored(reposeJoint):
     return reposeMirror
 
 
-def generateReposer(cards=None, placeholder=False):
+def generateReposer(cards=None, placeholder=False, progress=None):
     ''' If no cards are specificed, a new reposer is build, otherwise it
     rebuilds/adds reposers for the specified cards.
     
@@ -268,6 +286,9 @@ def generateReposer(cards=None, placeholder=False):
 
     
     for card in cards:
+        if progress:
+            progress.update()
+        
         rCard = duplicate(card, po=0)[0]
         showHidden(rCard)
         core.dagObj.unlock(rCard)
@@ -312,8 +333,12 @@ def generateReposer(cards=None, placeholder=False):
             #reposeJoint.setParent( getRJoint(parent) )
             reposeJoint.setParent( jointMapping[parent] )
     
+    reposeContainer = getReposeContainer()
+    
     # Put under cards, card pivot to lead joint
     for rCard, card in zip(rCards, cards):
+        if progress:
+            progress.update()
         bpj = card.parentCardJoint
         print('BPJ - - - - ', bpj, bpj in jointMapping)
         if bpj in jointMapping:
@@ -344,6 +369,7 @@ def generateReposer(cards=None, placeholder=False):
         else:
             if not placeholder:
                 rCard.addAttr('reposeRoot', at='message')
+                rCard.setParent( reposeContainer )
 
         addVector(rCard, 'origRot', rCard.r.get())
         addVector(rCard, 'origTrans', rCard.t.get())
@@ -410,14 +436,22 @@ def updateReposers(cards=None):
     ''' Remake the given cards' reposers.  This probably works to generate them properly in the first place.
     '''
     if not cards:
-        cards = selected()
+        cards = util.selectedCards()
+    
+    if not cards:
+        cards = core.findNode.allCards()
     
     otherCards = cardlister.cardJointBuildOrder()
     for c in cards:
         otherCards.remove(c)
         
-    with reposeToBindPose(otherCards):
-        generateReposer( cards )
+    with core.ui.progressWin(title='Building reposers', max=len(cards) * 2) as prog:
+        with reposeToBindPose(otherCards):
+            generateReposer( cards, progress=prog)
+    
+    # For some reason the shaders are always messed up so burp the display to correct it
+    #displaySmoothness( getReposeContainer(), divisionsU=1, divisionsV=1, pointsWire=8, pointsShaded=2, polygonObject=2)
+    evalDeferred( "displaySmoothness( '{}', divisionsU=0, divisionsV=0, pointsWire=4, pointsShaded=1, polygonObject=1)".format( getReposeContainer().name() ) )
 
 
 @contextlib.contextmanager
@@ -459,114 +493,126 @@ def reposeToBindPose(cards):
         setRot(reposeJoint, origRot )
 
 
-@contextlib.contextmanager
-def matchReposer(cards):
+class matchReposer(object):
     ''' Temporarily puts the cards (aka bind pose) in the tpose.
+    
+    Intended use is as a context manager but steps can be separated for debugging.
     '''
-    relock = []
-    prevPos = {}
-    prevRot = {}
+    
+    def __enter__(self):
+        pass
+        
+    def __exit__(self, type, value, traceback):
+        self.unmatch()
+    
+    def __init__(self, cards):
+        self.relock = []
+        self.prevPos = {}
+        self.prevRot = {}
 
-    validCards = getValidReposeCards()
+        validCards = getValidReposeCards()
 
-    for card in cards:
-        reposeCard = getRCard(card, validCards)
-        if not reposeCard:
-            continue
-            
-        prevRot[card] = card.r.get()
-        rot = xform(reposeCard, q=True, ws=True, ro=True)
-        
-        # Need to unlock/disconnect rotation, then redo it later (to handle twists aiming at next joint)
-        
-        xform(card, ws=True, ro=rot)
-        
-        for jnt in card.joints:
-            repose = getRJoint(jnt)
-            
-            if repose:
-                for axis in 'xyz':
-                    plug = jnt.attr('t' + axis)
-                    if plug.isLocked():
-                        plug.unlock()
-                        relock.append(plug)
-                #if jnt.tx.isLocked():
-                #    jnt.tx.unlock()
-                #    relock.append(jnt)
-                    
-                prevPos[jnt] = jnt.t.get()
+        for card in cards:
+            reposeCard = getRCard(card, validCards)
+            if not reposeCard:
+                continue
                 
-                trans = xform(repose, q=True, t=True, ws=True)
-                try:
-                    xform(jnt, ws=True, t=trans)
-                except Exception:
-                    del prevPos[jnt]
-                    
-    yield
-    
-    for jnt, pos in prevPos.items():
-        try:
-            jnt.t.set(pos)
-        except Exception:
-            pass
+            self.prevRot[card] = card.r.get()
+            rot = xform(reposeCard, q=True, ws=True, ro=True)
             
-    for plug in relock:
-        plug.lock()
+            # Need to unlock/disconnect rotation, then redo it later (to handle twists aiming at next joint)
+            
+            xform(card, ws=True, ro=rot)
+            
+            for jnt in card.joints:
+                repose = getRJoint(jnt)
+                
+                if repose:
+                    for axis in 'xyz':
+                        plug = jnt.attr('t' + axis)
+                        if plug.isLocked():
+                            plug.unlock()
+                            self.relock.append(plug)
+                    #if jnt.tx.isLocked():
+                    #    jnt.tx.unlock()
+                    #    relock.append(jnt)
+                        
+                    self.prevPos[jnt] = jnt.t.get()
+                    
+                    trans = xform(repose, q=True, t=True, ws=True)
+                    try:
+                        xform(jnt, ws=True, t=trans)
+                    except Exception:
+                        del self.prevPos[jnt]
+                        
+    def unmatch(self):
         
-    for card, rot in prevRot.items():
-        try:
-            card.r.set(rot)
-        except:
-            print('UNABLE TO RETURN ROTATE', card)
-
-
-def goToBindPose():
-    ''' Puts the rig into the bind pose.
-    '''
-
-    # &&& I need some coralary toTPose, which is basically zeroPose but also does uncontrolled joints, just in case
-
-    # Joints without controllers still need to be reposed
-    '''
-    joints = []
-    for card in core.findNode.allCards():
-        joints += card.getOutputJoints()
-
-    for j in joints:
-        if not j.tr.listConnections():
-            if j.hasAttr('bindZero'):
-                j.r.set( j.bindZero.get() )
-            if j.hasAttr( 'bindZeroTr' ):
-                if not j.hasAttr('tposeTr'):
-                    addVector(j, 'tposeTr', j.t.get()).lock()
-
-                j.t.set( j.bindZeroTr.get() )
-    '''
-
-
-    for ctrl in core.findNode.controllers():
-        if ctrl.hasAttr( 'bindZero' ):
+        for jnt, pos in self.prevPos.items():
             try:
-                ctrl.r.set( ctrl.bindZero.get() )
-            except:
+                jnt.t.set(pos)
+            except Exception:
                 pass
+                
+        for plug in self.relock:
+            plug.lock()
+            
+        for card, rot in self.prevRot.items():
+            try:
+                card.r.set(rot)
+            except:
+                print('UNABLE TO RETURN ROTATE', card)
 
-        if ctrl.hasAttr( 'bindZeroTr' ):
-            ctrl.t.set( ctrl.bindZeroTr.get() )
 
-
-@contextlib.contextmanager
-def controlsToBindPose():
-    controls = core.findNode.controllers()
-    current = {ctrl: (ctrl.t.get(), ctrl.r.get()) for ctrl in controls }
-
-    goToBindPose()
+class goToBindPose(object):
+    ''' Puts the rig into the bind pose.
     
-    yield
+    Intended use is as a context manager but steps can be separated for debugging.
+    '''
     
-    for ctrl, (pos, rot) in current.items():
-        setRot(ctrl, rot)
-        setTrans(ctrl, pos)
+    def __enter__(self):
+        pass
+    
+    def __exit__(self, type, value, traceback):
+        self.returnFromPose()
+        
+    def __init__(self):
+        # &&& I need some coralary toTPose, which is basically zeroPose but also does uncontrolled joints, just in case
+
+        # Joints without controllers still need to be reposed
+        '''
+        joints = []
+        for card in core.findNode.allCards():
+            joints += card.getOutputJoints()
+
+        for j in joints:
+            if not j.tr.listConnections():
+                if j.hasAttr('bindZero'):
+                    j.r.set( j.bindZero.get() )
+                if j.hasAttr( 'bindZeroTr' ):
+                    if not j.hasAttr('tposeTr'):
+                        addVector(j, 'tposeTr', j.t.get()).lock()
+
+                    j.t.set( j.bindZeroTr.get() )
+        '''
+
+        controls = core.findNode.controllers()
+        self.current = {ctrl: (ctrl.t.get(), ctrl.r.get()) for ctrl in controls }
+
+
+        for ctrl in controls:
+            if ctrl.hasAttr( 'bindZero' ):
+                try:
+                    ctrl.r.set( ctrl.bindZero.get() )
+                except Exception:
+                    pass
+
+            if ctrl.hasAttr( 'bindZeroTr' ):
+                ctrl.t.set( ctrl.bindZeroTr.get() )
+
+    def returnFromPose(self):
+        for ctrl, (pos, rot) in self.current.items():
+            setRot(ctrl, rot)
+            setTrans(ctrl, pos)
 
 
 def addVector(obj, name, val):
@@ -954,7 +1000,7 @@ def getCardParent(rJoint):
     to be ignored.
     '''
     p = rJoint.getParent()
-    if p.hasAttr('bpParent'):
+    if p.hasAttr('bpCard'):
         return p
     else:
         return p.getParent()
@@ -973,7 +1019,7 @@ def armAlign(shoulderCard):
     out = core.dagObj.getPos( getRJoint(shoulderCard.joints[1]) ) - core.dagObj.getPos( getRJoint(shoulderCard.joints[0]) )
     toRotate = math.degrees( out.angle( (1, 0, 0) ) )
     rotate(shoulderRepose, [0, -toRotate + 2, 0 ], ws=True, r=True)
-
+    
     elbowRepose = getRJoint(shoulderCard.joints[1])
     out = core.dagObj.getPos( getRJoint(shoulderCard.joints[2]) ) - core.dagObj.getPos( getRJoint(shoulderCard.joints[1]) )
     toRotate = math.degrees( out.angle( (1, 0, 0) ) )
@@ -1127,13 +1173,16 @@ alignCommands = {
     'falseParentTeardownAlign': falseParentTeardownAlign,
 }
 
-def runAdjusters():
+def runAdjusters(cards=None):
 
     adjustments = []
     
     followup = []
     
-    for card in core.findNode.allCards():
+    if not cards:
+        cards = core.findNode.allCards()
+        
+    for card in cards:
         temp = card.rigData.get('tpose', [])
         for t in temp:
             t['card'] = card
@@ -1180,3 +1229,22 @@ def applyTposeAdjust(adjust):
             converted.append(arg)
 
     cmd( *converted )
+    
+    
+class Gui(object):
+    def __init__(self):
+        with core.ui.singleWindow('reposer'):
+            with columnLayout():
+                button(l='Update All Reposers', c=Callback(updateReposers, ))
+                button(l='Update Selected Reposers', c=Callback(self.runOnSelected, updateReposers))
+                separator()
+                button(l='Run All Adjusters', c=Callback(runAdjusters))
+                button(l='Run Selected Adjusters', c=Callback(self.runOnSelected, runAdjusters))
+                separator()
+                button(l='Go To BindPose', c=Callback(goToBindPose))
+    
+    @staticmethod
+    def runOnSelected(cmd):
+        cards = util.selectedCards()
+        print('Run on selected', cmd, cards)
+        cmd( cards )

@@ -715,49 +715,6 @@ def getGroup(mode, main=None, checkOnly=False):
     
     return spaceGroup
         
-        
-def getExternalWorld(main=None, checkOnly=False):
-    ext = getGroup(Mode.EXTERNAL, main, checkOnly)
-    
-    if checkOnly and not ext:
-        return None
-    
-    for child in ext.listRelatives():
-        if shortName(child) == 'world':
-            return child
-    
-    g = group(em=True, name='world', p=ext)
-    g.addAttr('externalTarget', dt='string')
-    g.externalTarget.set(':world:')
-    
-    return g
-
-
-def getExternalProxy(proxyName, main=None, checkOnly=False, trans=None, rot=None):
-    ext = getGroup(Mode.EXTERNAL, main, checkOnly)
-    
-    if checkOnly and not ext:
-        return None
-    
-    for child in ext.listRelatives():
-        if child.hasAttr('externalTarget') and child.externalTarget.get() == proxyName:
-            return child
-    else:
-        if checkOnly:
-            return False
-    
-    g = group(em=True, name='sp_' + proxyName, p=ext)
-
-    if trans:
-        xform(g, ws=True, t=trans)
-    if rot:
-        xform(g, ws=True, ro=rot)
-
-    g.addAttr('externalTarget', dt='string')
-    g.externalTarget.set(proxyName)
-    
-    return g
-
 
 def getTrueWorld():
     main = getMainGroup()
@@ -779,7 +736,7 @@ def getTrueWorld():
 _targetInfoConstraints = []
 
 
-def getTargetInfo(ctrl):
+def getTargetInfo(ctrl, returnProxyTargets=False):
     '''
     Returns a list of targets allowing for reconstruction the spaces.
     
@@ -791,7 +748,7 @@ def getTargetInfo(ctrl):
     
     if not ctrl.hasAttr(ENUM_ATTR):
         return []
-        
+    
     conditions = ctrl.attr(ENUM_ATTR).listConnections( type='condition' )
     
     if conditions:
@@ -808,6 +765,7 @@ def getTargetInfo(ctrl):
     
     # Map the enum values to targets since the order on the constraint might differ
     targets = {}  # key = index, val=(target, space type)
+    proxyTargets = {}
     for condition in conditions:
         plug = condition.outColorR.listConnections(p=True)
         
@@ -819,22 +777,27 @@ def getTargetInfo(ctrl):
         if plug:
             plug = plug[0]
             target = tempTargets[plugs.index(plug)]
+            proxyTargets[order] = target
             
             target, extra, constraint = Mode.getTargets(spaceType, target)
-
-            if isinstance(target, PyNode) and target.hasAttr('externalTarget'):
-                extra = 'external'
-
+                
             targets[order] = (target, spaceType, extra)
         else:
             targets[order] = (None, spaceType, extra)
+            proxyTargets[order] = None
         
         _targetInfoConstraints[order] = constraint
         
     targetAndType = [ t for (i, t) in sorted( targets.items(), key=operator.itemgetter(0))]
     _targetInfoConstraints = [ t for (i, t) in sorted( _targetInfoConstraints.items(), key=operator.itemgetter(0))]
     
-    return [ SpaceTarget(name, target, type, extra) for name, (target, type, extra) in zip( getNames(ctrl), targetAndType ) ]
+    infos = [ SpaceTarget(name, target, type, extra)
+                for name, (target, type, extra) in zip( getNames(ctrl), targetAndType ) ]
+    
+    if returnProxyTargets:
+        return infos, [target for i, target in sorted(proxyTargets.items())]
+    else:
+        return infos
 
 
 def clean(ctrl):
@@ -1016,19 +979,6 @@ def addMain(control, *args, **kwargs):
     add( control, getMainGroup(fromControl=control), 'main', *args, **kwargs )
 
 
-"""
-def addExternalWorld(control, *args, **kwargs):
-    '''
-    Convenience func for adding world space, has same args as `add()`
-    '''
-    add( control, getExternalWorld(), external=True, *args, **kwargs )
-
-
-def addExternalTarget(control, targetName, trans=None, rot=None, *args, **kwargs):
-    add( control, getExternalProxy(targetName, trans=trans, rot=rot), external=True, *args, **kwargs )
-"""
-
-
 def addTrueWorld(control, *args, **kwargs): # &&& TODO: rename to addWorld
     '''
     Convenience func for adding world space, has same args as `add()`
@@ -1054,7 +1004,7 @@ def addUserDriven(control, spaceName):
     return trueTarget
 
 
-def add(control, target, spaceName='', mode=Mode.ROTATE_TRANSLATE, enum=True, rotateTarget=None, external=None):
+def add(control, target, spaceName='', mode=Mode.ROTATE_TRANSLATE, enum=True, rotateTarget=None):
     '''
     Concerns::
         Does rotate only handle being applied repeatedly without issues?
@@ -1329,9 +1279,6 @@ def serializeSpaces(control):
 
     Targets are encoded with both the full name and the cardPath if there is one.
 
-    ..  todo:: The external system needs to be fully fleshed out.  Right now you
-        can only specify a single external target.  But maybe that's all we'll
-        ever need?
     '''
     
     '''
@@ -1403,6 +1350,9 @@ def deserializeSpaces(control, data):
                 continue
             
             type = spaceInfo['type']
+            #if instance(type, str): # Moving to use readable strings instead of ints
+            #    type = getattr( Mode, type)
+            
             log.debug('Name: {}  -  Type: {}'.format(name, type))
             #print('Name: {}  -  Type: {}'.format(name, type))
             
@@ -1410,30 +1360,28 @@ def deserializeSpaces(control, data):
 
             if type == Mode.USER:
                 # Delete the existing object if it exists.
-                userGroup = getGroup(USER_TARGET)
-                if target in userGroup.listRelatives():
-                    delete(target.getParent())
+                # I think the point of this was to clean up the previous user driven, but I'm pretty sure I mistakenly
+                # was only accounting for a single one.  Now, I think there just ends up being unused spaces which
+                # don't really hurt anything.
+                #userGroup = getGroup(USER_TARGET)
+                #if target in userGroup.listRelatives():
+                #    delete(target.getParent())
                     
                 target = addUserDriven(control, name)
                 
                 # Rebuild the constraints on it.
-                for constraintType, data in spaceInfo['extra']['main'].items():
-                    getattr(core.constraints, constraintType + 'Deserialize')(target, data)
+                for constraintType, constData in spaceInfo['extra']['main'].items():
+                    getattr(core.constraints, constraintType + 'Deserialize')(target, constData, nodeDeconv=ids.fromIdSpec)
 
                 align = target.getParent()
-                for constraintType, data in spaceInfo['extra']['align'].items():
-                    getattr(core.constraints, constraintType + 'Deserialize')(align, data)
+                for constraintType, constData in spaceInfo['extra']['align'].items():
+                    getattr(core.constraints, constraintType + 'Deserialize')(align, constData, nodeDeconv=ids.fromIdSpec)
 
             elif 'target' in spaceInfo:
-                external = None
-                if 'extra' in spaceInfo and spaceInfo['extra'] == 'external':
-                    target = getExternalProxy(spaceInfo['target'][0])
-                    external = True
-                else:
-                    target = parseTarget(spaceInfo['target'])
+                target = parseTarget(spaceInfo['target'])
 
                 if target:
-                    add( control, target, name, mode=type, external=external )
+                    add( control, target, name, mode=type)
                 else:
                     errors.append( str(spaceInfo['target']) )
 

@@ -269,11 +269,3 @@ def allCards(main=None):
         return 10
     
     return [PyNode(c) for c in sorted(targetCards, key=order)]
-    
-    
-def mainBlueprint():
-    bps = ls( 'skeletonBlueprint', r=1)
-
-    for obj in bps:
-        if not obj.getParent():
-            return obj

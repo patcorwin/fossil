@@ -224,7 +224,7 @@ def _createTempJoint():
     Makes the special `TempJoint` used by the the Card.
     '''
     
-    newJoint = joint()
+    newJoint = joint(None)
     newJoint.tx.lock()
     
     newJoint.addAttr( 'parent', at='message' )
@@ -1115,8 +1115,6 @@ class Card(nt.Transform):
         return aim
            
     def addJoint(self, newJoint=None):
-        select(cl=True)
-        
         if not newJoint:
             newJoint = _createTempJoint()
             
@@ -1157,15 +1155,38 @@ class Card(nt.Transform):
         
         # &&& THis needs to clean up the list order too via jnt.cardCon
         
-           
-    def insertJoint(self, previousJoint):
+    def insertParent(self, targetJoint):
+        ''' Insert a parent to the given targetJoint.
+        '''
+        joints = self.joints[:]
+        newJoint = self.addJoint()
+        
+        parentIndex = joints.index(targetJoint)
+        joints.insert(parentIndex, newJoint)
+        
+        card = targetJoint.card
+        for i, jnt in enumerate(joints[parentIndex:], parentIndex):
+            connectAttr( jnt.message, card.attr('joints[%i].jmsg' % i), f=True )
+        
+        if targetJoint.bpParent:
+            a = core.dagObj.getPos(targetJoint)
+            b = core.dagObj.getPos(targetJoint.bpParent)
+            core.dagObj.moveTo( newJoint, a + (a - b) / 2.0 )
+            
+            proxyskel.pointer(targetJoint.bpParent, newJoint)
+        else:
+            core.dagObj.moveTo( newJoint, targetJoint )
+        
+        proxyskel.pointer(newJoint, targetJoint)
+        return newJoint
+        
+    
+    def insertChild(self, previousJoint):
         '''
         Insert a joint after the `previous` joint.
         
         ..  todo:: Need to handle sequence vs individual naming.
         '''
-        select(cl=True)
-        
         newJoint = self.addJoint()
         
         joints = self.joints[:]
@@ -1194,7 +1215,7 @@ class Card(nt.Transform):
             
             pos = (previousJointPos - followingJointPos) / 2.0 + followingJointPos
         else:
-            pos = previousJointPos + dt.Vector( meters(0.1, 0.1, 0.1) )
+            pos = previousJointPos
             
         for child in previousChildren:
             proxyskel.pointer(newJoint, child)
@@ -1204,6 +1225,7 @@ class Card(nt.Transform):
         self.setTempNames()
         
         return newJoint
+
     
     def divideJoint(self, previousJoint):
         '''
@@ -1695,7 +1717,7 @@ class Card(nt.Transform):
         nameInfo = self.rigData.get('nameInfo', {})
         name = nameInfo.get('head', '')
         if name:
-            self.rename( name + '_card' )
+            self.rename( name[0] + '_card' )
             
         name = nameInfo.get('repeat', '')
         if name:
@@ -1703,7 +1725,7 @@ class Card(nt.Transform):
             
         name = nameInfo.get('tail', '')
         if name:
-            self.rename( name + '_card' )
+            self.rename( name[0] + '_card' )
             
         
 '''
@@ -1760,6 +1782,7 @@ class BPJoint(nt.Joint):
 
     postCommand     = core.factory.StringAccess('postCommand')
     real            = core.factory.SingleConnectionAccess('realJoint')
+    realMirror      = core.factory.SingleConnectionAccess('realJointMirror')
     suffixOverride  = core.factory.StringAccess('suffixOverride')
     customUp        = core.factory.SingleConnectionAccess('customUp')
     customOrient    = core.factory.SingleConnectionAccess('moCustomOrient')
@@ -1800,21 +1823,8 @@ class BPJoint(nt.Joint):
     @bpParent.setter
     def bpParent(self, val):
         self.setBPParent(val)
-        
-    @property
-    def realMirror(self):
-        ''' Returns the actual bone. Done via the `.realJointMirror` connection.'''
-
-        mirror = core.factory._getSingleConnection(self, 'realJointMirror')
-        if mirror:
-            return mirror
-        
-        '''
-        real = self.real
-        if real:
-            return getMirror( real.name(), self )
-        '''
-        
+    
+    #&&& MAKE THIS bpChildren to match bpParent and because "proxy" is the referenced visibility skeleton
     @property
     def proxyChildren(self):
         return self._getListConnections('children')

@@ -136,12 +136,26 @@ def getProxyGroup():
 
 def masterGroup():
     if not objExists( '|skeletonBlueprint' ):
+        
+        # First search all namespaces for the toplevel blueprint and return it.
+        bps = ls( 'skeletonBlueprint', r=True)
+
+        for obj in bps:
+            if not obj.getParent():
+                return obj
+        
+        # Otherwise make it
         grp = group( em=True, n='skeletonBlueprint' )
         grp.t.lock()
         grp.r.lock()
         
         grp.addAttr('generalData', dt='string')
         grp.generalData.set('{}')
+        
+        try:
+            core.layer.putInLayer(grp, 'Blueprint')
+        except Exception:
+            pass
 
     return PyNode('|skeletonBlueprint')
 

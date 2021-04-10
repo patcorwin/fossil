@@ -849,7 +849,7 @@ class Ui_MainWindow(object):
         self.label_2.setText(QtCompat.translate("MainWindow", "Joints", None, -1))
         self.duplicateCardBtn.setText(QtCompat.translate("MainWindow", "Duplicate", None, -1))
         self.remCardIkButton.setText(QtCompat.translate("MainWindow", "Rem Card Ik", None, -1))
-        self.insertJointBtn.setText(QtCompat.translate("MainWindow", "Insert", None, -1))
+        self.insertJointBtn.setText(QtCompat.translate("MainWindow", "Insert Child", None, -1))
         self.addTipBtn.setText(QtCompat.translate("MainWindow", "Add Tip", None, -1))
         self.deleteJointBtn.setText(QtCompat.translate("MainWindow", "Delete", None, -1))
         self.customUpBtn.setText(QtCompat.translate("MainWindow", "Custom Up", None, -1))

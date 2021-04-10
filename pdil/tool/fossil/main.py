@@ -30,6 +30,7 @@ from . import controllerShape
 from . import moveCard
 from .core import proxyskel
 from .core import config
+from .core import skinning
 from . import tpose
 from . import util
 from . import node
@@ -97,7 +98,7 @@ def matchOrient():
         xform( dest, ws=True, ro=rot )
 
 
-def customUp(self):
+def customUp():
     if not selected():
         return
         
@@ -256,7 +257,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         
         self.ui.makeCardBtn.clicked.connect(self.makeCard)
         self.ui.selectAllBtn.clicked.connect(self.selectAll)
-        self.ui.buildBonesBtn.clicked.connect(self.buildBones)
+        self.ui.buildBonesBtn.clicked.connect(Callback(self.buildBones))
         self.ui.deleteBonesBtn.clicked.connect( self.deleteBones )
         self.ui.buildRigBtn.clicked.connect( self.buildRig )
         self.ui.deleteRigBtn.clicked.connect( partial(util.runOnEach, operator.methodcaller('removeRig'), 'Rig deleted') )
@@ -402,6 +403,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
     
     @staticmethod
     def deleteBones(cards=None):
+        global _meshStorage
         if not cards:
             cards = util.selectedCards()
         
@@ -417,9 +419,10 @@ class RigTool(Qt.QtWidgets.QMainWindow):
             meshes = core.weights.findBoundMeshes(joints)
             storeMeshes(meshes)
         '''
-        meshes = getBoundMeshes(cards)
-        if meshes:
-            storeMeshes(meshes)
+        #meshes = getBoundMeshes(cards)
+        #if meshes:
+        #    storeMeshes(meshes)
+        skinning.cacheWeights(cards, _meshStorage)
         
         with core.ui.progressWin(title='Deleting Bones', max=len(cards)) as prog:
             for card in cards:
@@ -495,7 +498,8 @@ class RigTool(Qt.QtWidgets.QMainWindow):
 
     @classmethod
     def buildBones(cls, cards=None, removeTempBind=True):
-        # Might need to wrap as single undo()
+        global _meshStorage
+        
         if not cards:
             cards = set(util.selectedCards())
             if not cards:
@@ -509,15 +513,19 @@ class RigTool(Qt.QtWidgets.QMainWindow):
 
         cardBuildOrder = cardlister.cardJointBuildOrder()
 
-        if tpose.reposerExists():
+        skinning.cacheWeights(cards, _meshStorage)
+
+        useRepose = tpose.reposerExists()
+        if useRepose:
             log.debug('Reposer Exists')
             realJoints = []  # This is a list of the joints that are ACTUALLY built in this process
             bindPoseJoints = []  # Matches realJoints, the cards that are bound
             tempBindJoints = []  # Super set of bindPoseJoints, including the hierarchy leading up to the bindBoseJoints
-
+            
             estRealJointCount = len(cmds.ls( '*.realJoint' ))
-
+            
             with core.ui.progressWin(title='Build Bones', max=estRealJointCount * 3 + len(cards)) as prog:
+                # Build the tpose joints
                 with tpose.matchReposer(cardBuildOrder):
                     for card in cardBuildOrder:
                         if card in cards:
@@ -530,14 +538,15 @@ class RigTool(Qt.QtWidgets.QMainWindow):
                         bindCardsToBuild = cardBuildOrder
                     else:
                         bindCardsToBuild = cls.getRequiredHierarchy(cards)
-            
+                
+                # Temp build the bind pose joints
                 for card in bindCardsToBuild:
                     joints = card.buildJoints_core(nodeApi.fossilNodes.JointMode.bind)
                     tempBindJoints += joints
                     if card in cards:
                         bindPoseJoints += joints
-
-                with tpose.controlsToBindPose():
+                
+                with tpose.goToBindPose():
                     # Setup all the constraints first so joint order doesn't matter
                     constraints = []
                     prevTrans = []
@@ -574,8 +583,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
                         real.r.set(0, 0, 0)
                         real.t.set(trans)
                         prog.update()
-
-            #root = core.findNode.getRoot()
+            
             root = node.getTrueRoot()
             topJoints = root.listRelatives(type='joint')
             
@@ -589,28 +597,32 @@ class RigTool(Qt.QtWidgets.QMainWindow):
                     real.addAttr( 'bindZeroTrX', at='double', p='bindZeroTr' )
                     real.addAttr( 'bindZeroTrY', at='double', p='bindZeroTr' )
                     real.addAttr( 'bindZeroTrZ', at='double', p='bindZeroTr' )
-
-                    real.bindZeroTr.set(
-                        dt.Vector(xform(bind, q=True, ws=True, t=True)) - dt.Vector(xform(real, q=True, ws=True, t=True))
-                    )
+                    
+                    delta = bind.worldMatrix[0].get() * real.worldInverseMatrix[0].get()
+                    real.bindZeroTr.set(delta[3][:3])
 
                 except ValueError:
                     pass
             
             if removeTempBind:
                 delete( tempBindJoints )
-
+        
         else:
             log.debug('No reposer')
             # Only build the selected cards, but always do it in the right order.
-            for card in cardBuildOrder:
-                if card in cards:
-                    card.buildJoints_core(nodeApi.fossilNodes.JointMode.default)
+            with core.ui.progressWin(title='Build Bones', max=len(cards)) as prog:
+                for card in cardBuildOrder:
+                    if card in cards:
+                        card.buildJoints_core(nodeApi.fossilNodes.JointMode.default)
+                        prog.update()
         
         
-        # &&& Going to need to change to bindpose if it exists!  Ugg, what a pain!
-        #restoreMeshes()
-
+        if useRepose:
+            with tpose.goToBindPose():
+                skinning.loadCachedWeights(_meshStorage)
+        else:
+            skinning.loadCachedWeights(_meshStorage)
+        
         select(cards)
     
     @staticmethod
@@ -634,7 +646,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
                 
         for card in cards:
             joints = card.getOutputJoints()
-            if joints:
+            if joints and card.rigData.get('rigCmd', '') != 'Group':  # Group doesn't build joints
                 if len(cmds.ls(joints)) != len(joints):
                     # &&& Ideall this prompts to build joints
                     pdil.ui.notify(m='{} does not have joints built.'.format(card) )
@@ -653,28 +665,32 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         cardBuildOrder = cardlister.cardJointBuildOrder()
         
         with tpose.matchReposer(cardBuildOrder) if tpose.reposerExists() else nothing():
-        
-            for card in cardBuildOrder:
-                if card not in cards:
-                    continue
-
-                if mode == 'Use Current Shapes':
-                    card.saveShapes()
+            
+            with core.ui.progressWin(title='Building', max=len(cards) * 3 ) as pr:
                 
-                # If this being rebuilt, also restore the if it's in ik or fk
-                switchers = [controllerShape.getSwitcherPlug(x[0]) for x in card._outputs()]
-                prevValues = [ (s, getAttr(s)) for s in switchers if s]
-
-                card.removeRig()
-                cardRigging.buildRig([card])
-
-                if mode != 'Use Rig Info Shapes':
-                    card.restoreShapes()
+                for card in cardBuildOrder:
+                    if card not in cards:
+                        continue
+                    pr.update(status=card.name() + ' prep')
+                    if mode == 'Use Current Shapes':
+                        card.saveShapes()
                     
-                # Restore ik/fk-ness
-                for switch, value in prevValues:
-                    if objExists(switch):
-                        setAttr(switch, value)
+                    # If this being rebuilt, also restore the if it's in ik or fk
+                    switchers = [controllerShape.getSwitcherPlug(x[0]) for x in card._outputs()]
+                    prevValues = [ (s, getAttr(s)) for s in switchers if s]
+
+                    card.removeRig()
+                    pr.update(status=card.name() + ' build')
+                    cardRigging.buildRig([card])
+                    
+                    pr.update(status=card.name() + ' build')
+                    if mode != 'Use Rig Info Shapes':
+                        card.restoreShapes()
+                        
+                    # Restore ik/fk-ness
+                    for switch, value in prevValues:
+                        if objExists(switch):
+                            setAttr(switch, value)
                     
         tpose.markBindPose(cards)
         
@@ -862,7 +878,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         children = sel[0].proxyChildren[:]
         
         card = sel[0].card
-        newJoint = card.insertJoint(sel[0])
+        newJoint = card.insertChild(sel[0])
         
         if tip:
             

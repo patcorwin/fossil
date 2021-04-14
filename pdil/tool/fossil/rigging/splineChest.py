@@ -201,7 +201,7 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
     """
     # Constrain to spline proxy, up to the chest...
     constraints = []
-    for src, dest in zip( chain, srcChain )[:chestIndex]:
+    for src, dest in list(zip( chain, srcChain ))[:chestIndex]:
         constraints.append( core.constraints.pointConst( src, dest ) )
         constraints.append( core.constraints.orientConst( src, dest ) )
     

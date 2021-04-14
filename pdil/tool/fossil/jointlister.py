@@ -14,6 +14,11 @@ from ... import core
 from .core import proxyskel
 from . import util
 
+try:
+    basestring # noqa
+except NameError: # python 3 compatibility
+    basestring = str
+
 
 class Cell(QtWidgets.QTableWidgetItem):
     
@@ -344,7 +349,7 @@ class JointLister(QtWidgets.QTableWidget):
                 tempJoint.customOrient = None
                         
     def jointListerAddRow(self, ctr, tempJoint, name, card, parentCard):
-        index = ctr.next()
+        index = next(ctr)
         
         jointName = add.shortName(tempJoint)
         self.setItem( index, self.JOINT_LISTER_NAME, Cell(jointName) )

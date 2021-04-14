@@ -1,12 +1,11 @@
 from __future__ import print_function, absolute_import
 
 import contextlib
-from cStringIO import StringIO
+from io import StringIO
 import importlib
 import logging
 import os
 import sys
-import time
 import xml.etree.ElementTree as xml
 
 from maya import OpenMayaUI
@@ -35,6 +34,15 @@ try:
     from shiboken import wrapInstance
 except ImportError:
     from shiboken2 import wrapInstance
+
+
+PY_2 = sys.version_info[0] == 2 # Crass checking for python 2
+
+try: # python 3 compatibility
+    long
+except NameError:
+    long = int # long is just an int in py3
+
 
 from pymel.core import *
 #from pymel.core import optionVar, Callback, checkBox, frameLayout, menuItem
@@ -188,7 +196,11 @@ def loadUiType(uiFile):
         
         pysideuic.compileUi(f, o, indent=0)
         pyc = compile(o.getvalue(), '<string>', 'exec')
-        exec pyc in frame
+        
+        if PY_2:
+            exec('''pyc in frame''')
+        else:
+            exec(pyc, frame)
         
         #Fetch the base_class and form class based on their type in the xml from designer
         form_class = frame['Ui_%s' % form_class]

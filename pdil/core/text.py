@@ -25,8 +25,11 @@ def asciiCompress(data, level=9):
     Compress data to printable ascii-code since Maya only stores ascii strings.
     From http://code.activestate.com/recipes/355486-compress-data-to-printable-ascii-data/
     '''
-
-    code = zlib.compress(data, level)
+    try:
+        code = zlib.compress(data, level)
+    except TypeError: # python 3 compatibility, most sources will probably be strings
+        code = zlib.compress(data.encode(), level)
+        
     code = base64.encodestring(code)
     return code
 
@@ -36,8 +39,11 @@ def asciiDecompress(code):
     Decompress result of asciiCompress
     From http://code.activestate.com/recipes/355486-compress-data-to-printable-ascii-data/
     '''
-
-    code = base64.decodestring(code)
+    try:
+        code = base64.decodestring(code)
+    except TypeError: # python 3 compatibility, most sources will probably be strings
+        code = base64.decodestring(code.encode())
+        
     data = zlib.decompress(code)
     return data
 

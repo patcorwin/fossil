@@ -5,7 +5,7 @@ from maya.api import OpenMaya
 
 try:
     basestring
-except NameError:
+except NameError: # python 3 compatibility
     basestring = str
 
 

@@ -757,7 +757,7 @@ class Card(nt.Transform):
                     output[j] = ['']
             
             else:
-                output[j] = [names.next()]
+                output[j] = [next(names)]
                 
         if self.isCardMirrored():
             
@@ -1345,7 +1345,7 @@ class Card(nt.Transform):
         
         for jnt in self.joints:
             if not jnt.isHelper:
-                targetName = names.next() + '_bpj'
+                targetName = next(names) + '_bpj'
                 if simpleName(jnt) != targetName:
                     if cmds.ls(targetName, r=1) and targetName != 'NOT_ENOUGH_NAMES_bpj':
                         jnt.rename('_temp_')

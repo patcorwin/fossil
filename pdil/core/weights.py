@@ -1,8 +1,10 @@
 from __future__ import print_function, absolute_import
 
 from collections import OrderedDict
-import __builtin__
-from itertools import izip
+try: # python 3 compatibility
+    from itertools import izip as zip
+except ImportError:
+    pass
 import json
 import os
 import tempfile
@@ -125,6 +127,7 @@ def get(mesh):
         'joints': {
             <index into jointNames> : [<parent index into jointNames>, global_x, global_y, global_z]
             ...
+        'required': [<index into jointNames/joints>]
         }
     }
     '''
@@ -169,7 +172,7 @@ def get(mesh):
         
         try:
             # If `i` isn't in jointApiIndices, that value is skipped.  Not sure why these garbage values are just left behind...
-            weights[vertIdx] = [ (jointApiIndices[idx], v) for idx, v in izip( activeJointIndices, values ) if idx in jointApiIndices]
+            weights[vertIdx] = [ (jointApiIndices[idx], v) for idx, v in zip( activeJointIndices, values ) if idx in jointApiIndices]
         except Exception:
             raise
             '''
@@ -182,7 +185,7 @@ def get(mesh):
     
     # Prune out the unused joints (Maybe make an option?)
     joints = {}
-    requiredJoints = __builtin__.set()
+    requiredJoints = set()
     for wgt in weights:
         for j, v in wgt:
             requiredJoints.add(j)
@@ -267,7 +270,7 @@ def get_old(mesh):
     
     # Prune out the unused joints (Maybe make an option?)
     joints = {}
-    requiredJoints = __builtin__.set()
+    requiredJoints = set()
     for wgt in weights:
         for j, v in wgt:
             requiredJoints.add(j)
@@ -370,6 +373,8 @@ def apply(mesh, weight_data, targetVerts=None):
 
     jointNames = weight_data['jointNames']
 
+    assert len(set(jointNames)) == len(jointNames), 'Duplicate joint names exist, which probably means a subsitution failed'
+
     requiredJoints = [jointNames[index] for index in weight_data['required']]
     
     weights = weight_data['weights']
@@ -387,7 +392,7 @@ def apply(mesh, weight_data, targetVerts=None):
     
     # If no skin cluster exists, bind it
     if not skinClusterName:
-        temp = skinCluster(mesh, requiredJoints, tsb=True)
+        temp = skinCluster(mesh, requiredJoints, tsb=True, skinMethod=0, bindMethod=0, removeUnusedInfluence=False)
         skinClusterName = temp.name()
     # Otherwise make sure the joints given in `weights` are part of the skin cluster
     else:
@@ -433,9 +438,8 @@ def apply(mesh, weight_data, targetVerts=None):
         activeJointIndices = weightsPlug.getExistingArrayAttributeIndices()
         
         weightFmtStr = baseFmtStr % vertIdx + '.weights[%d]'
-        
         # Can't find a way to do this in the api, so call it as little as possible.  Down to .25 with identical weights (.2 bypassing the check).
-        for jointIndex in __builtin__.set(activeJointIndices).difference( [jointApiIndices[ joint ] for joint, w in jointsAndWeights] ):
+        for jointIndex in set(activeJointIndices).difference( [jointApiIndices[ joint ] for joint, w in jointsAndWeights] ):
             cmds_removeMultiInstance( weightFmtStr % jointIndex )
             
         # Need to test if api 2.0 is faster than mel

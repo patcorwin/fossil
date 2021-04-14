@@ -16,6 +16,12 @@ from . import moveCard
 from . import util
 
 
+try:
+    basestring
+except NameError: # python 3 compatibility
+    basestring = str
+
+
 def addOutputControlsAttrs(obj):
     _addOutputControls(obj, "Center")
     _addOutputControls(obj, "Left")

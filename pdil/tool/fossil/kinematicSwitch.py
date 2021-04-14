@@ -145,7 +145,7 @@ def animStateSwitch(leads, start, end, spaces={}, dense=False):
     allTimes = set()
     targets = {}
     
-    controlsWithSpaces = spaces.keys()
+    controlsWithSpaces = list(spaces.keys())
     
     spaceOnlyData  = {}
     spaceOnlyTimes = {}

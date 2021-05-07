@@ -129,4 +129,7 @@ def loadCurves():
 def selectBindableJoints():
     select(cl=True)
     for card in core.findNode.allCards():
-        select(card.getOutputJoints(), add=True)
+        try:
+            select(card.getOutputJoints(), add=True)
+        except:
+            pass

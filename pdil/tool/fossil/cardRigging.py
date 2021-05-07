@@ -27,6 +27,8 @@ from .core import config
 from . import space
 from . import util
 
+from pdil.vendor import six
+
 try:
     basestring
 except NameError:
@@ -388,7 +390,7 @@ class classproperty(object):
         return self.fget(owner_cls)
 
 
-class MetaControl(object):
+class MetaControl(six.with_metaclass(RegisterdMetaControl)):
     '''
     Nearly every control is going to have an IK and FK component.  This allows
     packaging them both up so their args can be inspected and UI derived from it.
@@ -410,7 +412,7 @@ class MetaControl(object):
         &&& But can you just set cls.fk = None and override _buildIk()?
             
     '''
-    __metaclass__ = RegisterdMetaControl
+    #__metaclass__ = RegisterdMetaControl # python 2 way removed in 3
 
     displayInUI = True
 

@@ -269,8 +269,8 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         self.ui.mergeCardBtn.clicked.connect(self.mergeCard)
         self.ui.splitCardBtn.clicked.connect(self.splitCard)
 
-        self.ui.addCardIkButton.clicked.connect( self.addCardIk )
-        self.ui.remCardIkButton.clicked.connect( self.removeCardIk )
+        self.ui.addCardIkButton.clicked.connect( Callback(self.addCardIk) )
+        self.ui.remCardIkButton.clicked.connect( Callback(self.removeCardIk) )
 
         
         self.ui.insertJointBtn.clicked.connect(self.insertJoint)

@@ -169,8 +169,13 @@ def measure( start, end, name='measureLocs'):
     dist = distanceDimension( a, b )
         
     hide( a, b, dist)
+
+    grp = group(em=True, name=name)
+    grp.inheritsTransform.set(False)
+    a.setParent(grp)
+    b.setParent(grp)
         
-    return dist.getParent(), group(a, b, name=name)
+    return dist.getParent(), grp
 
                     
 def matchPosByPivot(dest, src):

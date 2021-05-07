@@ -12,6 +12,7 @@ from pdil.add import simpleName, meters
 from pdil import core
 
 from .core import proxyskel
+from .core import config
 from . import moveCard
 from . import util
 
@@ -545,7 +546,7 @@ def spineCard(spineCount, orientation=Orientation.VERTICAL, isStart=True):
     hasPelvis = True
             
     spine = makeCard( spineCount, 'Spine*', size=meters(0.5, 1) )
-    spine.rigCommand = 'RotateChain'
+    spine.rigCommand = 'TranslateChain'
         
     util.annotateSelectionHandle( spine.joints[0], 'Spine Start', (0, -2, 0) )
     
@@ -569,7 +570,7 @@ def spineCard(spineCount, orientation=Orientation.VERTICAL, isStart=True):
         hips.ry.set(-90)
         hips.start().t.lock()
         moveCard.toObjByCenter( hips, spine.start() )
-        hips.rigCommand = 'RotateChain'
+        hips.rigCommand = 'TranslateChain'
         #proxyskel.pointer( pelvis.start(), hips.start() )
         hips.start().setBPParent( pelvis.start() )
         pointConstraint( spine.start(), hips)
@@ -648,7 +649,7 @@ def handSetup( leftArm, numFingers, makeThumb ):
         #proxy.pointer( leftArm.end(), card.start() )
         card.start().setBPParent( leftArm.end() )
         
-        card.rigCommand = 'RotateChain'
+        card.rigCommand = 'TranslateChain'
         card.rigOptions = '-size 2 -visGroup fingers'
     
     if makeThumb:
@@ -666,7 +667,7 @@ def handSetup( leftArm, numFingers, makeThumb ):
         
         #proxy.pointer( leftArm.end(), thumb.start() )
         thumb.start().setBPParent( leftArm.end() )
-        thumb.rigCommand = 'RotateChain'
+        thumb.rigCommand = 'TranslateChain'
         thumb.rigOptions = '-size 2 -visGroup fingers'
 
         
@@ -810,10 +811,11 @@ def addTwistCard(jnt):
     name = names[ jnt.cardCon.index() ]
     # Strip off the suffix if one exists
     if util.isMirrored( jnt ):
-        suffix = jnt.cardCon.node().suffix.get()
-        name = name[: -(len(suffix) + 1) ]
+        mirrorCode = jnt.card.rigData.get('mirrorCode', '') # &&& Can I always get the mirror code and always set it?
+        suffix = config.jointSideSuffix( mirrorCode )
+        name = name[: -len(suffix) ]
     else:
-        suffix = ''
+        mirrorCode = ''
         
     name += 'Twist'
     
@@ -834,7 +836,8 @@ def addTwistCard(jnt):
     card.start().tz.lock()
     
     card.extraNode[0] = jnt
-    card.suffix.set( suffix )
+    if mirrorCode:
+        card.suffix.set( mirrorCode )
     card.rigCommand = 'TwistHelper'
     
     card.sz.set( max(card.sy.get() / 4.0, 1.0) )
@@ -849,7 +852,7 @@ def bipedSetup(spineCount=4, neckCount=1, numFingers=4, legType='Human', thumb=T
     
     # Neck
     neck = makeCard( neckCount, 'Neck*', size=meters(.15, .4) )
-    neck.rigCommand = 'RotateChain'
+    neck.rigCommand = 'TranslateChain'
     neck.rx.set( 180 )
         
     moveCard.to( neck, spine.end() )
@@ -872,7 +875,7 @@ def bipedSetup(spineCount=4, neckCount=1, numFingers=4, legType='Human', thumb=T
         
     # Arms
     clav = makeCard( 1, 'Clavicle', size=meters(.1, .1), suffix='left' )
-    clav.rigCommand = 'RotateChain'
+    clav.rigCommand = 'TranslateChain'
     moveCard.to( clav, spine.end() )
     moveCard.forward( clav, meters(0.10) )
     moveCard.left( clav, meters(0.2) )

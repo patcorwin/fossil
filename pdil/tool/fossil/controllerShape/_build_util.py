@@ -17,6 +17,10 @@ except NameError:
 
 CONTROL_TYPE_NAME = 'fossilCtrlType'
 
+def setControlType(ctrl, ctrlType):
+    ctrl.addAttr( CONTROL_TYPE_NAME, dt='string' )
+    ctrl.attr( CONTROL_TYPE_NAME ).set( ctrlType )
+
 
 def commonArgs(shapeConstructor):
     '''
@@ -54,8 +58,7 @@ def commonArgs(shapeConstructor):
             if shape.type() in ['nurbsCurve', 'nurbsSurface']:
                 scale( shape.cv[:], [size] * 3 )
         
-        ctrl.addAttr( CONTROL_TYPE_NAME, dt='string' )
-        ctrl.attr( CONTROL_TYPE_NAME ).set( type )
+        setControlType(ctrl, type)
         
         if isinstance(color, basestring):
             color = core.shader.parseStr(color)

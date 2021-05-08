@@ -103,7 +103,14 @@ class ShapeEditor(object):
         self.copyToCBBtn.clicked.connect( Callback(self.copyToClipboad) )
         self.pasteLocalBtn.clicked.connect( Callback(self.pasteFromCliboard, 'os') )
         self.pasteWorldBtn.clicked.connect( Callback(self.pasteFromCliboard, 'ws') )
-        
+        self.copyColor.clicked.connect( Callback(self.copyColor_) )
+    
+    def copyColor_(self):
+        sel = selected()
+        if len(sel) > 1:
+            for other in sel[1:]:
+                controllerShape.copyColors(sel[0], other)
+    
     def copyToClipboad(self):
         try:
             info = controllerShape.getShapeInfo(selected()[0])

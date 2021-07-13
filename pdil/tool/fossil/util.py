@@ -377,7 +377,13 @@ def selectedCardsSoft(single=False):
                     
                     
 def selectedCards():
-    return [ o for o in selected(type='transform') if type(o) == nodeApi.Card ]
+    cards = [ o for o in selected(type='transform') if type(o) == nodeApi.Card ]
+    
+    if not cards:
+        bpjs = [ o for o in selected(type='transform') if type(o) == nodeApi.BPJoint ]
+        cards = list(set(bpj.card for bpj in bpjs))
+    
+    return cards
     
     
 def selectedJoints():

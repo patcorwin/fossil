@@ -545,13 +545,13 @@ def spineCard(spineCount, orientation=Orientation.VERTICAL, isStart=True):
     hasHips = True
     hasPelvis = True
             
-    spine = makeCard( spineCount, 'Spine*', size=meters(0.5, 1) )
+    spine = makeCard( spineCount, 'Spine*', size=meters([0.5, 1]) )
     spine.rigCommand = 'TranslateChain'
         
     util.annotateSelectionHandle( spine.joints[0], 'Spine Start', (0, -2, 0) )
     
     if hasPelvis:
-        pelvis = makeCard( 1, 'Pelvis', size=meters(0.2, 0.2) )
+        pelvis = makeCard( 1, 'Pelvis', size=meters([0.2, 0.2]) )
         pelvis.fkControllerOptions = '-shape band -size 20 -color blue .65'
         pelvis.start().orientTarget = '-world-'
         pelvis.rz.set(90)
@@ -564,7 +564,7 @@ def spineCard(spineCount, orientation=Orientation.VERTICAL, isStart=True):
         util.annotateSelectionHandle( pelvis.start(), 'Pelvis (top joint)', (0, 0, -2) )
     
     if hasHips:
-        hips = makeCard( 1, 'Hips', size=meters(0.2, 0.2) )
+        hips = makeCard( 1, 'Hips', size=meters([0.2, 0.2]) )
         hips.fkControllerOptions = '-shape band -size 15 -color red .65'
         hips.start().orientTarget = '-world-'
         hips.ry.set(-90)
@@ -594,7 +594,7 @@ def spineCard(spineCount, orientation=Orientation.VERTICAL, isStart=True):
 
 
 def arm(clav, side):
-    leftArm = makeCard( 3, ['Shoulder', 'Elbow', 'Wrist'], size=meters(.2, 1), suffix=side )
+    leftArm = makeCard( 3, ['Shoulder', 'Elbow', 'Wrist'], size=meters([.2, 1]), suffix=side )
     leftArm.rigCommand = 'IkChain'
     placeJoints( leftArm, [(0, 1), (0.5, 0), (0, -1)] )
     
@@ -612,7 +612,7 @@ def arm(clav, side):
 
 def handSetup( leftArm, numFingers, makeThumb ):
     #hand = Container('Hand', meters(0.20, 0.20) )
-    hand = makeCard( 1, 'Hand', size=meters(0.20, 0.20) )
+    hand = makeCard( 1, 'Hand', size=meters([0.20, 0.20]) )
     
     # It makes sense that the wrist is oriented to the hand
     leftArm.end().customUp = hand.getUpArrow()
@@ -678,7 +678,7 @@ def leg( startJoint, dist ):
 
     suffix = 'left' if dist > 0 else 'right'
 
-    leftLeg = makeCard( 3, ['Hip', 'Knee', 'Ankle'], size=meters(.2, 1), suffix=suffix )
+    leftLeg = makeCard( 3, ['Hip', 'Knee', 'Ankle'], size=meters([.2, 1]), suffix=suffix )
     leftLeg.rigCommand = 'IkChain'
     rigData = leftLeg.rigData
     rigData['ikParams'] = {'name': 'Leg', 'endOrientType': 'True_Zero_Foot'}
@@ -697,7 +697,7 @@ def leg( startJoint, dist ):
 def hindleg(startJoint=None, dist=0.20):
     suffix = 'left' if dist > 0 else 'right'
 
-    leg = makeCard( 4, ['Hip', 'Knee', 'Ankle', 'Toe'], size=meters(.2, 1), suffix=suffix )
+    leg = makeCard( 4, ['Hip', 'Knee', 'Ankle', 'Toe'], size=meters([.2, 1]), suffix=suffix )
     leg.rigCommand = 'DogHindleg'
     placeJoints( leg, [ (0, 1), (-1, 0.1), (1, -0.5), (0.1, -1) ] )
     
@@ -712,7 +712,7 @@ def hindleg(startJoint=None, dist=0.20):
 
 
 def foot(legCard):
-    foot = makeCard( 3, [ 'Ball', 'Toe', 'ToeEnd'], size=meters(.4, 0.2), suffix='left' )
+    foot = makeCard( 3, [ 'Ball', 'Toe', 'ToeEnd'], size=meters([.4, 0.2]), suffix='left' )
     placeJoints( foot, [(0.5, -1), (-0.7, -1), (-1, -1)] )
     foot.joints[-1].isHelper = True
         
@@ -736,7 +736,7 @@ def squashAndStretchCard(parent, count):
     '''
 
     dist = 3.75  # I think this is due to meter being 0.15
-    card = makeCard( 1, 'Squash*', size=meters(.15, .15) )
+    card = makeCard( 1, 'Squash*', size=meters([.15, .15]) )
         
     angle = math.pi * 2.0 / count
     
@@ -780,7 +780,7 @@ def weaponCard(parentName, name, asymmetric=True):
     rest of the joints can be listed out.
     '''
     
-    card = makeCard( 1, name, size=meters(.15, .15) )
+    card = makeCard( 1, name, size=meters([.15, .15]) )
     card.rigCommand = 'TranslateChain'
     
     parent, direct = util.findTempJoint(parentName)
@@ -851,7 +851,7 @@ def bipedSetup(spineCount=4, neckCount=1, numFingers=4, legType='Human', thumb=T
     spine, hips = spineCard(spineCount, spineOrient)
     
     # Neck
-    neck = makeCard( neckCount, 'Neck*', size=meters(.15, .4) )
+    neck = makeCard( neckCount, 'Neck*', size=meters([.15, .4]) )
     neck.rigCommand = 'TranslateChain'
     neck.rx.set( 180 )
         
@@ -861,7 +861,7 @@ def bipedSetup(spineCount=4, neckCount=1, numFingers=4, legType='Human', thumb=T
     neck.start().setBPParent( spine.end() )
 
     # Head
-    head = makeCard( 2, 'Head HeadTip', size=meters(.3, .3) )
+    head = makeCard( 2, 'Head HeadTip', size=meters([.3, .3]) )
     head.rigCommand = 'TranslateChain'
     head.rx.set( 180 )
         
@@ -874,7 +874,7 @@ def bipedSetup(spineCount=4, neckCount=1, numFingers=4, legType='Human', thumb=T
     spine.end().orientTarget = neck.start()
         
     # Arms
-    clav = makeCard( 1, 'Clavicle', size=meters(.1, .1), suffix='left' )
+    clav = makeCard( 1, 'Clavicle', size=meters([.1, .1]), suffix='left' )
     clav.rigCommand = 'TranslateChain'
     moveCard.to( clav, spine.end() )
     moveCard.forward( clav, meters(0.10) )

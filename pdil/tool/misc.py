@@ -62,12 +62,13 @@ def multiLoadWeights(data):
         for obj, vals in data.items():
             core.weights.apply(PyNode(obj), vals)
             
-    elif len(data) == selected:
+    elif len(data) == len(selected()):
         msg = 'Target objects do not exist, apply in this order?\n'
+        
         for selObj, name in zip(selected(), data):
             msg += name + ' -> ' + selObj.name()
         
-        res = confirmDialog(m=msg)
+        res = confirmDialog(m=msg, b=['Yes', 'No'])
         
         if res == 'Yes':
             for selObj, (obj, data) in zip(selected(), data.items()):

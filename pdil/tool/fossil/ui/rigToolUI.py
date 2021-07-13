@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'G:/Projects/_tools/_maya/fossil\pdil\tool\fossil/ui/rigToolUI.ui'
+# Form implementation generated from reading ui file 'G://Projects/_tools/_maya/fossil\pdil\tool\fossil/ui/rigToolUI.ui',
+# licensing of 'G://Projects/_tools/_maya/fossil\pdil\tool\fossil/ui/rigToolUI.ui' applies.
 #
-# Created: Fri Sep 25 11:20:48 2020
-#      by: pyside2-uic  running on PySide2 2.0.0~alpha0
+# Created: Tue Jul 13 00:37:35 2021
+#      by: pyside2-uic  running on PySide2 5.12.5
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -104,7 +105,6 @@ class Ui_MainWindow(object):
         self.restoreContainer.setObjectName("restoreContainer")
         self.horizontalLayout_13 = QtWidgets.QHBoxLayout(self.restoreContainer)
         self.horizontalLayout_13.setSpacing(0)
-        self.horizontalLayout_13.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout_13.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout_13.setObjectName("horizontalLayout_13")
         self.layout = QtWidgets.QGridLayout()
@@ -755,9 +755,6 @@ class Ui_MainWindow(object):
         self.horizontalLayout_12.addItem(spacerItem7)
         self.verticalLayout_17.addLayout(self.horizontalLayout_12)
         self.tabWidget.addTab(self.space_tab, "")
-        self.artist_tools = QtWidgets.QWidget()
-        self.artist_tools.setObjectName("artist_tools")
-        self.tabWidget.addTab(self.artist_tools, "")
         self.horizontalLayout.addWidget(self.tabWidget)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
@@ -810,7 +807,7 @@ class Ui_MainWindow(object):
         self.menubar.addAction(self.menuSettings.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(2)
+        self.tabWidget.setCurrentIndex(1)
         self.rigStateTab.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
@@ -932,7 +929,6 @@ class Ui_MainWindow(object):
         self.spaceDown.setText(QtCompat.translate("MainWindow", " v ", None, -1))
         self.label_17.setText(QtCompat.translate("MainWindow", "Multi Weights editor (doesn\'t work just yet)", None, -1))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.space_tab), QtCompat.translate("MainWindow", "Space", None, -1))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.artist_tools), QtCompat.translate("MainWindow", "Artist Tools", None, -1))
         self.menuTools.setTitle(QtCompat.translate("MainWindow", "Tools", None, -1))
         self.menuVisibility.setTitle(QtCompat.translate("MainWindow", "Visibility", None, -1))
         self.menuSettings.setTitle(QtCompat.translate("MainWindow", "Settings", None, -1))

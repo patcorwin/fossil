@@ -24,7 +24,7 @@
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>2</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="tab">
        <attribute name="title">
@@ -1578,11 +1578,6 @@
          </layout>
         </item>
        </layout>
-      </widget>
-      <widget class="QWidget" name="artist_tools">
-       <attribute name="title">
-        <string>Artist Tools</string>
-       </attribute>
       </widget>
      </widget>
     </item>

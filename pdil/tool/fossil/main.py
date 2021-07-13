@@ -13,7 +13,7 @@ import logging
 from ...vendor import Qt
 
 
-from pymel.core import Callback, cmds, dt, getAttr, hide, objExists, scriptJob, select, selected, setParent, setAttr, PyNode, \
+from pymel.core import Callback, cmds, getAttr, hide, objExists, scriptJob, select, selected, setParent, setAttr, PyNode, \
     showHidden, warning, xform, \
     button, columnLayout, deleteUI, textFieldGrp, \
     delete, orientConstraint, pointConstraint
@@ -35,7 +35,6 @@ from . import tpose
 from . import util
 from . import node
 
-from .ui import artistToolsTab
 from .ui import controllerEdit
 from .ui import _visGroup
 
@@ -164,7 +163,6 @@ class RigTool(Qt.QtWidgets.QMainWindow):
     _inst = None
     
     FOSSIL_START_TAB = 'Fossil_RigTool_StartTab'
-    FOSSIL_ARTIST_TOOLS = 'Fossil_RigTool_ToolsTab'
     FOSSIL_SPACE_TAB = 'Fossil_RigTool_SpacedTab'
         
     @staticmethod
@@ -334,15 +332,6 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         #self.spaceTab = spacesTab.SpaceLayout()
         self.spaceTab = spacesTab.SpaceTab(self.ui)
         
-        # Shelf tab
-        
-        
-        self.artistShelfLayout = Qt.QtWidgets.QVBoxLayout(self.ui.artist_tools)
-        self.artistShelfLayout.setObjectName( self.FOSSIL_ARTIST_TOOLS )
-        setParent( self.FOSSIL_ARTIST_TOOLS )
-        
-        artistToolsTab.toolShelf()
-
         
         # Card Lister setup
         self.updateId = scriptJob( e=('SelectionChanged', core.alt.Callback(self.selectionChanged)) )
@@ -715,7 +704,6 @@ class RigTool(Qt.QtWidgets.QMainWindow):
             pass
         
         # Might be overkill but I'm trying to prevent new gui parenting to the old widgets
-        self.artistShelfLayout.setObjectName( 'delete_me' )
         #self.spaceTabLayout.setObjectName( 'delete_me2' )
 #        self.shapeEditor.curveColorLayout.setObjectName( 'delete_me3' )
 #        self.shapeEditor.surfaceColorLayout.setObjectName( 'delete_me4' )

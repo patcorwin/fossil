@@ -17,6 +17,8 @@ from .. import log
 
 from .. import controllerShape
 from .. import node
+from ..core import config
+
 
 ConstraintResults = collections.namedtuple( 'ConstraintResults', 'point orient' )
 
@@ -868,8 +870,9 @@ def trimName(jnt):
     Given an joint, return its simple name without b_ or rig_ if those prefixes exist.
     '''
     name = simpleName(jnt)
-    if name.startswith( 'b_' ):
-        return name[2:]
+    prefix = config._settings['joint_prefix']
+    if name.startswith( prefix ):
+        return name[ len(prefix): ]
     
     return name
 

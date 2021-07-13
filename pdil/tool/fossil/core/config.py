@@ -9,7 +9,7 @@ from .... import core
 
 # Joints are optionally prefixed with this string.  This can be helpful to avoid
 # name collisions with other objects.
-prefix = ''
+#prefix = '' &&& Test that this has been totally replaced by _settings['joint_prefix']
 
 
 ''' &&&

@@ -356,7 +356,13 @@ def processWeightData(weight_data, subst={}, remove=[], replace=OrderedDict()):
     for jnt, parentInfo in weight_data['joints'].items():
         if parentInfo[0] in subst:
             weight_data['joints'][jnt][0] = subst[parentInfo[0]]
-        
+    
+    
+def _adjustForNamespace(jointNames):
+    alts = cmds.ls( [name.rsplit(':', 1)[-1] for name in jointNames], r=True)
+    if len(alts) == len(jointNames):
+        return alts
+    return []
     
 
 def apply(mesh, weight_data, targetVerts=None):
@@ -384,10 +390,14 @@ def apply(mesh, weight_data, targetVerts=None):
 
     if missing:
         print('Unable to weight, missing the following joints:\n' + '\n'.join(missing))
-        return
+        alts = _adjustForNamespace(jointNames)
+        if alts:
+            jointNames = alts
+            requiredJoints = [jointNames[index] for index in weight_data['required']]
+        else:
+            return
     
     skinClusterName = mel.findRelatedSkinCluster(mesh)
-    
     
     
     # If no skin cluster exists, bind it

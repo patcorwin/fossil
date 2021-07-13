@@ -40,6 +40,8 @@ def _assignInput( plug, input):
 
 
 def _assignVectorInput(plug, x, y, z, valueType, value):
+    ''' plug is compound, x/y/z are the components.
+    '''
     if isinstance(valueType, _VECTOR_NUMBER):
         plug.set(value)
         
@@ -274,7 +276,46 @@ def isClose(a, b, tolerance=0.001):
 
     return False
     
+
+def clampNode(lower, upper):
+    clampNode = createNode('clamp')
+    clampNode.min.set(lower)
+    clampNode.max.set(upper)
+    return clampNode
+
+
+
+
+def clamp(driver, lower, upper):
     
+    clampNode = createNode('clamp')
+    
+    driverType = getType(driver)
+    lowerType = getType(lower)
+    upperType = getType(upper)
+
+    _assignVectorInput(clampNode.input,
+        clampNode.inputR, clampNode.inputG, clampNode.inputB,
+        driverType,
+        driver)
+    
+    _assignVectorInput(clampNode.min,
+        clampNode.min.inputR, clampNode.min.inputG, clampNode.min.inputB,
+        lowerType,
+        lower)
+        
+    _assignVectorInput(clampNode.max,
+        clampNode.max.inputR, clampNode.max.inputG, clampNode.max.inputB,
+        upperType,
+        upper)
+        
+    
+    if isinstance(driverType, VECTOR) or isinstance(lowerType, VECTOR) or isinstance(upperType, VECTOR):
+        return clampNode.output
+    else:
+        return clampNode.outputR
+
+
 def eulerFromMatrix( matrix, degrees=False ):
     '''
     Returns the euler rotation from a matrix, optionally in degrees.
@@ -359,6 +400,15 @@ def process(node, objs):
     #        return objs[obj].attr(attr)
     #    else:
     #        return objs[node.s]
+    
+    elif isinstance(node, ast.Call):
+        if node.func.id == 'clamp':
+            return clamp(
+                process(node.args[0], objs),
+                process(node.args[1], objs),
+                process(node.args[2], objs)
+            )
+        
 
     elif isinstance(node, ast.Tuple):
         return [n.n for n in node.elts]

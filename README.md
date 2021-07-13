@@ -1,11 +1,12 @@
 # fossil
 Rigging and animation tools for Maya
 
-Tested in Maya 2016, 2017 and 2019.  Developed in 2019 so hopefully nothing breaks in previous versions.
+Developed in 2022 and tested in Maya 2019, 2020.
+Runs in both Python 3 and Python 2
 
 ## Requirements
 
-None.
+Your imagination.
 
 ## Installation
 

@@ -143,7 +143,10 @@ class ShapeEditor(object):
         #scaleFactor = [val] * 3  # Scale factor needs to be a 3 vector for all axes.
         
         for obj in selected():
-            controllerShape.scaleAllCVs(obj, val)
+            try:
+                controllerShape.scaleAllCVs(obj, val)
+            except Exception: # This is to ignore trying to 'scale' the switcher curve
+                pass
             #for shape in core.shape.getShapes(obj):
             #    scale(shape.cv, scaleFactor, r=True, os=True)
 
@@ -393,7 +396,7 @@ class SurfaceColorEditor(object):
             self.defineSurfaceColor()
             color = self.customColor[:]
         else:
-            color = list(core.shader.namedColors.values()[colorIndex])
+            color = list( list(core.shader.namedColors.values())[colorIndex] )
 
         color.append(0.5)
 

@@ -2,12 +2,13 @@ from __future__ import absolute_import, division, print_function
 
 import collections
 import functools
+import json
 import math
 
 import maya.OpenMaya
 
 from pymel.core import aimConstraint, addAttr, arclen, cluster, createNode, delete, duplicate, dt, group, hide, \
-    orientConstraint, parentConstraint, pointConstraint, PyNode, scaleConstraint, selected, upAxis, warning, xform
+    orientConstraint, parentConstraint, pointConstraint, PyNode, scaleConstraint, selected, upAxis, warning, xform, MayaAttributeError
 
 from ....add import simpleName
 from .... import core
@@ -845,6 +846,12 @@ def applyWorldInfo(obj, info):
 
 # -----------------------
 
+def jsonGet(obj, attrName):
+    try:
+        return json.loads(obj.attr(attrName).get(), object_pairs_hook=collections.OrderedDict)
+    except MayaAttributeError:
+        return {}
+
 
 def parentGroup(target):
     '''
@@ -858,8 +865,13 @@ def parentGroup(target):
     name = simpleName(target, '{0}_Proxy' )
     grp = group( em=True, name=name )
 
+    info = jsonGet(target, 'fossilAccessoryInfo')
+
+    if info.get('parent'):
+        parentConstraint( info['parent'], grp, mo=False )
+
     # Don't constrain top level nodes since they need to follow main, not b_Root
-    if target.getParent() != node.getTrueRoot():
+    elif target.getParent() != node.getTrueRoot():
         parentConstraint( target.getParent(), grp, mo=False )
 
     return grp

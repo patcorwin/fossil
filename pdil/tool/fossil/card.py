@@ -6,10 +6,11 @@ import os
 import math
 
 from maya.api import OpenMaya
-from pymel.core import PyNode, xform, rotate, nurbsPlane, polyCylinder, scale, delete, makeIdentity, joint, hide, pointConstraint, group, parentConstraint, aimConstraint, warning, dt, confirmDialog, duplicate, ls, importFile, mel, spaceLocator, distanceDimension, select
+from pymel.core import createNode, PyNode, xform, rotate, nurbsPlane, polyCylinder, scale, delete, makeIdentity, joint, hide, pointConstraint, group, parentConstraint, aimConstraint, warning, dt, confirmDialog, duplicate, ls, importFile, mel, spaceLocator, distanceDimension, select
 
 from pdil.add import simpleName, meters
 from pdil import core
+import pdil
 
 from .core import proxyskel
 from .core import config
@@ -403,13 +404,73 @@ def customOrient(bpJoint):
     transform.t.lock()
     
     transform.rename( simpleName(bpJoint, 'orient_{0}') )
+
+
+def tempWidget():
+    ctrl = PyNode(mel.eval('curve -d 1 -p 0 4 0 -p -2.828427 2.828427 -2.47269e-007 -p -4 0 -3.49691e-007 -p -2.828427 -2.828427 -2.47269e-007 -p 0 -4 0 -p 2.828427 -2.828427 0 -p 4 0 0 -p 2.828427 2.828427 0 -p 0 4 0 -p -1.23634e-007 2.828427 2.828427 -p -1.74846e-007 0 4 -p -1.23634e-007 -2.828427 2.828427 -p 0 -4 0 -p 3.70903e-007 -2.828427 -2.828427 -p 5.24537e-007 0 -4 -p 3.70903e-007 2.828427 -2.828427 -p 0 4 0 -p 0 0 0 -p 0 -4 0 -p 0 0 0 -p -4 0 0 -p 4 0 0 -p 0 0 -4 -p 0 0 4 -k 0 -k 1 -k 2 -k 3 -k 4 -k 5 -k 6 -k 7 -k 8 -k 9 -k 10 -k 11 -k 12 -k 13 -k 14 -k 15 -k 16 -k 17 -k 18 -k 19 -k 20 -k 21 -k 22 -k 23 ;'))
+    return ctrl
+
+
+def directPlacementMode(card):
     
+    assert len(card.joints) == 3
+
+    grp = group(em=True, n='DirectPlacement_Deletable')
+
+    ctrls = []
+    for bpj in card.joints:
+        ctrl = tempWidget()
+        pdil.dagObj.matchTo(ctrl, bpj)
+        ctrls.append(ctrl)
+        ctrl.setParent(grp)
+        
+    base, up, aim = ctrls
+
+    aimLoc = spaceLocator()
+    aimLoc.setParent(aim)
+    aimLoc.t.set(0, 0, 0)
+    
+    baseLoc = spaceLocator()
+    baseLoc.setParent(base)
+    baseLoc.t.set(0, 0, 0)
+    
+    dist = distanceDimension( baseLoc, aimLoc )
+    dist.getParent().setParent(grp)
+    hide(dist)
+    
+    
+    pointConstraint( base, card, mo=True )
+    
+    aimConstraint( aim, card, wut='object', wuo=up, aim=[0, -1, 0], u=[0, 0, -1], mo=True)
+    
+    # save base dimension
+    # current dimesion / base dimension
+    # multiply x, z by card's existing scale
+    
+    dist.addAttr('baseDist', at='double', dv=dist.distance.get())
+    
+    scaled = pdil.math.divide( dist.distance, dist.baseDist )
+    
+    mult = createNode( 'multiplyDivide' )
+    
+    scaled >> mult.input1X
+    scaled >> mult.input1Y
+    scaled >> mult.input1Z
+    
+    mult.input2Y.set( card.sy.get() )
+    mult.input2Z.set( card.sz.get() )
+    
+    mult.outputY >> card.sy
+    mult.outputZ >> card.sz
+
+    pointConstraint(up, card.joints[1], sk='x' )
+
 
 def cardIk(card):
 
     #ctrl = mel.eval( 'curve -d 1 -p -0.5 1 -0.866026 -p -0.5 1 0.866025 -p 1 1 0 -p -0.5 1 -0.866026 -p 0 0 0 -p -0.5 -1 -0.866026 -p -0.5 -1 0.866025 -p 0 0 0 -p -0.5 1 0.866025 -p 1 1 0 -p 0 0 0 -p 1 -1 0 -p -0.5 -1 -0.866026 -p -0.5 -1 0.866025 -p 1 -1 0 -k 0 -k 1 -k 2 -k 3 -k 4 -k 5 -k 6 -k 7 -k 8 -k 9 -k 10 -k 11 -k 12 -k 13 -k 14 ;' )
 
-    ctrl = PyNode(mel.eval('curve -d 1 -p 0 4 0 -p -2.828427 2.828427 -2.47269e-007 -p -4 0 -3.49691e-007 -p -2.828427 -2.828427 -2.47269e-007 -p 0 -4 0 -p 2.828427 -2.828427 0 -p 4 0 0 -p 2.828427 2.828427 0 -p 0 4 0 -p -1.23634e-007 2.828427 2.828427 -p -1.74846e-007 0 4 -p -1.23634e-007 -2.828427 2.828427 -p 0 -4 0 -p 3.70903e-007 -2.828427 -2.828427 -p 5.24537e-007 0 -4 -p 3.70903e-007 2.828427 -2.828427 -p 0 4 0 -p 0 0 0 -p 0 -4 0 -p 0 0 0 -p -4 0 0 -p 4 0 0 -p 0 0 -4 -p 0 0 4 -k 0 -k 1 -k 2 -k 3 -k 4 -k 5 -k 6 -k 7 -k 8 -k 9 -k 10 -k 11 -k 12 -k 13 -k 14 -k 15 -k 16 -k 17 -k 18 -k 19 -k 20 -k 21 -k 22 -k 23 ;'))
+    ctrl = tempWidget()
 
     ctrl.rename( card.name() + "_target" )
     

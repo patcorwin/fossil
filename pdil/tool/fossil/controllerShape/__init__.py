@@ -546,7 +546,7 @@ def loadControlShapes(leadControl, lines, useObjectSpace=True, targetCtrlKeys=No
     
     # Try using the new way first
     try:
-        allInfo = json.loads( '\n'.join(lines) )
+        allInfo = json.loads( b'\n'.join(lines) )
     except Exception:
         allInfo = None
     

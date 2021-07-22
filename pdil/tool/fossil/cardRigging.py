@@ -732,7 +732,9 @@ def buildRig(cards):
     for card in cards:
         if card.rigData.get('rigCmd'):
             try:
-                registeredControls[ card.rigData.get('rigCmd') ].build(card)
+                isAccessory = card.rigData.get('accessory', False)
+                
+                registeredControls[ card.rigData.get('rigCmd') ].build(card, buildFk=not isAccessory)
             except Exception:
                 print( traceback.format_exc() )
                 errors.append( (card, traceback.format_exc()) )

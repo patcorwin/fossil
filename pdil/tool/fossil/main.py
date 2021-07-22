@@ -325,11 +325,6 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         self.visGroupProxy = _visGroup.VisGroupLayout(self.ui)
         
         # Space Tab
-        #self.spaceTabLayout = Qt.QtWidgets.QVBoxLayout(self.ui.space_tab)
-        
-        #self.spaceTabLayout.setObjectName( self.FOSSIL_SPACE_TAB )
-        #setParent( self.FOSSIL_SPACE_TAB)
-        #self.spaceTab = spacesTab.SpaceLayout()
         self.spaceTab = spacesTab.SpaceTab(self.ui)
         
         
@@ -349,6 +344,8 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         self.ui.restoreContainer.setVisible( self.settings['showIndividualRestore'] )
         self.ui.rigStateContainer.setVisible( self.settings['showRigStateDebug'] )
 
+        core.pubsub.subscribe('fossil rig type changed', self.forceCardParams)
+
         # Controller Edit
         self.shapeEditor = controllerEdit.ShapeEditor(self)
         self.show()
@@ -362,6 +359,18 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         
         if 'geometry' in self.settings:
             core.ui.setGeometry( self, self.settings['geometry'] )
+        
+        pdil.pubsub.publish('fossil rig type changed')
+        selectedCard = util.selectedCardsSoft(single=True)
+        self.ui.jointLister.jointListerRefresh(selectedCard)
+        self.ui.jointLister.refreshHighlight()
+        
+    
+    def forceCardParams(self):
+        # Called rig type changes to update the params
+        selectedCard = util.selectedCardsSoft(single=True)
+        cardparams.update(self, selectedCard, force=True)
+    
     
     @staticmethod
     def targeted_save(key):
@@ -518,7 +527,11 @@ class RigTool(Qt.QtWidgets.QMainWindow):
                 with tpose.matchReposer(cardBuildOrder):
                     for card in cardBuildOrder:
                         if card in cards:
-                            realJoints += card.buildJoints_core(nodeApi.fossilNodes.JointMode.tpose)
+                            newJoints = card.buildJoints_core(nodeApi.fossilNodes.JointMode.tpose)
+                            realJoints += newJoints
+                            
+                            accessoryFixup(newJoints, card)
+                            
                         prog.update()
                 
                     # The hierarchy has to be built to determine the right bindZero, so build everything if all cards
@@ -602,7 +615,8 @@ class RigTool(Qt.QtWidgets.QMainWindow):
             with core.ui.progressWin(title='Build Bones', max=len(cards)) as prog:
                 for card in cardBuildOrder:
                     if card in cards:
-                        card.buildJoints_core(nodeApi.fossilNodes.JointMode.default)
+                        newJoints = card.buildJoints_core(nodeApi.fossilNodes.JointMode.default)
+                        accessoryFixup(newJoints, card)
                         prog.update()
         
         
@@ -976,6 +990,24 @@ class RigTool(Qt.QtWidgets.QMainWindow):
     
     def removeCardIk(self):
         fossil_card.removeCardIk( selected()[0] )
+
+
+def accessoryFixup(newJoints, card):
+    ''' Place the topmost joints in a separate group so they aren't exported.
+    '''
+    
+    newJoints = set(newJoints)
+    
+    if card.rigData.get('accessory'):
+        
+        # Freeform and mirrored joints have several the need parent fixup
+        for jnt in newJoints:
+            parent = jnt.getParent()
+            if parent not in newJoints:
+                jnt.setParent( node.accessoryGroup() )
+                
+                jnt.addAttr('fossilAccessoryInfo', dt='string')
+                jnt.fossilAccessoryInfo.set( json.dumps( {'parent': parent.longName()} ) )
 
 
 def nameRulesWindow():

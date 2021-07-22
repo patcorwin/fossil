@@ -6,16 +6,29 @@ from .. import space
 from pymel.core import Callback, MeshVertex, scriptJob, select, selected, warning, promptDialog
 
 
+previousName = ''
+
 def getSpaceName(prevName=''):
-    # &&& This needs to prompt for a name
+    global previousName
+    
     name = ''
     msg = 'Enter a name'
     while not name:
-        res = promptDialog(m=msg, t='Space Name', tx=prevName, b=['Enter', 'Cancel'])
+        choices = ['Enter', 'Cancel']
+        if previousName:
+            choices.append('Use Name: ' + previousName)
+            
+        res = promptDialog(m=msg, t='Space Name', tx=prevName, b=choices)
         if res == 'Cancel':
             return None
         
-        name = promptDialog(q=True, text=True)
+        elif res == 'Enter':
+            name = promptDialog(q=True, text=True)
+            previousName = name
+        
+        elif previousName:
+            name = previousName
+        
     
     return name
 
@@ -34,7 +47,12 @@ def addMultiOrientSpace():
     space.add(sel[0], sel[1:], getSpaceName(), space.Mode.MULTI_ORIENT)
 
 
-def addSpace(mode):
+if 'addSpaceCache' not in globals():
+    addSpaceCache = None
+
+
+def addSpace(mode, index):
+    global addSpaceCache
     sel = selected()
     
     controlType = sel[0].fossilCtrlType.get() if sel[0].hasAttr('fossilCtrlType') else None
@@ -82,6 +100,7 @@ def addSpace(mode):
         name = getSpaceName()
         if name is None:
             return
+        addSpaceCache = [index, [sel[1], name, space.Mode.ALT_ROTATE], {}]
         space.add( sel[0], sel[1], name, space.Mode.ALT_ROTATE )
 
     elif mode == '#USER':
@@ -98,6 +117,7 @@ def addSpace(mode):
         name = getSpaceName()
         if name is None:
             return
+        addSpaceCache = [index, [sel[1], name, mode], {'rotateTarget': sel[2]} ]
         space.add(sel[0], sel[1], name, mode, rotateTarget=sel[2])
 
     else:
@@ -106,50 +126,65 @@ def addSpace(mode):
         name = getSpaceName()
         if name is None:
             return
+            
+        addSpaceCache = [index, [ sel[1], name, mode ], {}]
         space.add( sel[0], sel[1], name, mode )
     select(sel)
+    gui.updateRepeatSpace()
+
+
+gui = None
 
 
 class SpaceTab( object ):
     
+    
     def __init__( self, ui ):
         self.ui = ui
+        global gui
+        gui = self
 
         buttonDirections = [
-            ('Rename Space', self.rename, ''),
+            ('Rename Space', (self.rename,), ''),
         
             '---',
         
-            ('Add',                 Callback(addSpace, space.Mode.ROTATE_TRANSLATE),
+            ('Add',                 [addSpace, space.Mode.ROTATE_TRANSLATE],
                     'Create a parent constraint'),
-            ('Add (Trans Only)',    Callback(addSpace, space.Mode.TRANSLATE),
+            ('Add (Trans Only)',    [addSpace, space.Mode.TRANSLATE],
                     'Create a translate contstraint'),
-            ('Add ( No Rot )',      Callback(addSpace, "#NOROT"),
+            ('Add ( No Rot )',      [addSpace, "#NOROT"],
                     'Follow the target as if it a parent constraint but do not inherit rotation'),
-            ('Add (No Trans)',      Callback(addSpace, space.Mode.ROTATE),
+            ('Add (No Trans)',      [addSpace, space.Mode.ROTATE],
                     'Create an orient constraint'),
-            ('Split Targets',       Callback(addSpace, space.Mode.ALT_ROTATE),
+            ('Split Targets',       [addSpace, space.Mode.ALT_ROTATE],
                     'Follow the position of the first target, but the rotation of the second'),
-            ('Multi/Vert targets',  Callback(addMultiSpace),
+            ('Multi/Vert targets',  (addMultiSpace,),
                     ''),
-            ('Multi Orient',        Callback(addMultiOrientSpace),
+            ('Multi Orient',        (addMultiOrientSpace,),
                     ''),
             
             '---',
             
-            ('Add Parent',          Callback(addSpace, '#PARENT'),
+            ('Repeat',              (self.repeatSpace,), ''),
+            
+            '---',
+            
+            ('Add Parent',          [addSpace, '#PARENT'],
                     'Convenience to make a space following the actual hierarchical parent'),
-            ('Add Main',            Callback(addSpace, '#WORLD'),
+            ('Add Main',            [addSpace, '#WORLD'],
                     'Convenience to follow the main controller'),
-            ('Add World',           Callback(addSpace, '#TRUEWORLD'),
+            ('Add World',           [addSpace, '#TRUEWORLD'],
                     'Convenience to stay in world space'),
-            ('Add User Driven',     Callback(addSpace, '#USER'),
+            ('Add User Driven',     [addSpace, '#USER'],
                     'Generate a special node you can constrain and manipulate any way you want'),
             
             '---',
             
-            ('Remove', Callback(self.remove), ''),
+            ('Remove', (self.remove,), ''),
         ]
+        
+        self.buttonDirections = buttonDirections
         
         ROW_SPN = 1
         BTN_COL = 0
@@ -160,7 +195,7 @@ class SpaceTab( object ):
         
         DIV_SPN = 4
         
-        for row, (label, func, usage) in enumerate(buttonDirections):
+        for row, (label, funcArgs, usage) in enumerate(buttonDirections):
             if label == '-':
                 divider = Qt.QtWidgets.QLabel(self.ui.space_tab)
                 divider.setText('')
@@ -169,7 +204,9 @@ class SpaceTab( object ):
             
             button = Qt.QtWidgets.QPushButton(self.ui.space_tab)
             button.setText(label)
-            button.clicked.connect( func )
+            if isinstance(funcArgs, list):
+                funcArgs.append(row)
+            button.clicked.connect( Callback(*funcArgs) )
             #button.setObjectName("addSpaceButton")
             self.ui.spaceQuickButtons.addWidget(button, row, BTN_COL, ROW_SPN, BTN_SPN)
             
@@ -182,6 +219,10 @@ class SpaceTab( object ):
             #usageGuide.setText(QtCompat.translate("MainWindow", "TextLabel", None, -1))
 
             #self.buttons.append(newButton)
+            
+            if label == 'Repeat':
+                self.repeatButton = button
+            
         
         self.ui.spaceUp.clicked.connect( self.moveUp )
         self.ui.spaceDown.clicked.connect( self.moveDown )
@@ -190,12 +231,42 @@ class SpaceTab( object ):
         self.update()
         
         self.jobId = scriptJob( e=('SelectionChanged', Callback(self.update)))
+        
+        self.updateRepeatSpace()
+    
+    
+    def repeatSpace(self, newName=False):
+        global addSpaceCache
+        
+        args = addSpaceCache[1]
+        kwargs = addSpaceCache[2]
+        
+        if addSpaceCache:
+            
+            if newName:
+                name = getSpaceName()
+                if name is None:
+                    return
+                args[1] = name
+                
+            space.add(selected()[0], *args, **kwargs )
+    
+    
+    def updateRepeatSpace(self):
+        global addSpaceCache
+        if addSpaceCache:
+            self.repeatButton.setText('Repeat ' + self.buttonDirections[addSpaceCache[0]][0] )
+            self.repeatButton.setEnabled(True)
+        else:
+            self.repeatButton.setText('Repeat')
+            self.repeatButton.setEnabled(False)
     
     def close(self):
         try:
             scriptJob(kill=self.jobId)
         except Exception:
             pass
+    
             
     def remove(self):
         #spaces = self.targets.getSelectItem()

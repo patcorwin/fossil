@@ -11,6 +11,8 @@ from ... import core
 from . import cardRigging
 from . import util
 
+import pdil
+
 
 class ComboBox(QtWidgets.QComboBox):
     '''
@@ -83,7 +85,9 @@ class CardRow(QtWidgets.QTreeWidgetItem):
                 del rigData['rigCmd']
             else:
                 rigData['rigCmd'] = self.options[index]
-
+            
+        pdil.pubsub.publish('fossil rig type changed')
+        
     
     def mirrorChanged(self, index):
         #print( self.mirrorOptions[index], self.card )
@@ -387,25 +391,7 @@ class CardLister(QtWidgets.QTreeWidget):
             for card, item in self.cardItems.items():
                 if card in selectedCards and card not in selectedInUI:
                     self.setItemSelected( item, True )
-                    
-            """ Old soft highlight code that I might not be able to use with the QTreeWidget
-            # Soft highlight the card if a control or temp joint it made is selected
-            relatedCards = []
-            for s in selected():
-                if isinstance(s, nodeApi.BPJoint):
-                    relatedCards.append(s.card)
-                else:
-                    try:
-                        relatedCards.append( controller.getMainController(s).card )
-                    except:
-                        pass
-            
-            for i, card in enumerate(self.cards):
-                if card in sel:
-                    self.buttons[i].setBackgroundColor( self.highlightColor )
-                elif card in relatedCards:
-                    self.buttons[i].setBackgroundColor( self.softHighlightColor )
-            """
+
             
     def cardListerItemClicked(self, item, col):
         if self.uiActive:
@@ -435,7 +421,8 @@ class CardLister(QtWidgets.QTreeWidget):
     
     def newDataEntered(self, item, column):
         if self.uiActive:
-            print('new data', column, item)
+            #print('new data', column, item)
+            pass
         else:
             return
         

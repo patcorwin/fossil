@@ -1,5 +1,5 @@
 
-from pymel.core import curve, joint, parentConstraint, pointConstraint, PyNode, objExists
+from pymel.core import curve, group, hide, joint, ls, objExists, parentConstraint, pointConstraint, PyNode
 from ... import core
 
 from .core import config
@@ -48,7 +48,7 @@ def getTrueRoot(make=True):
     
     
 def findRoot(nodes=None, make=None):
-    '''
+    ''' &&& IS THIS USED?
     Returns the root bone, trying to account for case and namespaces or None if
     not found.  `make` should be either 'root' or 'weaponRoot', specifying which
     to make (always top level) if a root is not found.
@@ -117,3 +117,18 @@ def rootMotion(create=True, main=None):
         return rootMotion
     
     return None
+    
+    
+def accessoryGroup():
+    main = mainGroup()
+    
+    for child in main.listRelatives():
+        if child.name() == 'accessory':
+            grp = child
+            break
+    else:
+        grp = group(n='accessory', em=True)
+        grp.setParent(main)
+        hide(grp)
+        
+    return grp

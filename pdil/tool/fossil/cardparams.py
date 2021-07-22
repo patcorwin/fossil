@@ -246,9 +246,9 @@ class CardParams(QtWidgets.QTableWidget):
         self.cellChanged.connect(self.dataChange)
         
 
-def update(self, card):
+def update(self, card, force=False):
     
-    if self.ui.cardParams.currentCard == card:
+    if self.ui.cardParams.currentCard == card and not force:
         return
     else:
         self.ui.cardParams.currentCard = card
@@ -282,6 +282,7 @@ def update(self, card):
         with self.ui.cardParams.disableChangeCallback():
             if metaControl.ik or metaControl.fk:
                 self.ui.cardParams.addParams(card)
+                
             else:
                 self.ui.cardParams.clearContents()
     else:

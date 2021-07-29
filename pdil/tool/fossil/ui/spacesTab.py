@@ -249,7 +249,9 @@ class SpaceTab( object ):
                     return
                 args[1] = name
                 
-            space.add(selected()[0], *args, **kwargs )
+            sel = selected()
+            space.add(sel[0], *args, **kwargs )
+            select(sel)
     
     
     def updateRepeatSpace(self):

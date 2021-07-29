@@ -753,7 +753,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
                 for _node, side, type in selectedCard._outputs():
                     shapeInfo = core.factory._getStringAttr( selectedCard, 'outputShape' + side + type)
                     if shapeInfo:
-                        allInfo += core.text.asciiDecompress(shapeInfo) + '\n\n'
+                        allInfo += core.text.asciiDecompress(shapeInfo).decode('utf-8') + '\n\n'
                 
                 self.ui.shapesField.setText( allInfo )
             else:
@@ -1142,3 +1142,28 @@ def fullRebuild(weights=None):
             for obj, data in weights.items():
                 obj = PyNode(obj)
                 core.weights.apply(obj, data['weight'])
+                
+
+def fitControlsToMesh(cards, meshes):
+    ''' Scale all the controls to be slightly larger than the nearest mesh portion.
+    '''
+    
+    cmds_xform = cmds.xform # Make the fastest version possible
+    
+    allPositions = []
+    for mesh in meshes:
+        # String queries are super fast, about 7x faster than PyMel
+        vertCmd = str(mesh) + '.vtx[{}]'
+        allPositions += [cmds_xform( vertCmd.format(i), q=1, t=1, ws=1 ) for i in range(len(mesh.vtx))]
+    
+    for card in cards:
+        for ctrl, side, _type in card.getMainControls():
+            radius = controllerShape.determineRadius(allPositions, pdil.dagObj.getPos(ctrl))
+            currentRadius = controllerShape.getControllerRadius(ctrl)
+            controllerShape.scaleAllCVs(ctrl, radius / currentRadius )
+            
+            for key, subCtrl in ctrl.subControl.items():
+                radius = controllerShape.determineRadius(allPositions, pdil.dagObj.getPos(subCtrl))
+                currentRadius = controllerShape.getControllerRadius(subCtrl)
+                controllerShape.scaleAllCVs(subCtrl, radius / currentRadius)
+                

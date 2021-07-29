@@ -4,6 +4,7 @@ import importlib
 import itertools
 import json
 import logging
+import math
 import numbers
 import os
 import time
@@ -866,3 +867,55 @@ def screenshotControlShapes():
     print('Done')
     
     #pfx thumbnail --img-path ..."ui\shapes\planePair_large.png" --output ..."ui\shapes\planePair.png"
+    
+
+def determineRadius(vertPoints, controlPosition, count=30, increase=0.1):
+    '''
+    Given `vertPositions` and a `controlPostion`, return a radius that will encompass
+    the first `count` vertsPositions.
+    
+    postions = [cmds_xform( f'pCube1.vtx[{i}]', q=1, t=1, ws=1 ) for i in range(len(o.vtx)) ]
+    
+    Args:
+        vertPoints: List of points, ex [ [1,2,3], [3,5,9] ]
+        controlPostion: A 3d postion, ex [1,2,3]
+        count: How many of the closest verts to consider for the radius
+        increase: Percentage to increase the radius by
+    '''
+
+    distsSquared = [
+        (
+            (controlPosition[0] - vertPoint[0]) ** 2
+            + (controlPosition[1] - vertPoint[1]) ** 2
+            + (controlPosition[2] - vertPoint[2]) ** 2
+        )
+        for i, vertPoint in enumerate(vertPoints)
+    ]
+    
+    distsSquared.sort()
+    
+    count = min(count, len(vertPoints))
+    
+    radius = math.sqrt( sum( distsSquared[: count] ) / count )
+    radius += radius * increase
+    
+    return radius
+    
+
+def getControllerRadius(ctrl):
+    '''  TODO: Convert from pynode to strings for speed.
+    
+    Note using the xform(bb=True) gives bizarre wrong numbers, so it must be calced manually.
+    '''
+    
+    ctrlPoint = core.dagObj.getPos(ctrl)
+
+    points = []
+    for shape in core.shape.getShapes(ctrl):
+        points = [core.dagObj.getPos(cv) for cv in shape.cv]
+
+    distsSquared = [(ctrlPoint - p).sqlength() for p in points]
+    distsSquared.sort()
+    radius = distsSquared[-1]
+    
+    return math.sqrt(radius)

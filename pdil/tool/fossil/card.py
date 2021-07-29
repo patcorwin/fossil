@@ -758,7 +758,7 @@ def leg( startJoint, dist ):
 def hindleg(startJoint=None, dist=0.20):
     suffix = 'left' if dist > 0 else 'right'
 
-    leg = makeCard( 4, ['Hip', 'Knee', 'Ankle', 'Toe'], size=meters([.2, 1]), suffix=suffix )
+    leg = makeCard( 4, ['Hip', 'Knee', 'Ankle', 'Ball'], size=meters([.2, 1]), suffix=suffix )
     leg.rigCommand = 'DogHindleg'
     placeJoints( leg, [ (0, 1), (-1, 0.1), (1, -0.5), (0.1, -1) ] )
     
@@ -768,7 +768,8 @@ def hindleg(startJoint=None, dist=0.20):
     
     moveCard.left( leg, meters(dist) )
     
-    leg.start().postCommand = 'mirror;'
+    #leg.start().postCommand = 'mirror;'
+    leg.mirror = ''
     return leg
 
 
@@ -950,7 +951,8 @@ def bipedSetup(spineCount=4, neckCount=1, numFingers=4, legType='Human', thumb=T
     # Legs
     if legType == 'Human':
         leftLeg = leg( hips.start(), 0.20 )
+        foot(leftLeg)
     elif legType == 'Dogleg':
         leftLeg = hindleg( hips.start(), 0.20 )
 
-    foot(leftLeg)
+    

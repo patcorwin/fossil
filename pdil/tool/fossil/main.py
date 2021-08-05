@@ -904,6 +904,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
             self.ui.cardLister.updateNames(card)
             
         select( newJoint )
+        pdil.pubsub.publish('fossil joint added')
     
     def deleteJoint(self):
         sel = util.selectedJoints()
@@ -911,6 +912,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
             return
             
         sel[0].card.deleteJoint(sel[0])
+        select(cl=True)
     
     def duplicateCard(self):
 

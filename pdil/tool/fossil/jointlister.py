@@ -9,8 +9,8 @@ from ...vendor.Qt.QtCore import Qt
 
 from pymel.core import delete, select, selected, PyNode
 
-from ... import add
-from ... import core
+import pdil
+
 from .core import proxyskel
 from . import util
 
@@ -46,6 +46,9 @@ class JointLister(QtWidgets.QTableWidget):
         self.displayedCard = None
         self.installEventFilter(self)
         
+        pdil.pubsub.subscribe('fossil joint added', self.jointListerRefresh)
+        
+        
     class FORCE_UPDATE:
         pass
     
@@ -73,14 +76,14 @@ class JointLister(QtWidgets.QTableWidget):
                             'mirroredSide': mirror,
                             'text': self.item(row, column).text()
                         } }
-                        core.text.clipboard.set( json.dumps(data) )
+                        pdil.text.clipboard.set( json.dumps(data) )
                     
                     elif column == self.JOINT_LISTER_ORIENT:
                         target = self.item(row, column).text()
                         
                         data = {'fossil_orient': { 'target': target if target else None } }
                         
-                        core.text.clipboard.set( json.dumps(data) )
+                        pdil.text.clipboard.set( json.dumps(data) )
                     
                     return True
                     
@@ -90,7 +93,7 @@ class JointLister(QtWidgets.QTableWidget):
                                         
                     if column == self.JOINT_LISTER_CHILDOF:
                         try:
-                            data = json.loads(core.text.clipboard.get())
+                            data = json.loads(pdil.text.clipboard.get())
                             parent = PyNode(data['fossil_parent']['name']) if data['fossil_parent']['name'] else None
                             mirror = data['fossil_parent']['mirroredSide']
                             text = data['fossil_parent']['text']
@@ -102,7 +105,7 @@ class JointLister(QtWidgets.QTableWidget):
                     
                     elif column == self.JOINT_LISTER_ORIENT:
                         try:
-                            data = json.loads(core.text.clipboard.get())
+                            data = json.loads(pdil.text.clipboard.get())
                             newTarget = data['fossil_orient']['target']
                             
                             if newTarget not in (None, '-as card-', '-as proxy-', '-world-'):
@@ -226,17 +229,17 @@ class JointLister(QtWidgets.QTableWidget):
         bpJoint = self.joints[row]
         
         if col == self.JOINT_LISTER_CHILDOF:
-            #t  = core.debug.Timer('ChildOf')
+            #t  = pdil.debug.Timer('ChildOf')
             menu = QtWidgets.QMenu()
             menu.addAction('-Clear-').triggered.connect( partial(self.changeParent, bpJoint, None, False, row, '') )
             
-            for card in sorted(core.findNode.allCards()):
+            for card in sorted(pdil.findNode.allCards()):
                 outputMap = card.getOutputMap(includeHelpers=False)
                 
                 if not outputMap:
                     continue
                 
-                subMenu = menu.addMenu( add.simpleName(card) )
+                subMenu = menu.addMenu( pdil.simpleName(card) )
                 
                 for bpj, names in sorted(outputMap.items()):
                     subMenu.addAction( names[0] ).triggered.connect( partial(self.changeParent, bpJoint, bpj, False, row, names[0]))
@@ -258,21 +261,21 @@ class JointLister(QtWidgets.QTableWidget):
             
             #joints = util.listTempJoints(includeHelpers=True)
             #for j in joints:
-            #    menu.addAction(add.simpleName(j)).triggered.connect( partial(self.setOrientTarget, row, bpJoint, j) )
+            #    menu.addAction(pdil.simpleName(j)).triggered.connect( partial(self.setOrientTarget, row, bpJoint, j) )
             
-            for card in sorted(core.findNode.allCards()):
+            for card in sorted(pdil.findNode.allCards()):
                 outputMap = card.getOutputMap(includeHelpers=True)
                 
                 if not outputMap:
                     continue
                 
-                subMenu = menu.addMenu( add.simpleName(card) )
+                subMenu = menu.addMenu( pdil.simpleName(card) )
                 
                 for bpj, names in sorted(outputMap.items()):
                     if names[0]:
                         subMenu.addAction( names[0] ).triggered.connect( partial(self.setOrientTarget, row, bpJoint, bpj) )
                     else:
-                        subMenu.addAction( add.simpleName(bpj) + ' - Helper' ).triggered.connect( partial(self.setOrientTarget, row, bpJoint, bpj) )
+                        subMenu.addAction( pdil.simpleName(bpj) + ' - Helper' ).triggered.connect( partial(self.setOrientTarget, row, bpJoint, bpj) )
             
             menu.exec_(self.viewport().mapToGlobal(position))
     
@@ -336,7 +339,7 @@ class JointLister(QtWidgets.QTableWidget):
             self.clearCustomOrient(bpJoint)
             
         else:
-            self.item(row, self.JOINT_LISTER_ORIENT).setText(add.simpleName(newTarget))
+            self.item(row, self.JOINT_LISTER_ORIENT).setText(pdil.simpleName(newTarget))
             bpJoint.orientTarget = newTarget
             bpJoint.customOrient = None
         
@@ -351,7 +354,7 @@ class JointLister(QtWidgets.QTableWidget):
     def jointListerAddRow(self, ctr, tempJoint, name, card, parentCard):
         index = next(ctr)
         
-        jointName = add.shortName(tempJoint)
+        jointName = pdil.shortName(tempJoint)
         self.setItem( index, self.JOINT_LISTER_NAME, Cell(jointName) )
 
         cb = Cell(checked=tempJoint.isHelper)
@@ -371,12 +374,12 @@ class JointLister(QtWidgets.QTableWidget):
             elif tempJoint.customOrient == tempJoint:
                 orientText = '-as proxy-'
             else:
-                orientText = 'custom:' + add.shortName(tempJoint.customOrient)
+                orientText = 'custom:' + pdil.shortName(tempJoint.customOrient)
             
         elif isinstance(tempJoint.orientTarget, basestring):
             orientText = tempJoint.orientTarget
         elif tempJoint.orientTarget:
-            orientText = add.shortName(tempJoint.orientTarget)
+            orientText = pdil.shortName(tempJoint.orientTarget)
         self.setItem( index, self.JOINT_LISTER_ORIENT, Cell(orientText))
         
         # --- parent ---
@@ -390,7 +393,7 @@ class JointLister(QtWidgets.QTableWidget):
                 parentName = outputMap[tempJoint.parent][0]
             
             if not parentName:  # This being empty means the parent is a helper
-                parentName = '!helper! ' + add.simpleName(tempJoint.parent)
+                parentName = '!helper! ' + pdil.simpleName(tempJoint.parent)
         
         elif tempJoint.extraNode[0]:
             outputMap = tempJoint.extraNode[0].card.getOutputMap(includeHelpers=False)

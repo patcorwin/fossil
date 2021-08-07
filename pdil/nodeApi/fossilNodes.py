@@ -2456,9 +2456,6 @@ class RigController(nt.Transform):
                 self.src.controlLinks[i].controlName.set(name)
                 subControl.message >> self.src.controlLinks[i].controlLink
 
-    #def cardPath(self):
-    #    return _cardPath(self)
-
 
 class SubController(nt.Transform):
     
@@ -2495,32 +2492,6 @@ class SubController(nt.Transform):
                 node = OpenMaya.MFnDagNode( con.node() ).fullPathName()
 
                 return PyNode(node), getAttr( (node + '.' + plug)[:-11] + 'controlName' )
-    
-    #def cardPath(self):
-    #    return _cardPath(self)
-            
-
-def _cardPath(ctrl):
-    '''
-    Given a control, returns the string of plugs from the card that results in
-    this control, ex: Elbow_L_Ctrl -> Bicep_Card.outputLeft.fk.subControl['1']
-    '''
-    cmd = ''
-    
-    if isinstance(ctrl, SubController):
-        rigCtrl, key = ctrl.ownerInfo()
-        cmd = ".subControl['{0}']".format(key)
-    else:
-        rigCtrl = ctrl
-    
-    cardName = "'%s'" % rigCtrl.card.name()
-    data = rigCtrl.card.rigData
-    if 'id' in data:
-        cardName += ", cardId='%s'" % data['id']
-    
-    cmd = "FIND(%s)" % cardName + '.' + rigCtrl.getMotionType() + cmd
-    
-    return cmd
 
 
 registerNodeType( SubController )

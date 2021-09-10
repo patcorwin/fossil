@@ -140,6 +140,14 @@ def _setStringAttr(obj, attrName, val):
         obj.attr(attrName).set(val)
     
     
+def setJsonAttr(obj, attrName, val):
+    _setStringAttr(obj, attrName, json.dumps(val))
+
+
+def getJsonAttr(obj, attrName, ):
+    return json.loads( _getStringAttr(obj, attrName), object_pairs_hook=collections.OrderedDict)
+
+
 def _getIntAttr(obj, attrName):
     if obj.node().hasAttr(attrName):
         return obj.attr(attrName).get()
@@ -292,8 +300,7 @@ class JsonAccess(object):
         return Json(json.loads(res, object_pairs_hook=collections.OrderedDict), instance, self.attr )
             
     def __set__(self, instance, value):
-        v = json.dumps(value)
-        _setStringAttr(instance, self.attr, v)
+        setJsonAttr(instance, self.attr, value)
 
 
 class IntAccess(object):

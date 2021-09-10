@@ -2360,6 +2360,23 @@ class RigController(nt.Transform):
                 
             return controls.items()
         
+        def keys(self):
+            keys = []
+            for link in self.src.controlLinks:
+                key = link.controlName.get()
+                con = link.controlLink.listConnections()
+                if con:
+                    keys.append(key)
+            return keys
+        
+        def values(self):
+            values = []
+            for link in self.src.controlLinks:
+                con = link.controlLink.listConnections()
+                if con:
+                    values.append(con[0])
+            return values
+        
         def next(self, current):
             '''
             '''

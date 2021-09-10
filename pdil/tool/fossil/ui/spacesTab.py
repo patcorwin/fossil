@@ -195,6 +195,8 @@ class SpaceTab( object ):
         
         DIV_SPN = 4
         
+        self.buttons = []
+
         for row, (label, funcArgs, usage) in enumerate(buttonDirections):
             if label == '-':
                 divider = Qt.QtWidgets.QLabel(self.ui.space_tab)
@@ -218,7 +220,7 @@ class SpaceTab( object ):
             #button.setText(QtCompat.translate("MainWindow", "Add", None, -1))
             #usageGuide.setText(QtCompat.translate("MainWindow", "TextLabel", None, -1))
 
-            #self.buttons.append(newButton)
+            self.buttons.append(button)
             
             if label == 'Repeat':
                 self.repeatButton = button

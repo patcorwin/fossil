@@ -389,12 +389,12 @@ def apply(mesh, weight_data, targetVerts=None):
     missing = [j for j in requiredJoints if not objExists(j)]
 
     if missing:
-        print('Unable to weight, missing the following joints:\n' + '\n'.join(missing))
         alts = _adjustForNamespace(jointNames)
         if alts:
             jointNames = alts
             requiredJoints = [jointNames[index] for index in weight_data['required']]
         else:
+            print('Unable to weight, missing the following joints:\n' + '\n'.join(missing))
             return
     
     skinClusterName = mel.findRelatedSkinCluster(mesh)

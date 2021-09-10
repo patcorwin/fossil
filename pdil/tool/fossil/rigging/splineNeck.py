@@ -300,13 +300,6 @@ class SplineNeck(MetaControl):
                 
         return kwargs
         
-        
-def activateIk(endControl):
-            
-    util.alignToMatcher( endControl )
-    util.alignToMatcher( endControl.subControl['mid'] )
-    util.alignToMatcher( endControl.subControl['start'] )
-    
     
 class activator(object):
     

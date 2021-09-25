@@ -230,15 +230,29 @@ def buildFoot(ballJnt, toePos, ballPos, heelPos, legControl, side, controlSpec={
     
     
 class Foot(MetaControl):
+    '''
+    Adds fancy rolls and pivots. Requires 4 joints:
+        * toe
+        * toe tip (helper)
+        * ball pivot (helper)
+        * heel (helper)
+    '''
+    
     
     ik_ = 'pdil.tool.fossil.rigging.foot.buildFoot'
     
     @classmethod
-    def build(cls, card):
+    def validate(cls, card):
+        if len(card.joints) > 3:
+            return ['You need 4 joints, the toe, a helper representing the toe tip, helpr for ball pivot point, and a helper representing the back of the heel.']
+        return None
+    
+    @classmethod
+    def build(cls, card, buildFk=True):
         '''
         '''
         
-        assert len(card.joints) > 3, 'You need 4 joints, the toe, a helper representing the toe tip, helpr for ball pivot point, and a helper representing the back of the heel.'
+        #assert cls.validate(card) is None
         
         toePivotHelper = card.joints[-3]
         ballPivotHelper = card.joints[-2]
@@ -262,9 +276,9 @@ class Foot(MetaControl):
             suffix = card.findSuffix()
             
             if suffix:
-                ctrls = cls._buildSide(card, card.start().real, card.end().real, toePos, ballPos, heelPos, legControl, False, suffix)
+                ctrls = cls._buildSide(card, card.start().real, card.end().real, toePos, ballPos, heelPos, legControl, False, suffix, buildFk=buildFk)
             else:
-                ctrls = cls._buildSide(card, card.start().real, card.end().real, toePos, ballPos, heelPos, legControl, False)
+                ctrls = cls._buildSide(card, card.start().real, card.end().real, toePos, ballPos, heelPos, legControl, False, buildFk=buildFk)
 
             card.outputCenter.ik = ctrls.ik
             card.outputCenter.fk = ctrls.fk
@@ -272,7 +286,7 @@ class Foot(MetaControl):
         else:
             legControl = legCard.getSide(side).ik
             #suffix = config.controlSideSuffix(side)
-            ctrls = cls._buildSide(card, card.start().real, card.end().real, toePos, ballPos, heelPos, legControl, False, side)
+            ctrls = cls._buildSide(card, card.start().real, card.end().real, toePos, ballPos, heelPos, legControl, False, side, buildFk=buildFk)
             card.getSide(side).ik = ctrls.ik
             card.getSide(side).fk = ctrls.fk
 
@@ -282,7 +296,7 @@ class Foot(MetaControl):
             toePos[0] *= -1
             ballPos[0] *= -1
             heelPos[0] *= -1
-            ctrls = cls._buildSide(card, card.start().realMirror, card.end().realMirror, toePos, ballPos, heelPos, otherLegControl, True, otherSide)
+            ctrls = cls._buildSide(card, card.start().realMirror, card.end().realMirror, toePos, ballPos, heelPos, otherLegControl, True, otherSide, buildFk=buildFk)
             card.getSide(otherSide).ik = ctrls.ik
             card.getSide(otherSide).fk = ctrls.fk
         

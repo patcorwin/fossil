@@ -2,10 +2,11 @@ from __future__ import print_function
 
 import contextlib
 
-from ...vendor.Qt import QtWidgets
+from pymel.core import select
+
+from ...vendor.Qt import QtWidgets, QtCore
 from ...vendor.Qt.QtCore import Qt, Signal
 
-from ...add import simpleName
 from ... import core
 
 from . import cardRigging
@@ -61,7 +62,7 @@ class CardRow(QtWidgets.QTreeWidgetItem):
         
         self.card = card
         rigData = card.rigData
-        name = simpleName(card)
+        name = pdil.simpleName(card)
         #head, repeat, tail = util.parse(card.nameInfo.get())
         names = rigData.get( 'nameInfo', {'head': [], 'repeat': '', 'tail': []} )
 
@@ -199,47 +200,6 @@ def cardJointBuildOrder():
     cards = [temp[0] for temp in cardHierarchy()]
     
     return cards[1:]
-    '''
-    parentCards = []
-    mirrored = {}
-    for card in core.findNode.allCards():
-        if not card.parentCard:
-            
-            # Only pick up cards that are actually top level and not parented to a mirror side
-            for j in card.joints:
-                
-                if j.info.get('options', {}).get('mirroredSide'):
-                    mirrored[card] = j.extraNode[0]
-                    break
-            else:
-                parentCards.append(card)
-                
-    ordered = []
-    
-    def gatherChildren(cards):
-        for card in cards:
-            ordered.append( card)
-            gatherChildren(card.childrenCards)
-    
-    gatherChildren(parentCards)
-    
-    while mirrored:
-    
-        pending = list(mirrored.items())
-        prevLen = len(mirrored)
-        
-        for card, parentJoint in pending:
-            if parentJoint.card in ordered:
-                gatherChildren([card])
-                del mirrored[card]
-        
-        if len(mirrored) == prevLen:
-            for card in mirrored:
-                gatherChildren([card])
-            break
-    
-    return ordered
-    '''
 
 
 def cardHierarchy():
@@ -332,6 +292,44 @@ class CardLister(QtWidgets.QTreeWidget):
         # Use disableUI context manager to prevent callbacks, and use self.uiActive in said callbacks
         self._uiStateStack = []
         self.uiActive = True
+        
+        # Setup the right click menu
+        self.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.cardListerRightClick)
+    
+    
+    def cardListerRightClick(self, position):
+        # item = self.itemAt(position) # Item is under the cursor but it's automatically selected so probably not needed
+        
+        menu = QtWidgets.QMenu()
+        
+        menu.addAction('Select all the controls').triggered.connect( self.selectAllControls )
+        menu.addAction('Select all the joints').triggered.connect( self.selectAllJoints )
+        
+        menu.exec_(self.viewport().mapToGlobal(position))
+    
+    
+    @staticmethod
+    def selectAllControls():
+        allControls = []
+        for card in util.selectedCardsSoft():
+            for ctrl, _, _ in card.getMainControls():
+                allControls.append(ctrl)
+                
+                for key, sub in ctrl.subControl.items():
+                    allControls.append(sub)
+        
+        select(allControls)
+
+
+    @staticmethod
+    def selectAllJoints():
+        allJoints = []
+        for card in util.selectedCardsSoft():
+            allJoints += card.getRealJoints()
+        
+        select(allJoints)
+    
     
     @contextlib.contextmanager
     def disableUI(self):

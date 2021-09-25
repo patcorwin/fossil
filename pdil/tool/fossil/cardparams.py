@@ -139,11 +139,12 @@ class CardParams(QtWidgets.QTableWidget):
             self.setCellWidget(row, 1, dropdown)
             
             try:
-                enumVal = param.enum.values().index( card.rigData.get('ikParams', {}).get(param.kwargName, param.default) )
+                enumVal = list(param.enum.values()).index( card.rigData.get('ikParams', {}).get(param.kwargName, param.default) )
                 dropdown.setCurrentIndex(enumVal)
                 dropdown.currentIndexChanged.connect( partial(self.enumChange, param=param) )
-            except:
-                print( 'oerror with', param.kwargName, param.default, card, row )
+            except Exception as ex:
+                print( '! error with', param.kwargName, param.default, card, row )
+                print(ex)
             
         elif param.type == param.STR:
             val = card.rigData.get('ikParams', {}).get(param.kwargName, param.default)
@@ -161,7 +162,7 @@ class CardParams(QtWidgets.QTableWidget):
     
     def enumChange(self, index, param):
         rigData = self.card.rigData
-        key, val = param.enum.items()[index]
+        key, val = list(param.enum.items())[index]
         rigData.setdefault('ikParams', {})[param.kwargName] = val
         
         self.card.rigData = rigData

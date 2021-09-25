@@ -998,6 +998,9 @@ def accessoryFixup(newJoints, card):
     ''' Place the topmost joints in a separate group so they aren't exported.
     '''
     
+    if not newJoints: # CtrlGroup doesn't make joints so just leave
+        return
+    
     newJoints = set(newJoints)
     
     if card.rigData.get('accessory'):

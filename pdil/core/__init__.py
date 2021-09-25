@@ -16,6 +16,7 @@ __all__ = [
     'debug',
     'factory',
     'findNode',
+    'image',
     'keyModifier',
     'layer',
     'math',
@@ -38,6 +39,7 @@ from . import dagObj  # noqa
 from . import debug  # noqa
 from . import factory  # noqa
 from . import findNode  # noqa
+from . import image  # noqa
 from . import keyModifier  # noqa
 from . import layer  # noqa
 from . import math  # noqa

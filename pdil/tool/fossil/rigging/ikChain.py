@@ -125,7 +125,7 @@ def buildIkChain(start, end, pvLen=None, stretchDefault=1, endOrientType=util.En
     core.dagObj.lockScale(mainIk)
 
 
-    attr, jointLenMultiplier = util.makeStretchyNonSpline(ctrl, mainIk, stretchDefault)
+    attr, jointLenMultiplier, nodes = util.makeStretchyNonSpline(ctrl, mainIk, stretchDefault)
     # &&& Need to do the math for all the
     
     # Make the offset joints and setup all the parenting of twists

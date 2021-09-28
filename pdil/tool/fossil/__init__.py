@@ -3,6 +3,7 @@ from ...nodeApi import fossilNodes  # noqa
 
 # Load the rigging components
 from .rigging import ctrlGroup # noqa
+from .rigging import dogFrontLeg # noqa
 from .rigging import dogHindLeg # noqa
 from .rigging import fkChain # noqa
 from .rigging import foot # noqa

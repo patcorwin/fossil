@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 from collections import OrderedDict
 
-from pymel.core import delete, dt, group, hide, ikHandle, orientConstraint, parentConstraint, poleVectorConstraint, pointConstraint, PyNode, xform
+from pymel.core import delete, dt, group, hide, orientConstraint, parentConstraint, poleVectorConstraint, pointConstraint, PyNode, xform
 
 from ....add import simpleName
 from .... import core
@@ -20,9 +20,15 @@ from . import _util as util
 from .. import rig
 from .. import node
 
+import pdil
+
+
+from . import dogFrontLeg
+
 
 @util.adds('stretch', 'bend', 'length')
 @util.defaultspec( {'shape': 'box',    'size': 10, 'color': 'green 0.22' },
+              bend={'shape': 'disc', 'size': 5,  'color': 'green 0.22' },
                 pv={'shape': 'sphere', 'size': 5,  'color': 'green 0.22' },
             socket={'shape': 'sphere', 'size': 5,  'color': 'green 0.22', 'visGroup': 'socket' } )
 def buildDogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.EndOrient.TRUE_ZERO_FOOT, groupName='', controlSpec={}):
@@ -45,14 +51,13 @@ def buildDogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.End
     
     # Make the control to translate/offset the limb's socket.
     socketOffset = controllerShape.build( name + '_socket', controlSpec['socket'], type=controllerShape.ControlType.TRANSLATE )
-    core.dagObj.lockScale(socketOffset)
-    core.dagObj.lockRot(socketOffset)
+    pdil.dagObj.lock(socketOffset, 'r s')
     core.dagObj.moveTo( socketOffset, hipJoint )
     socketZero = core.dagObj.zero(socketOffset)
     socketZero.setParent( chainGrp )
     
     footCtrl = controllerShape.build( name, controlSpec['main'], type=controllerShape.ControlType.IK)
-    core.dagObj.lockScale(footCtrl)
+    pdil.dagObj.lock(footCtrl, 's')
     footCtrl.addAttr( 'bend', at='double', k=True )
     core.dagObj.moveTo( footCtrl, end )
     
@@ -77,12 +82,16 @@ def buildDogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.End
     # Make the main ik chain which gives overall compression
     masterChain = util.dupChain(hipJoint, end)
     masterChain[0].rename( simpleName(hipJoint, '{0}_OverallCompression') )
-
+    
+    mainIk = util.ikRP('mainIk', masterChain[0], masterChain[-1])
+    PyNode('ikSpringSolver').message >> mainIk.ikSolver
+    '''
     mainIk = ikHandle( sol='ikRPsolver', sj=masterChain[0], ee=masterChain[-1] )[0]
     PyNode('ikSpringSolver').message >> mainIk.ikSolver
     
     mainIk.rename('mainIk')
     hide(mainIk)
+    '''
     
     springFixup = group(em=True, n='SprinkIkFix')
     springFixup.inheritsTransform.set(False)
@@ -100,8 +109,7 @@ def buildDogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.End
     pvPos = out * pvLen + dt.Vector(xform(boundChain[1], q=True, ws=True, t=True))
     
     pvCtrl = controllerShape.build( name + '_pv', controlSpec['pv'], type=controllerShape.ControlType.POLEVECTOR )
-    core.dagObj.lockScale(pvCtrl)
-    core.dagObj.lockRot(pvCtrl)
+    pdil.dagObj.lock(pvCtrl, 'r s')
     xform(pvCtrl, ws=True, t=pvPos)
     poleVectorConstraint( pvCtrl, mainIk )
     
@@ -111,25 +119,42 @@ def buildDogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.End
         mainIk.twist.set(180)
     
     # Make sub IKs so the chain can be offset
-    offsetChain = util.dupChain(hipJoint, end)
+    offsetChain = util.dupChain(hipJoint, end, '{0}_offset')
     hide(offsetChain[0])
-    offsetChain[0].rename( 'OffsetChain' )
+    #offsetChain[0].rename( 'OffsetChain' )
     offsetChain[0].setParent(container)
     controllerShape.connectingLine(pvCtrl, offsetChain[1] )
     constraints = util.constrainAtoB( util.getChain(hipJoint, end), offsetChain, mo=False )
     
     pointConstraint( masterChain[0], offsetChain[0] )
-    ankleIk = ikHandle( sol='ikRPsolver', sj=offsetChain[0], ee=offsetChain[-2])[0]
-    offsetIk = ikHandle( sol='ikRPsolver', sj=offsetChain[-2], ee=offsetChain[-1])[0]
-    offsetIk.rename('metatarsusIk')
     
-    offsetControl = group(em=True, n='OffsetBend')
-    offsetContainer = group(offsetControl, n='OffsetSpace')
-    offsetContainer.setParent(footCtrl)
+    ankleIk = util.ikRP( 'hipToAnkle', offsetChain[0], offsetChain[-2] )
+    offsetIk = util.ikRP( 'metatarsusIk', offsetChain[-2], offsetChain[-1] )
+    
+    #ankleIk = ikHandle( sol='ikRPsolver', sj=offsetChain[0], ee=offsetChain[-2])[0]
+    #offsetIk = ikHandle( sol='ikRPsolver', sj=offsetChain[-2], ee=offsetChain[-1])[0]
+    #offsetIk.rename('metatarsusIk')
+
+    bend = controllerShape.build( name + '_bend', controlSpec['bend'], type=controllerShape.ControlType.ROTATE )
+    core.dagObj.matchTo(bend, masterChain[-1] )
+    
+    if end.tx.get() < 0:
+        lib.anim.orientJoint(bend, boundChain[-2], upTarget=boundChain[-3], aim='-y', up='-x')
+    else:
+        lib.anim.orientJoint(bend, boundChain[-2], upTarget=boundChain[-3], aim='y', up='x')
+    
+    bendZero = core.dagObj.zero(bend)
+    bendZero.setParent(footCtrl)
+    pdil.dagObj.lock(bend, 't s')
+    orientConstraint( masterChain[-1], bendZero, mo=True)
+
+##    offsetControl = group(em=True, n='OffsetBend')
+##    offsetContainer = group(offsetControl, n='OffsetSpace')
+##    offsetContainer.setParent(footCtrl)
         
     # Setup the offsetContainer so it is properly aligned to bend on z
-    offsetContainer.setParent( masterChain[-1] )
-    offsetContainer.t.set(0, 0, 0)
+##    offsetContainer.setParent( masterChain[-1] )
+##    offsetContainer.t.set(0, 0, 0)
     #temp = aimConstraint( pvCtrl, offsetContainer, aim=[1, 0, 0], wut='object', wuo=hipJoint, u=[0, 1, 0])
     #delete( temp )
     
@@ -140,15 +165,15 @@ def buildDogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.End
     according to how much things are scaled
     
     '''
-    lib.anim.orientJoint(offsetContainer, boundChain[-2], upTarget=boundChain[-3], aim='y', up='x')
+##    lib.anim.orientJoint(offsetContainer, boundChain[-2], upTarget=boundChain[-3], aim='y', up='x')
     #mimic old way lib.anim.orientJoint(offsetContainer, pvCtrl, upTarget=hipJoint, aim='x', up='y')
     #lib.anim.orientJoint(offsetContainer, pvCtrl, upTarget=hipJoint, aim='x', up='y')
     
     
-    offsetControl.t.set(0, 0, 0)
-    offsetControl.t.lock()
-    offsetControl.r.set(0, 0, 0)
-    footCtrl.bend >> offsetControl.rz
+##    offsetControl.t.set(0, 0, 0)
+##    offsetControl.t.lock()
+##    offsetControl.r.set(0, 0, 0)
+##    footCtrl.bend >> offsetControl.rz
     
     '''
     This is really dumb.
@@ -178,14 +203,16 @@ def buildDogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.End
 
 
     
-    ankleIk.setParent( offsetControl )
+    ankleIk.setParent( bend )
     
     # Adjust the offset ikHandle according to how long the final bone is.
 
-    if masterChain[-1].tx.get() > 0:
-        masterChain[-1].tx >> ankleIk.ty
-    else:
-        core.math.multiply(masterChain[-1].tx, -1.0) >> ankleIk.ty
+
+    masterChain[-1].tx >> ankleIk.ty
+#    if masterChain[-1].tx.get() > 0:
+#        masterChain[-1].tx >> ankleIk.ty
+#    else:
+#        core.math.multiply(masterChain[-1].tx, -1.0) >> ankleIk.ty
     
     ankleIk.tx.lock()
     ankleIk.tz.lock()
@@ -201,7 +228,7 @@ def buildDogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.End
     
     core.dagObj.zero(footCtrl).setParent( container )
     
-    hide(masterChain[0], ankleIk, offsetIk)
+    hide(masterChain[0] )
     poleVectorConstraint( pvCtrl, ankleIk )
     poleVectorConstraint( pvCtrl, offsetIk )
     
@@ -223,6 +250,7 @@ def buildDogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.End
     footCtrl.container = container
     footCtrl.subControl['socket'] = socketOffset
     footCtrl.subControl['pv'] = pvCtrl
+    footCtrl.subControl['bend'] = bend
     
     # Add default spaces
     space.addMain( pvCtrl )
@@ -248,143 +276,16 @@ class DogHindleg(MetaControl):
         ('pvLen', ParamInfo('PV Length', 'How far the pole vector should be from the chain', ParamInfo.FLOAT, default=0) ),
         ('endOrientType', ParamInfo('Control Orient', 'How to orient the last control', ParamInfo.ENUM, default=util.EndOrient.TRUE_ZERO_FOOT, enum=util.EndOrient.asChoices())),
     ] )
-    
-    
-def activateIk(ctrl):
+                    
+                    
+class activator(dogFrontLeg.activator):
 
-    # Get the last ik chunk but expand it to include the rest of the limb joints
-    for ik in ctrl.listRelatives(type='ikHandle'):
-        if not ik.name().count( 'mainIk' ):
-            break
-    else:
-        raise Exception('Unable to determin IK handle on {0} to match'.format(ctrl))
+    # Getting the IK handle is the only difference, everything else is the same
 
-    chain = util.getChainFromIk(ik)
-    chain.insert( 0, chain[0].getParent() )
-    chain.insert( 0, chain[0].getParent() )
-    bound = util.getConstraineeChain(chain)
-    
-    # Move the main control to the end point
-    #xform(ctrl, ws=True, t=xform(bound[-1], q=True, ws=True, t=True) )
-    util.alignToMatcher(ctrl)
-
-    # Place the pole vector away
-    out = rig.calcOutVector(bound[0], bound[1], bound[-2])
-    length = abs(sum( [b.tx.get() for b in bound[1:]] ))
-    out *= length
-
-    pvPos = xform( bound[1], q=True, ws=True, t=True ) + out
-    xform( ctrl.subControl['pv'], ws=True, t=pvPos )
-
-    # Figure out the bend, (via trial and error at the moment)
-    def setBend():
-        angle, axis = util.angleBetween( bound[-2], bound[-1], chain[-2] )
-        current = ctrl.bend.get()
-
-        ''' This is an attempt to look at the axis to determine what direction to bend
-        if abs(axis[0]) > abs(axis[1]) and abs(axis[0]) > abs(axis[2]):
-            signAxis = axis[0]
-        elif abs(axis[1]) > abs(axis[0]) and abs(axis[1]) > abs(axis[2]):
-            signAxis = axis[1]
-        elif abs(axis[2]) > abs(axis[0]) and abs(axis[2]) > abs(axis[1]):
-            signAxis = axis[2]
-        '''
-
-        d = core.dagObj.distanceBetween(bound[-2], chain[-2])
-        ctrl.bend.set( current + angle )
-        if core.dagObj.distanceBetween(bound[-2], chain[-2]) > d:
-            ctrl.bend.set( current - angle )
-
-    setBend()
-
-    # Try to correct for errors a few times because the initial bend might
-    # prevent the foot from being placed all the way at the end.
-    # Can't try forever in case the FK is off plane.
-    '''
-    The *right* way to do this.  Get the angle between
-
-    cross the 2 vectors for the out vector
-    cross the out vector with the original vector for the "right angle" vector
-    Now dot that with the 2nd vector (and possibly get angle?) if it's less than 90 rotate one direction
-
-    '''
-    if core.dagObj.distanceBetween(bound[-2], chain[-2]) > 0.1:
-        setBend()
-        if core.dagObj.distanceBetween(bound[-2], chain[-2]) > 0.1:
-            setBend()
-            if core.dagObj.distanceBetween(bound[-2], chain[-2]) > 0.1:
-                setBend()
-                
-class activator(object):
     @staticmethod
-    def prep(ctrl):
-        # Get the last ik chunk but expand it to include the rest of the limb joints
+    def getIkHandle(ctrl):
         for ik in ctrl.listRelatives(type='ikHandle'):
             if not ik.name().count( 'mainIk' ):
-                break
+                return ik
         else:
             raise Exception('Unable to determine IK handle on {0} to match'.format(ctrl))
-        
-        chain = util.getChainFromIk(ik)
-        chain.insert( 0, chain[0].getParent() )
-        chain.insert( 0, chain[0].getParent() )
-        bound = util.getConstraineeChain(chain)
-                
-        return {
-            'matcher': util.getMatcher(ctrl),
-            'hip': bound[0],
-            'knee': bound[1],
-            'ankle': bound[2],
-            'ball': bound[3],
-            'chain_2': chain[-2],
-        }
-        
-        
-    @staticmethod
-    def harvest(data):
-        return {
-            'matcher': util.worldInfo( data['matcher']),
-            'hip': util.worldInfo( data['hip']),
-            'knee': util.worldInfo( data['knee']),
-            'ankle': util.worldInfo( data['ankle']),
-            'ball': util.worldInfo( data['ball']),
-            'length': abs(sum( [b.tx.get() for b in (data['knee'], data['ankle'], data['ball'])] )),
-        }
-        
-    @staticmethod
-    def apply(data, values, ctrl):
-        out = rig.calcOutVector(dt.Vector(values['hip'][0]), dt.Vector(values['knee'][0]), dt.Vector(values['ball'][0]))
-        out *= values['length']
-
-        pvPos = values['knee'][0] + out
-        
-        util.applyWorldInfo(ctrl, values['matcher'])
-
-        xform( ctrl.subControl['pv'], ws=True, t=pvPos )
-        
-        # Figure out the bend, (via trial and error at the moment)
-        def setBend():
-            angle, axis = util.angleBetween( data['ankle'], data['ball'], data['chain_2'] )
-            current = ctrl.bend.get()
-
-            ''' This is an attempt to look at the axis to determine what direction to bend
-            if abs(axis[0]) > abs(axis[1]) and abs(axis[0]) > abs(axis[2]):
-                signAxis = axis[0]
-            elif abs(axis[1]) > abs(axis[0]) and abs(axis[1]) > abs(axis[2]):
-                signAxis = axis[1]
-            elif abs(axis[2]) > abs(axis[0]) and abs(axis[2]) > abs(axis[1]):
-                signAxis = axis[2]
-            '''
-
-            d = core.dagObj.distanceBetween(data['ankle'], data['chain_2'])
-            ctrl.bend.set( current + angle )
-            if core.dagObj.distanceBetween(data['ankle'], data['chain_2']) > d:
-                ctrl.bend.set( current - angle )
-        
-        setBend()
-        if core.dagObj.distanceBetween(data['ankle'], data['chain_2']) > 0.1:
-            setBend()
-            if core.dagObj.distanceBetween(data['ankle'], data['chain_2']) > 0.1:
-                setBend()
-                if core.dagObj.distanceBetween(data['ankle'], data['chain_2']) > 0.1:
-                    setBend()

@@ -2,7 +2,7 @@ from __future__ import print_function, absolute_import
 
 from collections import OrderedDict
 
-from pymel.core import cutKey, getAttr, xform, currentTime, setKeyframe, orientConstraint
+from pymel.core import cutKey, getAttr, xform, currentTime, setAttr, setKeyframe, orientConstraint
 
 from ... import core
 from ... import lib
@@ -18,6 +18,7 @@ from .rigging import _util as util
 
 
 commands = {
+    'DogFrontLeg': rigging.dogFrontLeg,
     'DogHindleg': rigging.dogHindLeg,
     'SplineChest': rigging.splineChest,
     #'SplineChestV2': rigging.splineChest,
@@ -65,7 +66,7 @@ def activateFk( fkControl ):
         switchPlug[0].node().listConnections(p=1, s=True, d=0)[0].set(0)
 
 
-def multiSwitch(objs, start, end):
+def multiSwitch(objs, start, end, key=True):
     ''' Takes a list of currently active controls and changes to the other kinematic state.
     '''
     
@@ -90,10 +91,10 @@ def multiSwitch(objs, start, end):
         if end is None:
             end = times[-1]
         
-    animStateSwitch(targetLeads, start, end, spaces={})
+    animStateSwitch(targetLeads, start, end, spaces={}, key=key)
 
 
-def activateIk(self, ikController, start=None, end=None, key=True):
+def activateIk(ikController, start=None, end=None, key=True):
 
     leadControl = rig.getMainController(ikController)
     
@@ -124,7 +125,7 @@ def _clearKeys(objs, toClear):
         cutKey(objs, t=(start, end), iub=False, cl=True, shape=False)
 
 
-def animStateSwitch(leads, start, end, spaces={}, dense=False):
+def animStateSwitch(leads, start, end, spaces={}, dense=False, key=True):
     ''' Kinematic and space switch over time as efficiently as possible.
     
     Args:
@@ -154,7 +155,8 @@ def animStateSwitch(leads, start, end, spaces={}, dense=False):
     for lead in leads:
         
         other = lead.getOtherMotionType()
-        others = [obj for name, obj in other.subControl.items()] + [other]
+        if other:
+            others = [obj for name, obj in other.subControl.items()] + [other]
                 
         switcher = controllerShape.getSwitcherPlug(lead)
         target = 0 if lead.getMotionType().endswith('fk') else 1
@@ -163,12 +165,15 @@ def animStateSwitch(leads, start, end, spaces={}, dense=False):
         
         targets[switcher] = target
         
-        times = lib.anim.findKeyTimes(others, start, end) if not dense else range(int(start), int(end + 1), 1)
+        times = lib.anim.findKeyTimes(others, start, end) if (not dense and other) else range(int(start), int(end + 1), 1)
+        
         # If there are no `times`, we might be switching outside of currently keyed range so force keys to start and end.
         if not times:
             times = [start] if start == end else [start, end]
-            
-        times = [t for t in times if getAttr(switcher, t=t) != target ]
+        
+        # Unless switching a single frame, ignore the frames that are already at the target mode
+        if len(times) != 1:
+            times = [t for t in times if getAttr(switcher, t=t) != target ]
         
         controls[lead] = [obj for name, obj in lead.subControl.items()] + [lead]
         
@@ -215,7 +220,7 @@ def animStateSwitch(leads, start, end, spaces={}, dense=False):
                 
                 controlsWithSpaces.pop(ctrl)
         
-    print(controlsWithSpaces, 'controlsWithSpaces')
+    #print(controlsWithSpaces, 'controlsWithSpaces')
     # controlsWithSpaces are not in any kinematic switch
     for ctrl in controlsWithSpaces:
         val = space.getNames(ctrl).index( spaces[ctrl] )
@@ -226,7 +231,6 @@ def animStateSwitch(leads, start, end, spaces={}, dense=False):
         #    pairs.append( [end, getAttr(ctrl.space, t=end) ] )
         times = lib.anim.findKeyTimes(ctrl.space, start, end, customAttrs=['space'])
         times = [t for t in times if getAttr(ctrl.space, t=t) != val ]
-        print('imtes', times)
         if times:
             allTimes.update(times)
             spaceOnlyData[ctrl] = {}
@@ -238,8 +242,8 @@ def animStateSwitch(leads, start, end, spaces={}, dense=False):
     
     harvestValues = { lead: {} for lead in prep }
     allTimes = sorted(allTimes)
-    
-    print('AllTimes', allTimes[0], allTimes[-1], prep.keys())
+    #print('allTime', len(allTimes))
+    #print('AllTimes', allTimes[0], allTimes[-1], prep.keys())
     # Harvest all the data first, so nothing is inadvertently altered
     for t in allTimes:
         currentTime(t)
@@ -258,17 +262,22 @@ def animStateSwitch(leads, start, end, spaces={}, dense=False):
         for lead, times in harvestTimes.items():
             if t in times:
                 applyFunc[lead]( prep[lead], harvestValues[lead][t], lead )
-                setKeyframe( controls[lead], shape=False )
+                if key:
+                    setKeyframe( controls[lead], shape=False )
         
         
         for ctrl, times in spaceOnlyTimes.items():
             if t in times:
                 ctrl.space.set( spaceOnlyTargetValues[ctrl] )
                 util.applyWorldInfo(ctrl, spaceOnlyData[ctrl][t])
-                setKeyframe( ctrl, shape=False )
+                if key:
+                    setKeyframe( ctrl, shape=False )
                 
 
     for switcher, target in targets.items():
         cutKey(switcher, t=(start, end))
-        setKeyframe(switcher, t=start, v=target)
-        setKeyframe(switcher, t=end, v=target)
+        if key:
+            setKeyframe(switcher, t=start, v=target)
+            setKeyframe(switcher, t=end, v=target)
+        else:
+            setAttr(switcher, target)

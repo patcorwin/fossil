@@ -127,6 +127,25 @@ def lockAll(obj, hide=True):
     return obj
 
 
+def lock(obj, attrs='t r s'):
+    ''' Streamlined way of locking attrs.  Ex, `lock(obj)` locks all, `lock(obj, 'tx')` or `lock(obj, 'ty r s')`
+    '''
+
+    validAttrs = ['t', 'r', 's'] + [t + a for t in 'trs' for a in 'xyz']
+    
+    for attr in attrs.split():
+        assert attr in validAttrs, 'Only transforms can be locked, not "%s"' % attr
+        if attr in 'trs': # setKeyable doesn't work on compound attr
+            for axis in 'xyz':
+                obj.attr(attr + axis).lock()
+                obj.attr(attr + axis).setKeyable(False)
+                obj.attr(attr + axis).showInChannelBox(False)
+        else:
+            obj.attr(attr).lock()
+            obj.attr(attr).setKeyable(False)
+            obj.attr(attr).showInChannelBox(False)
+
+
 @alt.name('Unlock Transform')
 def unlock(objs=None):
     if not objs:

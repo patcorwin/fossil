@@ -7,7 +7,7 @@ import math
 
 import maya.OpenMaya
 
-from pymel.core import aimConstraint, addAttr, arclen, cluster, createNode, delete, duplicate, dt, group, hide, \
+from pymel.core import aimConstraint, addAttr, arclen, cluster, createNode, delete, duplicate, dt, group, hide, ikHandle, \
     orientConstraint, parentConstraint, pointConstraint, PyNode, scaleConstraint, selected, upAxis, warning, xform, MayaAttributeError
 
 from ....add import simpleName
@@ -231,17 +231,19 @@ def dupChain(start, end, nameFormat='{0}_dup'):
 
 
 def chainMeasure(joints):
+    ''' Returns plug for percentage distance of total joint length from current rest pos.
+    '''
     n = createNode('plusMinusAverage')
     n.operation.set(1)
     
     for i, j in enumerate(joints[1:]):
         j.tx >> n.input1D[i]
     
-    cl = chainLength(joints)
+    totalLength = chainLength(joints)
     if n.output1D.get() < 0:
-        cl *= -1
+        totalLength *= -1
     
-    return core.math.divide( n.output1D, cl)
+    return core.math.divide( n.output1D, totalLength)
 
 
 def findChild(chain, target):
@@ -490,6 +492,8 @@ def makeStretchySpline(controller, ik, stretchDefault=1):
 
 
 def _makeStretchyPrep(controller, ik, stretchDefault=1):
+    ''' Adds `stretch` and `modAmount` attrs to controller
+    '''
     start = ik.startJoint.listConnections()[0]
     end = ik.endEffector.listConnections()[0].tz.listConnections()[0]
     chain = getChain( start, end )
@@ -509,6 +513,11 @@ def _makeStretchyPrep(controller, ik, stretchDefault=1):
 
 
 def makeStretchyNonSpline(controller, ik, stretchDefault=1):
+    ''' Returns (`stretch plug`, `joint length multiplier`, <dict of extra nodes>)
+
+    Extra nodes are the computed lengths driven by the use
+
+    '''
     start, chain, jointAxis, switcher = _makeStretchyPrep( controller, ik, stretchDefault )
 
     dist, grp = core.dagObj.measure(start, ik)
@@ -519,7 +528,7 @@ def makeStretchyNonSpline(controller, ik, stretchDefault=1):
     lengthMax = chainLength(chain)
     # Regular IK only stretches
     # ratio = (abs distance between start and end) / (length of chain)
-    ratio = core.math.divide( length, lengthMax )
+    ratio = core.math.divide( length, lengthMax )  # lengthMax is a stub, replaced later
     # multiplier is either 1 or a number greater than one needed for the chain to reach the end.
     multiplier = core.math.condition( ratio, '>', 1.0, true=ratio, false=1 )
 
@@ -529,9 +538,9 @@ def makeStretchyNonSpline(controller, ik, stretchDefault=1):
     lengthMod is the below formula:
 
     if controller.length >= 0:
-        controller.length/10.0 + 1.0 # 1.0 to 2.0 double the length of the limb
+        controller.length/10.0 + 1.0   # 1.0 to 2.0 double the length of the limb
     else:
-        controller.length/20.0  + 1.0 # .5 to 1.0 halve the length of the limb
+        controller.length/20.0  + 1.0   # .5 to 1.0 halve the length of the limb
     '''
     lengthMod = core.math.add(
         core.math.divide(
@@ -545,6 +554,8 @@ def makeStretchyNonSpline(controller, ik, stretchDefault=1):
     
     multiplier >> switcher.input[1]
     
+    nodes = {'overallLength': lengthMod, 'distToController': length}
+
     for i, j in enumerate(chain[1:], 1):
         saveRestLength(j, jointAxis)
         #util.recordFloat(j, 'restLength', j.attr('t' + jointAxis).get() )
@@ -559,17 +570,43 @@ def makeStretchyNonSpline(controller, ik, stretchDefault=1):
         # As of 2/9/2019 it looks to be fine to make this even if it's not used by the ik to lock the elbow (like in dogleg)
         lockSwitcher = createNode('blendTwoAttr', n='lockSwitcher')
         
+        computedLength = core.math.multiply( normalizedMod, j.restLength)
+
         core.math.multiply(
             jointLenMultiplier,
-            core.math.multiply( normalizedMod, j.restLength)
+            computedLength
         ) >> lockSwitcher.input[0] # >> j.attr('t' + jointAxis)
     
         lockSwitcher.output >> j.attr('t' + jointAxis)
+
+        nodes['computedLength%i' % i] = computedLength
     
-    return controller.attr('stretch'), jointLenMultiplier
+    computedTotalUnscaled = createNode('plusMinusAverage')
+    computedTotalUnscaled.operation.set( 1 )
+    for i in range( len(chain) - 1 ):
+        nodes['computedLength%i' % (i + 1)] >> computedTotalUnscaled.input1D[i]
+
+    computedTotalScaled = core.math.multiply(computedTotalUnscaled.output1D, lengthMod)
+    
+    if computedTotalScaled.get() < 0: # Handle -x side
+        computedTotalScaled = core.math.multiply( computedTotalScaled, -1.0 )
+    
+    # Replaces lengthMax with computed length (segLen# * length)
+    computedTotalScaled >> ratio.node().input2X
+
+    nodes['computedTotalScaled'] = computedTotalScaled
+
+    return controller.attr('stretch'), jointLenMultiplier, nodes
 
 
 # IK / Spline stuff -----------------------
+
+def ikRP(name, start, end):
+    node = ikHandle( sol='ikRPsolver', sj=start, ee=end)[0]
+    node.rename(name)
+    hide(node)
+    return node
+
 
 def advancedTwist(start, end, baseCtrl, endCtrl, ik):
     # Setup advanced twist
@@ -816,7 +853,8 @@ def alignToMatcher(ctrl):
 
 
 def angleBetween( a, mid, c ):
-    # Give 3 points, return the angle and axis between the vectors
+    ''' Give 3 points, return the angle (degrees) and axis between the vectors.
+    '''
     aPos = dt.Vector(xform(a, q=True, ws=True, t=True))
     midPos = dt.Vector(xform(mid, q=True, ws=True, t=True))
     cPos = dt.Vector(xform(c, q=True, ws=True, t=True))

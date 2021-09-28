@@ -447,8 +447,8 @@ def progressWin(title='', max=100, status=''):
     progressWindow(title=title, max=max, status=status)
     yield ProgressHelper
     progressWindow(endProgress=True)
-    
-    
+
+
 NOTIFY_ENABLED = True
 
 
@@ -474,5 +474,8 @@ def disableNotify():
     global NOTIFY_ENABLED
     prev = NOTIFY_ENABLED
     NOTIFY_ENABLED = False
-    yield
-    NOTIFY_ENABLED = prev
+    
+    try:
+        yield
+    finally:
+        NOTIFY_ENABLED = prev

@@ -340,7 +340,7 @@ def generateReposer(cards=None, placeholder=False, progress=None):
         if progress:
             progress.update()
         bpj = card.parentCardJoint
-        print('BPJ - - - - ', bpj, bpj in jointMapping)
+        #print('BPJ - - - - ', bpj, bpj in jointMapping)
         if bpj in jointMapping:
             start = card.start() if card.joints else bpj
             #rCard.setParent( getRJoint(bpj) )
@@ -353,13 +353,13 @@ def generateReposer(cards=None, placeholder=False, progress=None):
             
             
             mirroredSide = card.joints[0].info.get('options', {}).get('mirroredSide')
-            print('rCard.mirror', rCard.mirror, 'info:', mirroredSide)
+            #print('rCard.mirror', rCard.mirror, 'info:', mirroredSide)
             #if rCard.mirror is False and mirroredSide:
             if isMirrored is False and card.mirror is False and mirroredSide:
-                print('opposite mirror')
+                #print('opposite mirror')
                 rCard.setParent( makeMirrored( jointMapping[bpj] ) )
             else:
-                print('regular side stuff')
+                #print('regular side stuff')
                 rCard.setParent( jointMapping[bpj] )
                 
             #cmds.parent(str(rCard), str(jointMapping[bpj]))

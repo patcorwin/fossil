@@ -185,7 +185,6 @@ def getMainController(obj): # &&& TODO rename to `lead` controller, as there is 
     #print('   ', obj.__class__.__module__, obj.__class__.__name__)
     #if isinstance(obj, nodeApi.RigController):
     if obj.__class__.__name__ == 'RigController' and obj.__class__.__module__ == 'pdil.nodeApi.fossilNodes':
-        print('IS RIG')
         return obj
     else:
         objs = obj.message.listConnections(type=nodeApi.RigController)

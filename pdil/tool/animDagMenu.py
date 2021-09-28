@@ -72,15 +72,18 @@ def animationSwitchMenu(objName):
         # Ik/Fk
         #-------
         if plug:
-            if cmds.getAttr(obj + '.fossilCtrlType') in ['translate', 'rotate']:
+            if rig.getMainController(obj).fossilCtrlType.get() in ['translate', 'rotate']:
                 destType = 'Ik'
             else:
                 destType = 'Fk'
-                
+            
+            key = True
+            
             if core.time.rangeIsSelected():
                 s, e = core.time.selectedTime()
             elif animToolSettings.switchMode == 'current':
                 s, e = [currentTime(q=1)] * 2
+                key = False
             elif animToolSettings.switchMode == 'range':
                 s, e = core.time.playbackRange()
             elif animToolSettings.switchMode == 'all':
@@ -98,7 +101,7 @@ def animationSwitchMenu(objName):
             obj_under_cursor_is_selected = sel[0] == obj
             
             if len(sel) <= 1 and (obj_under_cursor_is_selected if sel else True):
-                menuItem(l='Switch to ' + destType, c=core.alt.Callback(kinematicSwitch.multiSwitch, [obj], s, e))
+                menuItem(l='Switch to ' + destType, c=core.alt.Callback(kinematicSwitch.multiSwitch, [obj], s, e, key=key))
                 
             else:
                 sel = set(sel)
@@ -117,9 +120,9 @@ def animationSwitchMenu(objName):
                 currentLeads = [rig.getMainController(o) for o in sel if controllerShape.getSwitcherPlug(o)]
                 
                 if len(currentLeads) == 1:
-                    menuItem(l='Switch to ' + destType, c=core.alt.Callback(kinematicSwitch.multiSwitch, currentLeads, s, e))
+                    menuItem(l='Switch to ' + destType, c=core.alt.Callback(kinematicSwitch.multiSwitch, currentLeads, s, e, key=key))
                 elif len(currentLeads) > 1:
-                    menuItem(l='Switch mutliple', c=core.alt.Callback(kinematicSwitch.multiSwitch, currentLeads, s, e))
+                    menuItem(l='Switch mutliple', c=core.alt.Callback(kinematicSwitch.multiSwitch, currentLeads, s, e, key=key))
             
         #-------
         # Spaces

@@ -1009,7 +1009,7 @@ class Card(nt.Transform):
                 lib.anim.orientJoint(j, target, None, aim=aimAxis, up=upAxis, upVector=upVector)
                 
             elif state == BPJoint.Orient.AS_PARENT:
-                print('Orienting as parent', j)
+                #print('Orienting as parent', j)
                 joint( j, e=True, oj='none' )
             
             elif state == BPJoint.Orient.WORLD:

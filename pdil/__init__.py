@@ -25,7 +25,7 @@ class core:
     class _alt:
         
         def __getattr__(self, member):
-            confirmDialog(m="""Code was restructed and this function was moved,
+            confirmDialog(m="""Code was restructured and this function was moved,
 (but I don't expect it to move again).
 
 Please update shelf icons.

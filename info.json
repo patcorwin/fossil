@@ -3,40 +3,40 @@
     "icon_paths": ["icons"],
     "shelf_items": [
         {
-            "command": "import pdil.tool.fossil.main\npdil.core.alt.call('Rig Tool')()",
+            "command": "import pdil.tool.fossil.main\npdil.alt.call('Rig Tool')()",
             "image": "skeletonTool.png",
             "annotation": "Open fossil rigging tool"
         },
         {
             "image": "zeropose.png",
             "annotation": "Zero all (or the selected) controllers",
-            "command": "import pdil.tool.fossil.userTools;pdil.core.alt.call('Zero Controllers')()"
+            "command": "import pdil.tool.fossil.userTools;pdil.alt.call('Zero Controllers')()"
         },
         {
             "image": "selectAllControls.png",
             "annotation": "Select All Controllers",
-            "command": "import pdil.tool.fossil.userTools;pdil.core.alt.call('Select All Controllers')()"
+            "command": "import pdil.tool.fossil.userTools;pdil.alt.call('Select All Controllers')()"
         },
         {
             "image": "quickHideControls.png",
             "annotation": "Similar to 'Isolated Selected' but just for rig controls",
-            "command": "import pdil.tool.rigControls;pdil.core.alt.call('Quick Hide Controls')()"
+            "command": "import pdil.tool.rigControls;pdil.alt.call('Quick Hide Controls')()"
         },
         {
             "image": "pythonFamily.png",
             "imageOverlayLabel": "SelBnd",
             "annotation": "Select Bindable joints",
-            "command": "import pdil.tool.fossil.userTools;pdil.core.alt.call('Select Bindable Joints')()"
+            "command": "import pdil.tool.fossil.userTools;pdil.alt.call('Select Bindable Joints')()"
         },
         {
             "image": "saveCurve.png",
             "annotation": "Save animation curves",
-            "command": "import pdil.tool.fossil.userTools;pdil.core.alt.call('Save Curves')()"
+            "command": "import pdil.tool.fossil.userTools;pdil.alt.call('Save Curves')()"
         },
         {
             "image": "loadCurve.png",
             "annotation": "Load animation curves",
-            "command": "import pdil.tool.fossil.userTools;pdil.core.alt.call('Load Curves')()"
+            "command": "import pdil.tool.fossil.userTools;pdil.alt.call('Load Curves')()"
         },
         
         
@@ -44,25 +44,25 @@
             "image": "storeSkinWeights.png",
             "imageOverlayLabel": "L",
             "annotation": "Save the weights of the selected object in memory for use in this maya session.",
-            "command": "import pdil.tool.misc;pdil.core.alt.call('Save Weights Locally')()"
+            "command": "import pdil.tool.misc;pdil.alt.call('Save Weights Locally')()"
         },
         {
             "image": "restoreSkinWeights.png",
             "imageOverlayLabel": "L",
             "annotation": "Load weights saved in memory",
-            "command": "import pdil.tool.misc;pdil.core.alt.call('Load Weights Locally')()"
+            "command": "import pdil.tool.misc;pdil.alt.call('Load Weights Locally')()"
         },
         {
             "image": "storeSkinWeights.png",
             "imageOverlayLabel": "CB",
             "annotation": "Save the weights of the selected objects to clipboard text",
-            "command": "import pdil.tool.misc;pdil.core.alt.call('Save Weights To Clipboard')()"
+            "command": "import pdil.tool.misc;pdil.alt.call('Save Weights To Clipboard')()"
         },
         {
             "image": "restoreSkinWeights.png",
             "imageOverlayLabel": "CB",
             "annotation": "Load weights from the clibboard",
-            "command": "import pdil.tool.misc;pdil.core.alt.call('Load Weights From Clipboard')()"
+            "command": "import pdil.tool.misc;pdil.alt.call('Load Weights From Clipboard')()"
         }
     ]
 }

@@ -1,12 +1,14 @@
-
+from __future__ import absolute_import, division, print_function
 from pymel.core import curve, group, hide, joint, ls, objExists, parentConstraint, pointConstraint, PyNode
-from ... import core
 
-from .core import config
+import pdil
+
+from ._core import config
+from ._core import find
 
 
 def mainGroup(create=True, nodes=None):
-    main = core.findNode.mainGroup()
+    main = find.mainGroup()
     
     if main:
         return main
@@ -14,18 +16,23 @@ def mainGroup(create=True, nodes=None):
     if create:
         # Draw outer arrow shape
         main = curve( name='main', d=True, p=[(-40, 0, 20 ), (0, 0, 60 ), (40, 0, 20 ), (40, 0, -40 ), (0, 0, -20 ), (-40, 0, -40 ), (-40, 0, 20 )] )
-        core.dagObj.lockScale(main)
+        pdil.dagObj.lockScale(main)
         main.visibility.setKeyable(False)
         main.visibility.set(cb=True)
     
-        core.findNode.tagAsMain(main)
+        tagAsMain(main)
         
         if True:  # Put it in a default group
-            core.layer.putInLayer(main, 'Controls')
+            pdil.layer.putInLayer(main, 'Controls')
         return main
     
     return None
-    
+
+
+def tagAsMain(obj):
+    ''' Adds markup to identify the given object as the main control group.
+    '''
+    obj.addAttr(config.FOSSIL_MAIN_CONTROL, at='message')
     
     
 def getTrueRoot(make=True):
@@ -68,7 +75,7 @@ def findRoot(nodes=None, make=None):
     # See if there is a top level obj in a namespace named b_root of any casing.
     searchNodes = nodes if nodes else ls( assemblies=True )
     nodes = [obj for obj in searchNodes
-        if any( [simpleName( obj ).lower() == name for name in names] )
+        if any( [pdil.simpleName( obj ).lower() == name for name in names] )
     ]
     if len(nodes) == 1:
         return nodes[0]
@@ -86,7 +93,7 @@ def findRoot(nodes=None, make=None):
     
     
 def rootMotion(create=True, main=None):
-    rootMotion = core.findNode.rootMotion(main)
+    rootMotion = find.rootMotion(main)
     
     if rootMotion:
         return rootMotion
@@ -100,7 +107,7 @@ def rootMotion(create=True, main=None):
         # Draw inner arrow shape
         rootMotion = curve( name='rootMotion', d=True, p=[(-32, 0, -12), (-32, 0, 20), (0, 0, 52), (32, 0, 20), (32, 0, -12), (-32, 0, -12)] )
         rootMotion.setParent( mainGroup() )
-        core.dagObj.lockScale( rootMotion )
+        pdil.dagObj.lockScale( rootMotion )
         #skeletonTool.controller.sharedShape.use(rootMotion)
         
         rootMotion.addAttr( 'fossilCtrlType', dt='string' )
@@ -132,3 +139,18 @@ def accessoryGroup():
         hide(grp)
         
     return grp
+
+
+def leadController(obj):
+    ''' Returns the lead controller (possibly itself) when given a fossil controller.
+    '''
+    if obj.__class__.__name__ == 'RigController' and obj.__class__.__module__ == 'pdil.nodeApi.fossilNodes':
+        return obj
+    else:
+        objs = [ other for other in obj.message.listConnections()
+            if other.__class__.__name__ == 'RigController' and other.__class__.__module__ == 'pdil.nodeApi.fossilNodes']
+            
+        if objs:
+            return objs[0]
+    
+    return None

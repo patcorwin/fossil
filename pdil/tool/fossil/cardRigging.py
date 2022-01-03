@@ -1,5 +1,8 @@
 '''
 This wraps up interfacing rig components onto the card structures.
+
+
+??? Maybe this file becomes "rigComponent" and the class RigComponent?  Way better names.
 '''
 from __future__ import print_function, absolute_import
 
@@ -8,23 +11,17 @@ from functools import partial
 #import inspect
 import re
 import sys
-import traceback
 
 from collections import OrderedDict
 
 from pymel.core import textField, optionMenu, warning, checkBox, intField, floatField, selected
-#from pymel.core import *
 
 import pdil
-from ...add import shortName
-from ... import core
 
-from . import controllerShape
+from ._lib2 import controllerShape
 from . import log
-from . import node
 from . import rig
-from .core import config
-from . import space
+from ._core import config
 from . import util
 
 from pdil.vendor import six
@@ -227,19 +224,19 @@ class ParamInfo(object):
         
         if self.type == self.BOOL:
             field = checkBox(l='', **uiFieldKwargs )  # noqa e741
-            checkBox( field, e=True, cc=core.alt.Callback(self.setParam, field) )
+            checkBox( field, e=True, cc=pdil.alt.Callback(self.setParam, field) )
             
         elif self.type == self.INT:
             field = intField(**uiFieldKwargs)
-            intField( field, e=True, cc=core.alt.Callback(self.setParam, field) )
+            intField( field, e=True, cc=pdil.alt.Callback(self.setParam, field) )
             
         elif self.type == self.FLOAT:
             field = floatField(**uiFieldKwargs)
-            floatField( field, e=True, cc=core.alt.Callback(self.setParam, field) )
+            floatField( field, e=True, cc=pdil.alt.Callback(self.setParam, field) )
         
         elif self.type == self.ENUM:
             field = optionMenu(l='')  # noqa e741
-            optionMenu(field, e=True, cc=core.alt.Callback(self.setParam, field))
+            optionMenu(field, e=True, cc=pdil.alt.Callback(self.setParam, field))
             
             for i, choice in enumerate(self.enum, 1):
                 menuItem(l=choice)  # noqa e741
@@ -249,12 +246,12 @@ class ParamInfo(object):
         elif self.type == self.STR:
             # &&& Possibly super gross, if the field is "name", use the first joint...
             if 'text' not in uiFieldKwargs and self.kwargName == 'name':
-                uiFieldKwargs['text'] = shortName(card.joints[0])
+                uiFieldKwargs['text'] = pdil.shortName(card.joints[0])
                 #default = card.n
                 #getDefaultIkName(card) # &&& MAKE THIS so I can use the same logic when building the card.
             
             field = textField( **uiFieldKwargs )
-            textField( field, e=True, cc=core.alt.Callback(self.setParam, field) )
+            textField( field, e=True, cc=pdil.alt.Callback(self.setParam, field) )
             setattr(field, 'getValue', field.getText)  # Hack to allow ducktyping.
 
         elif self.type == self.NODE_0:
@@ -280,7 +277,7 @@ class ParamInfo(object):
                 setExtraNode,
                 clearExtraNode,
                 l='',  # noqa e741
-                tx=shortName(card.extraNode[0]) if card.extraNode[0] else '',
+                tx=pdil.shortName(card.extraNode[0]) if card.extraNode[0] else '',
                 cw=[(1, 1), (2, 100), (3, 20)])
     
     def setParam(self, field):
@@ -444,7 +441,15 @@ class MetaControl(six.with_metaclass(RegisterdMetaControl)):
             return None
         
         module, func = cls.ik_.rsplit('.', 1)
+        
         return getattr(sys.modules[module], func)
+        '''
+        def wrapperfunc(*args, **kwargs):
+            ctrl, constraints = getattr(sys.modules[module], func)(*args, **kwargs)
+            cls.lockZeroContainer(ctrl)
+            
+        return wrapperfunc
+        '''
             
     @classproperty
     def fk(cls):
@@ -452,7 +457,15 @@ class MetaControl(six.with_metaclass(RegisterdMetaControl)):
             return None
         
         module, func = cls.fk_.rsplit('.', 1)
+        
         return getattr(sys.modules[module], func)
+        '''
+        def wrapperfunc(*args, **kwargs):
+            ctrl, constraints = getattr(sys.modules[module], func)(*args, **kwargs)
+            cls.lockZeroContainer(ctrl)
+            
+        return wrapperfunc
+        '''
     
     def _readKwargs(cls, card, isMirroredSide, sideAlteration=lambda **kwargs: kwargs, kinematicType='ik'):
         ikControlSpec = cls.controlOverrides(card, kinematicType)
@@ -549,11 +562,23 @@ class MetaControl(six.with_metaclass(RegisterdMetaControl)):
         
         switchPlug = None
         if cls.ik and cls.fk and buildFk:
-            switchPlug = controllerShape.ikFkSwitch( name, ikCtrl, ikConstraints, fkCtrl, fkConstraints )
+            switchPlug = controllerShape.addIkFkSwitch( name, ikCtrl, ikConstraints, fkCtrl, fkConstraints )
         
         log.PostRigRotation.check(chain, card, switchPlug)
         
         return OutputControls(fkCtrl, ikCtrl)
+
+    @staticmethod
+    def lockZeroContainer(leadCtrl):
+        
+        for ctrl in [leadCtrl] + leadCtrl.values():
+            zero = pdil.dagObj.zero(ctrl)
+            pdil.dagObj.lockRot( pdil.dagObj.lockTrans(zero) )
+            ctrl.addAttr('fossilData', at='string')
+            pdil.factory.setJsonAttr(ctrl, 'fossilData',
+                { 't': ctrl.t.get(), 'r': ctrl.r.get() }
+            )
+        
 
     @classmethod
     def _buildIk(cls, card, start, end, side, sideAlteration, isMirroredSide):
@@ -610,7 +635,6 @@ class MetaControl(six.with_metaclass(RegisterdMetaControl)):
                 card.outputCenter.fk = ctrls.fk
         else:
             # Build one side...
-            #side = config.letterToWord[mirrorCode]
             ctrls = cls._buildSide(card, card.start().real, card.end().real, False, side, buildFk=buildFk)
             if ctrls.ik:
                 card.getSide(side).ik = ctrls.ik
@@ -618,9 +642,7 @@ class MetaControl(six.with_metaclass(RegisterdMetaControl)):
                 card.getSide(side).fk = ctrls.fk
             
             # ... then flip the side info and build the other
-            #side = config.otherLetter(side)
             otherSide = config.otherSideCode(side)
-            #side = config.otherWord(side)
             ctrls = cls._buildSide(card, card.start().realMirror, card.end().realMirror, True, otherSide, buildFk=buildFk)
             if ctrls.ik:
                 card.getSide(otherSide).ik = ctrls.ik
@@ -699,62 +721,3 @@ class TranslateChain(MetaControl):
 def availableControlTypeNames():
     global registeredControls
     return [name for name, cls in sorted(registeredControls.items()) if cls.displayInUI]
-    
-    
-
-if 'raiseErrors' not in globals():
-    raiseErrors = False
-
-
-def buildRig(cards):
-    '''
-    Build the rig for the given cards, defaulting to all of them.
-    '''
-    global raiseErrors  # Testing hack.
-    global registeredControls
-    errors = []
-    
-    #if not cards:
-    #    cards =
-    
-    print( 'Building Cards:\n    ', '    \n'.join( str(c) for c in cards ) )
-    
-    # Ensure that main and root motion exist
-    main = node.mainGroup()
-    
-    rootMotion = core.findNode.rootMotion(main=main)
-    if not rootMotion:
-        rootMotion = node.rootMotion(main=main)
-        space.addMain(rootMotion)
-        space.addTrueWorld(rootMotion)
-    
-    # Build all the rig components
-    for card in cards:
-        if card.rigData.get('rigCmd'):
-            try:
-                isAccessory = card.rigData.get('accessory', False)
-                
-                registeredControls[ card.rigData.get('rigCmd') ].build(card, buildFk=not isAccessory)
-            except Exception:
-                print( traceback.format_exc() )
-                errors.append( (card, traceback.format_exc()) )
-                
-    # Afterwards, create any required space switching that comes default with that card
-    for card in cards:
-        if card.rigData.get('rigCmd'):
-            func = registeredControls[ card.rigData.get('rigCmd') ]
-            if func:
-                func.postCreate(card)
-                
-    if errors:
-    
-        for card, err in errors:
-            print( core.text.writeInBox( str(card) + '\n' + err ) )
-    
-        print( core.text.writeInBox( "The following cards had errors:\n"
-            + '\n'.join([str(card) for card, err in errors]) ) ) # noqa e127
-        
-        pdil.ui.notify( m='Errors occured!  See script editor for details.' )
-        
-        if raiseErrors:
-            raise Exception( 'Errors occured on {0}'.format( errors ) )

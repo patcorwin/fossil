@@ -4,15 +4,13 @@ from collections import OrderedDict
 
 from pymel.core import cutKey, getAttr, xform, currentTime, setAttr, setKeyframe, orientConstraint
 
-from ... import core
-from ... import lib
+import pdil
 
-
-from . import controllerShape
-from . import rig
+from ._lib2 import controllerShape
+from . import node
 
 from . import rigging
-from . import space
+from ._lib import space
 
 from .rigging import _util as util
 
@@ -33,7 +31,7 @@ def _getSwitchPlug(obj):  # WTF IS THIS??
     Given the object a bind joint is constrained to, return the switching plug.
     '''
 
-    bone = core.constraints.getOrientConstrainee(obj)
+    bone = pdil.constraints.getOrientConstrainee(obj)
     constraint = orientConstraint( bone, q=True )
     
     plugs = orientConstraint(constraint, q=True, wal=True)
@@ -52,7 +50,7 @@ def activateFk( fkControl ):
     ctrls.insert( 0, fkControl )
         
     for ctrl in ctrls:
-        target = core.constraints.getOrientConstrainee( ctrl )
+        target = pdil.constraints.getOrientConstrainee( ctrl )
 
         trans = xform( target, q=True, ws=True, t=True)
         rot = xform( target, q=True, ws=True, ro=True)
@@ -70,7 +68,7 @@ def multiSwitch(objs, start, end, key=True):
     ''' Takes a list of currently active controls and changes to the other kinematic state.
     '''
     
-    currentLeads = [rig.getMainController(obj) for obj in objs]
+    currentLeads = [node.leadController(obj) for obj in objs]
     pairs = { obj: obj.getOtherMotionType() for obj in currentLeads }
     
     targetLeads = [other for obj, other in pairs.items() if other]
@@ -84,7 +82,7 @@ def multiSwitch(objs, start, end, key=True):
         for leadControl in targetLeads:
             relevantControls += [obj for name, obj in leadControl.subControl.items()]
         
-        times = lib.anim.findKeyTimes(relevantControls, start, end)
+        times = pdil.anim.findKeyTimes(relevantControls, start, end)
         if start is None:
             start = times[0]
             
@@ -96,7 +94,7 @@ def multiSwitch(objs, start, end, key=True):
 
 def activateIk(ikController, start=None, end=None, key=True):
 
-    leadControl = rig.getMainController(ikController)
+    leadControl = node.leadController(ikController)
     
     if start is None or end is None:
         otherLead = leadControl.getOtherMotionType()
@@ -104,7 +102,7 @@ def activateIk(ikController, start=None, end=None, key=True):
         relevantControls = leadControl + [obj for name, obj in leadControl.subControl.items()] + \
             otherLead + [obj for name, obj in otherLead.subControl.items()]
         
-        times = lib.anim.findKeyTimes(relevantControls, start, end)
+        times = pdil.anim.findKeyTimes(relevantControls, start, end)
         if start is None:
             start = times[0]
             
@@ -159,13 +157,13 @@ def animStateSwitch(leads, start, end, spaces={}, dense=False, key=True):
             others = [obj for name, obj in other.subControl.items()] + [other]
                 
         switcher = controllerShape.getSwitcherPlug(lead)
-        target = 0 if lead.getMotionType().endswith('fk') else 1
+        target = 0 if lead.getMotionKeys()[1] == 'fk' else 1
         opposite = (target + 1) % 2
         #print('Target=', target, '   Opposite=', opposite)
         
         targets[switcher] = target
         
-        times = lib.anim.findKeyTimes(others, start, end) if (not dense and other) else range(int(start), int(end + 1), 1)
+        times = pdil.anim.findKeyTimes(others, start, end) if (not dense and other) else range(int(start), int(end + 1), 1)
         
         # If there are no `times`, we might be switching outside of currently keyed range so force keys to start and end.
         if not times:
@@ -209,7 +207,7 @@ def animStateSwitch(leads, start, end, spaces={}, dense=False, key=True):
         for ctrl in controlsWithSpaces[:]:
             if ctrl in controls[lead]:
                 val = space.getNames(ctrl).index( spaces[ctrl] )
-                spaceTimes = lib.anim.findKeyTimes(ctrl.space, start, end, customAttrs=['space'])
+                spaceTimes = pdil.anim.findKeyTimes(ctrl.space, start, end, customAttrs=['space'])
                 spaceTimes = [t for t in spaceTimes if getAttr(ctrl.space, t=t) != val ]
                 
                 requiredTimes = set(spaceTimes).difference( times )
@@ -229,7 +227,7 @@ def animStateSwitch(leads, start, end, spaces={}, dense=False, key=True):
         #    pairs.insert( [start, getAttr(ctrl.space, t=start) ] )
         #if pairs[-1][0] != end:
         #    pairs.append( [end, getAttr(ctrl.space, t=end) ] )
-        times = lib.anim.findKeyTimes(ctrl.space, start, end, customAttrs=['space'])
+        times = pdil.anim.findKeyTimes(ctrl.space, start, end, customAttrs=['space'])
         times = [t for t in times if getAttr(ctrl.space, t=t) != val ]
         if times:
             allTimes.update(times)

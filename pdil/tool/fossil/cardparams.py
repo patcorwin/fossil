@@ -10,7 +10,7 @@ from ...vendor.Qt.QtCore import Qt
 
 from pymel.core import cmds
 
-from ... import add
+import pdil
 from . import cardRigging
 
 
@@ -256,7 +256,7 @@ def update(self, card, force=False):
     
     if card:
         
-        self.ui.cardName.setText( add.shortName(card) )
+        self.ui.cardName.setText( pdil.shortName(card) )
         
         try:
             rigClass = cardRigging.registeredControls[ card.rigData.get('rigCmd') ]

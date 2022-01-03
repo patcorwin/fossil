@@ -45,5 +45,5 @@ class StartLayout( object ):
             numFingers=self.fingerCount.getValue()[0],
             legType=self.legType.getValue(),
             thumb=self.thumb.getValue(),
-            spineOrient='vertical' if self.spineOrient.getValue() == 'Vertical' else 'horizontal',  # &&& Need to use enums
+            spineOrient='vertical' if self.spineOrient.getValue() == 'Vertical' else 'horizontal',
         )

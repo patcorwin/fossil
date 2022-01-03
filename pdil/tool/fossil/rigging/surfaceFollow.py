@@ -5,13 +5,13 @@ from functools import partial
 
 from pymel.core import dt, geometryConstraint, normalConstraint, pointConstraint, spaceLocator, xform
 
-from .... import core
-from .... import nodeApi
+import pdil
 
 from ..cardRigging import MetaControl, ParamInfo, OutputControls, colorParity
-from .. import controllerShape
+
 from .. import log
-from .. import space
+from .._lib import space
+from .._lib2 import controllerShape
 
 from . import _util as util
 from .. import node
@@ -38,14 +38,14 @@ def buildSurfaceFollow(joints, groupOrigin, surface=None, controlSpec={}):
         controlSpec['main'],
         type=controllerShape.ControlType.TRANSLATE )
     
-    mainCtrl = nodeApi.RigController.convert(mainCtrl)
+    mainCtrl = pdil.nodeApi.RigController.convert(mainCtrl)
     
     mainCtrl.setParent(container)
     xform(mainCtrl, ws=True, t=groupOrigin)
     
-    core.dagObj.lockScale(mainCtrl)
+    pdil.dagObj.lockScale(mainCtrl)
     
-    core.dagObj.zero(mainCtrl)
+    pdil.dagObj.zero(mainCtrl)
     
     subControls = []
     locs = []
@@ -53,7 +53,7 @@ def buildSurfaceFollow(joints, groupOrigin, surface=None, controlSpec={}):
     for i, j in enumerate(joints):
         loc = spaceLocator()
         locs.append( loc )
-        core.dagObj.matchTo(loc, j)
+        pdil.dagObj.matchTo(loc, j)
         
         geometryConstraint(surface, loc)
         
@@ -69,11 +69,11 @@ def buildSurfaceFollow(joints, groupOrigin, surface=None, controlSpec={}):
                                             controlSpec['offset'],
                                             type=controllerShape.ControlType.TRANSLATE )
 
-        core.dagObj.matchTo(offsetCtrl, loc)
+        pdil.dagObj.matchTo(offsetCtrl, loc)
 
         offsets.append( offsetCtrl )
         offsetCtrl.setParent(loc)
-        core.dagObj.zero(offsetCtrl)
+        pdil.dagObj.zero(offsetCtrl)
 
         subCtrl = controllerShape.build( util.trimName(j) + '_ctrl',
                                             controlSpec['manual'],
@@ -81,17 +81,17 @@ def buildSurfaceFollow(joints, groupOrigin, surface=None, controlSpec={}):
 
         subControls.append(subCtrl)
         
-        core.dagObj.matchTo(subCtrl, loc)
+        pdil.dagObj.matchTo(subCtrl, loc)
         
         subCtrl.setParent(mainCtrl)
         
-        core.dagObj.zero(subCtrl)
+        pdil.dagObj.zero(subCtrl)
         
         pointConstraint(subCtrl, loc)
         
-        core.dagObj.lockRot(subCtrl)
-        core.dagObj.lockScale(subCtrl)
-        core.dagObj.lockScale(offsetCtrl)
+        pdil.dagObj.lockRot(subCtrl)
+        pdil.dagObj.lockScale(subCtrl)
+        pdil.dagObj.lockScale(offsetCtrl)
         
         loc.setParent(subCtrl)
         

@@ -2,18 +2,14 @@ from collections import OrderedDict
 
 from pymel.core import group, parentConstraint, xform
 
-from .... import add
-from .... import core
-from .... import lib
-from .... import nodeApi
-
-from .. import controllerShape
+import pdil
 
 from ..cardRigging import MetaControl, ParamInfo, OutputControls
-from ..core import config
+from .._core import config
+from .._lib2 import controllerShape
+from .. import node
 
 from . import _util as util
-from .. import node
 
 
 @util.adds()
@@ -44,22 +40,22 @@ def buildCtrlGroup(parentJoint, point, rotation, name='Group', translatable=True
     if not useTrueZero:
         ctrl.r.set(rotation)
     
-    zeroGroup = core.dagObj.zero( ctrl ).setParent( container )
+    zeroGroup = pdil.dagObj.zero( ctrl ).setParent( container )
 
     if useTrueZero:
         ctrl.r.set(rotation)
         util.storeTrueZero(ctrl, rotation)
         
     if not translatable:
-        core.dagObj.lockTrans( ctrl )
+        pdil.dagObj.lockTrans( ctrl )
         
     if not scalable:
-        core.dagObj.lockScale( ctrl )
+        pdil.dagObj.lockScale( ctrl )
     
     if mirroredTranslate:
         zeroGroup.s.set(-1, -1, -1)
     
-    ctrl = nodeApi.RigController.convert(ctrl)
+    ctrl = pdil.nodeApi.RigController.convert(ctrl)
     ctrl.container = container
     
     leadOrient, leadPoint = None, None
@@ -106,7 +102,7 @@ class Group(MetaControl):
         kwargs = cls.readFkKwargs(card, isMirroredSide, sideAlteration)
 
         if not kwargs['name']:
-            kwargs['name'] = add.simpleName(card.start())
+            kwargs['name'] = pdil.simpleName(card.start())
 
         if side == 'left':
             kwargs['name'] += config.controlSideSuffix('left')
@@ -122,7 +118,7 @@ class Group(MetaControl):
         if len(card.joints) == 1:
             rotation = xform(card, q=True, ws=True, ro=True)
         else:
-            lib.anim.orientJoint(card.joints[0], card.joints[1], xform(card.joints[0], q=True, ws=True, t=True) + card.upVector())
+            pdil.anim.orientJoint(card.joints[0], card.joints[1], xform(card.joints[0], q=True, ws=True, t=True) + card.upVector())
             rotation = xform(card.joints[0], q=True, ws=True, ro=True)
         
         if isMirroredSide:
@@ -149,7 +145,7 @@ class Group(MetaControl):
         
         if isMirroredSide:
             # &&& Handling twin is probably super fragile, must test different maya up and orient the card in funky ways.
-            space = core.dagObj.zero(fkCtrl, make=False)
+            space = pdil.dagObj.zero(fkCtrl, make=False)
             if card.mirror == 'twin':
                 space.rz.set( space.rz.get() + 180 )
             else:

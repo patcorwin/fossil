@@ -10,15 +10,14 @@ import maya.OpenMaya
 from pymel.core import aimConstraint, addAttr, arclen, cluster, createNode, delete, duplicate, dt, group, hide, ikHandle, \
     orientConstraint, parentConstraint, pointConstraint, PyNode, scaleConstraint, selected, upAxis, warning, xform, MayaAttributeError
 
-from ....add import simpleName
-from .... import core
-from .... import lib
+import pdil
 
 from .. import log
 
-from .. import controllerShape
+from .._lib2 import controllerShape
 from .. import node
-from ..core import config
+from .._core import config
+from .._lib import visNode
 
 
 ConstraintResults = collections.namedtuple( 'ConstraintResults', 'point orient' )
@@ -126,7 +125,7 @@ def defaultspec(defSpec, **additionalSpecs):
             # visGroup, since they apply to the '_space' group, not the actual
             # control which is connected to the ik/fk switch attr
             if tempSpec['main']['visGroup']:
-                lib.sharedShape.connect(res[0], (tempSpec['main']['visGroup'], 1) )
+                visNode.connect(res[0], (tempSpec['main']['visGroup'], 1) )
             
             subControls = res[0].subControl.items()
             if subControls:
@@ -134,7 +133,7 @@ def defaultspec(defSpec, **additionalSpecs):
                 # If there is one spec and sub controls, it is a chain so apply the same visgroup
                 if len(tempSpec) == 1 and tempSpec['main']['visGroup']:
                     for name, ctrl in subControls:
-                        lib.sharedShape.connect(ctrl, (tempSpec['main']['visGroup'], 1) )
+                        visNode.connect(ctrl, (tempSpec['main']['visGroup'], 1) )
             
                 # If there are 2 specs, the non-main is the repeating one
                 elif len(tempSpec) == 2:
@@ -142,7 +141,7 @@ def defaultspec(defSpec, **additionalSpecs):
                     visGroup = tempSpec['main']['visGroup']
                     if visGroup:
                         for name, ctrl in subControls:
-                            lib.sharedShape.connect(ctrl, (visGroup, 1) )
+                            visNode.connect(ctrl, (visGroup, 1) )
                 
                 # Finally, each additional spec should match a sub control
                 else:
@@ -152,7 +151,7 @@ def defaultspec(defSpec, **additionalSpecs):
                         
                         if tempSpec[specName]['visGroup']:
                             try:  # &&& Eventually this needs to not ignore errors
-                                lib.sharedShape.connect(
+                                visNode.connect(
                                     res[0].subControl[specName],
                                     (tempSpec[specName]['visGroup'], 1)
                                 )
@@ -212,7 +211,7 @@ def dupChain(start, end, nameFormat='{0}_dup'):
     dup = duplicate(start)[0]
     
     if start != end:
-        child = findChild( dup, simpleName(end) )
+        child = findChild( dup, pdil.simpleName(end) )
         assert child, 'dupChain failed to find duped child {0} in {1}'.format(end, start)
         prune( dup, child )
     else:
@@ -225,7 +224,7 @@ def dupChain(start, end, nameFormat='{0}_dup'):
         delete(ends)
     
     for src, d in zip(chain, dupedChain):
-        dupName = simpleName(src, nameFormat)
+        dupName = pdil.simpleName(src, nameFormat)
         d.rename(dupName)
     return dupedChain
 
@@ -243,7 +242,7 @@ def chainMeasure(joints):
     if n.output1D.get() < 0:
         totalLength *= -1
     
-    return core.math.divide( n.output1D, totalLength)
+    return pdil.math.divide( n.output1D, totalLength)
 
 
 def findChild(chain, target):
@@ -477,7 +476,7 @@ def makeStretchySpline(controller, ik, stretchDefault=1):
     length = arclen(crv, ch=1).arcLength
     lengthMax = arclen(crv, ch=1).arcLength.get()
     # Spline squashes and stretches
-    multiplier = core.math.divide( length, lengthMax )
+    multiplier = pdil.math.divide( length, lengthMax )
     
     jointLenMultiplier = switcher.output
     
@@ -486,7 +485,7 @@ def makeStretchySpline(controller, ik, stretchDefault=1):
     for i, j in enumerate(chain[1:], 1):
         #util.recordFloat(j, 'restLength', j.attr('t' + jointAxis).get() )
         saveRestLength(j, jointAxis)
-        core.math.multiply( jointLenMultiplier, j.restLength) >> j.attr('t' + jointAxis)
+        pdil.math.multiply( jointLenMultiplier, j.restLength) >> j.attr('t' + jointAxis)
     
     return controller.attr('stretch'), jointLenMultiplier
 
@@ -520,7 +519,7 @@ def makeStretchyNonSpline(controller, ik, stretchDefault=1):
     '''
     start, chain, jointAxis, switcher = _makeStretchyPrep( controller, ik, stretchDefault )
 
-    dist, grp = core.dagObj.measure(start, ik)
+    dist, grp = pdil.dagObj.measure(start, ik)
     grp.setParent( controller )
     dist.setParent( ik.getParent() )
     length = dist.distance
@@ -528,9 +527,9 @@ def makeStretchyNonSpline(controller, ik, stretchDefault=1):
     lengthMax = chainLength(chain)
     # Regular IK only stretches
     # ratio = (abs distance between start and end) / (length of chain)
-    ratio = core.math.divide( length, lengthMax )  # lengthMax is a stub, replaced later
+    ratio = pdil.math.divide( length, lengthMax )  # lengthMax is a stub, replaced later
     # multiplier is either 1 or a number greater than one needed for the chain to reach the end.
-    multiplier = core.math.condition( ratio, '>', 1.0, true=ratio, false=1 )
+    multiplier = pdil.math.condition( ratio, '>', 1.0, true=ratio, false=1 )
 
     controller.addAttr( 'length', at='double', min=-10.0, dv=0.0, max=10.0, k=True )
 
@@ -542,15 +541,15 @@ def makeStretchyNonSpline(controller, ik, stretchDefault=1):
     else:
         controller.length/20.0  + 1.0   # .5 to 1.0 halve the length of the limb
     '''
-    lengthMod = core.math.add(
-        core.math.divide(
+    lengthMod = pdil.math.add(
+        pdil.math.divide(
             controller.length,
-            core.math.condition(controller.length, '>=', 0, 10.0, 20.0)
+            pdil.math.condition(controller.length, '>=', 0, 10.0, 20.0)
         ),
         1.0
     )
     
-    jointLenMultiplier = core.math.multiply(switcher.output, lengthMod)
+    jointLenMultiplier = pdil.math.multiply(switcher.output, lengthMod)
     
     multiplier >> switcher.input[1]
     
@@ -563,16 +562,16 @@ def makeStretchyNonSpline(controller, ik, stretchDefault=1):
         # Make an attribute that is -10 to 10 map to multiplying the restLength by 0 to 2
         attrName = 'segLen' + str(i)
         controller.addAttr( attrName, at='double', k=True, min=-10, max=10 )
-        normalizedMod = core.math.add(core.math.divide( controller.attr(attrName), 10), 1)
+        normalizedMod = pdil.math.add(pdil.math.divide( controller.attr(attrName), 10), 1)
         
         "j.attr('t' + jointAxis) = lockSwitcher.output = jointLenMultiplier * normalizedMod * j.restLength"
         
         # As of 2/9/2019 it looks to be fine to make this even if it's not used by the ik to lock the elbow (like in dogleg)
         lockSwitcher = createNode('blendTwoAttr', n='lockSwitcher')
         
-        computedLength = core.math.multiply( normalizedMod, j.restLength)
+        computedLength = pdil.math.multiply( normalizedMod, j.restLength)
 
-        core.math.multiply(
+        pdil.math.multiply(
             jointLenMultiplier,
             computedLength
         ) >> lockSwitcher.input[0] # >> j.attr('t' + jointAxis)
@@ -586,10 +585,10 @@ def makeStretchyNonSpline(controller, ik, stretchDefault=1):
     for i in range( len(chain) - 1 ):
         nodes['computedLength%i' % (i + 1)] >> computedTotalUnscaled.input1D[i]
 
-    computedTotalScaled = core.math.multiply(computedTotalUnscaled.output1D, lengthMod)
+    computedTotalScaled = pdil.math.multiply(computedTotalUnscaled.output1D, lengthMod)
     
     if computedTotalScaled.get() < 0: # Handle -x side
-        computedTotalScaled = core.math.multiply( computedTotalScaled, -1.0 )
+        computedTotalScaled = pdil.math.multiply( computedTotalScaled, -1.0 )
     
     # Replaces lengthMax with computed length (segLen# * length)
     computedTotalScaled >> ratio.node().input2X
@@ -613,13 +612,13 @@ def advancedTwist(start, end, baseCtrl, endCtrl, ik):
     startAxis = duplicate( start, po=True )[0]
     startAxis.rename( 'startAxis' )
     startAxis.setParent( baseCtrl )
-    core.dagObj.lockTrans(core.dagObj.lockRot(core.dagObj.lockScale(startAxis)))
+    pdil.dagObj.lockTrans(pdil.dagObj.lockRot(pdil.dagObj.lockScale(startAxis)))
     
     endAxis = duplicate( start, po=True )[0]
     endAxis.rename( 'endAxis' )
     endAxis.setParent( endCtrl )
     endAxis.t.set(0, 0, 0)
-    core.dagObj.lockTrans(core.dagObj.lockRot(core.dagObj.lockScale(endAxis)))
+    pdil.dagObj.lockTrans(pdil.dagObj.lockRot(pdil.dagObj.lockScale(endAxis)))
     
     hide(startAxis, endAxis)
     
@@ -637,7 +636,7 @@ def midAimer(start, end, midCtrl, name='aimer', upVector=None):
     aimer = group(em=True, name=name)
     #aimer.setParent(container)
     #aimer = polyCone(axis=[1, 0, 0])[0]
-    core.dagObj.moveTo(aimer, midCtrl)
+    pdil.dagObj.moveTo(aimer, midCtrl)
     pointConstraint(end, start, aimer, mo=True)
     
     
@@ -804,7 +803,7 @@ def getConstraineeChain(chain):
     '''
     boundJoints = []
     for j in chain:
-        temp = core.constraints.getOrientConstrainee(j)
+        temp = pdil.constraints.getOrientConstrainee(j)
         if temp:
             boundJoints.append(temp)
         else:
@@ -900,7 +899,7 @@ def parentGroup(target):
         Get rid of parentProxy, which is dumb
     '''
     
-    name = simpleName(target, '{0}_Proxy' )
+    name = pdil.simpleName(target, '{0}_Proxy' )
     grp = group( em=True, name=name )
 
     info = jsonGet(target, 'fossilAccessoryInfo')
@@ -919,7 +918,7 @@ def trimName(jnt):
     '''
     Given an joint, return its simple name without b_ or rig_ if those prefixes exist.
     '''
-    name = simpleName(jnt)
+    name = pdil.simpleName(jnt)
     prefix = config._settings['joint_prefix']
     if name.startswith( prefix ):
         return name[ len(prefix): ]
@@ -950,7 +949,7 @@ def drive(control, attr, driven, minVal=None, maxVal=None, asInt=False, dv=None,
             addAttr(control.attr(attr), e=True, dv=dv)
             
     if flipped:
-        core.math.multiply(control.attr(attr), -1) >> driven
+        pdil.math.multiply(control.attr(attr), -1) >> driven
     else:
         control.attr(attr) >> driven
     
@@ -976,8 +975,8 @@ def determineClosestWorldOrient(obj):
     ''' # This is essentially a math version of the following:
         x = spaceLocator()
         y = spaceLocator()
-        core.dagObj.moveTo( x, obj )
-        core.dagObj.moveTo( y, obj )
+        pdil.dagObj.moveTo( x, obj )
+        pdil.dagObj.moveTo( y, obj )
         x.tx.set( 1 + x.tx.get() )
         y.ty.set( 1 + y.ty.get() )
         x.setParent(obj)
@@ -996,7 +995,7 @@ def determineClosestWorldOrient(obj):
         zeroSmaller( y )
         
         ref = spaceLocator()
-        core.dagObj.moveTo( ref, obj )
+        pdil.dagObj.moveTo( ref, obj )
         aimConstraint( x, ref, wut='object', wuo=y )
         
         rot = ref.r.get()
@@ -1130,7 +1129,7 @@ def addControlsToCurve(name, crv=None,
         #l = control.sphere( '{0}{1:0>2}'.format( name, i+1), size, 'blue', type=control.SPLINE )
         shape = controllerShape.build('{0}{1:0>2}'.format(name, i + 1), spec, type=controllerShape.ControlType.SPLINE)
         
-        core.dagObj.moveTo( shape, cv )
+        pdil.dagObj.moveTo( shape, cv )
         handle = cluster(cv)[1]
         handle.setParent(shape)
         hide(handle)

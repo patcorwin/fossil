@@ -5,9 +5,13 @@ import json
 import re
 import traceback
 
-from pymel.core import *
+from pymel.core import annotate, confirmDialog, cmds, createNode, evalDeferred, group, hide, ls, PyNode, scriptJob, spaceLocator, select, selected, textFieldButtonGrp, warning, polyCylinder, delete, polyPlane
 
-from ... import core
+from pymel.core import makeIdentity, xform, scale, aimConstraint, objExists
+
+import pdil
+
+from . import _core as core
 from ... import nodeApi
 
 
@@ -132,7 +136,7 @@ def findTempJoint(name):
     Returns the BPJoint and True *I THINK* if the joint is a single, and False if it could be mirrored
     '''
     
-    for card in core.findNode.allCards():
+    for card in core.find.blueprintCards():
         for data in card.output():
             if name in data:
                 
@@ -203,11 +207,6 @@ def identifySubst(name, subst):
     return None
 
 
-def fromCardPath(s):
-    if s.startswith('FIND('):
-        return eval(s)
-
-
 class BLANK:
     pass
 
@@ -229,7 +228,7 @@ def FIND(name, cardId=BLANK):
     if cardId is not BLANK:
         cards = []
         names = []
-        for c in core.findNode.allCards():
+        for c in core.find.blueprintCards():
             data = c.rigData
             if 'id' in data and data['id'] == cardId:
                 return c
@@ -243,7 +242,7 @@ def FIND(name, cardId=BLANK):
                 return c
 
     else:
-        for c in core.findNode.allCards():
+        for c in core.find.blueprintCards():
             if c.name() == name:
                 return c
 
@@ -256,7 +255,7 @@ class GetNextSelected(object):
     '''
 
     def __init__(self, setFunction, clearFunction, extraMenus=None, **kwargs):
-        self.field = textFieldButtonGrp(bc=core.alt.Callback(self.setup), bl='Get', **kwargs)
+        self.field = textFieldButtonGrp(bc=pdil.alt.Callback(self.setup), bl='Get', **kwargs)
         self.menu = []
         cmds.popupMenu()
 
@@ -264,21 +263,21 @@ class GetNextSelected(object):
             self.field.setText('')
             clearFunction()
             
-        cmds.menuItem(l='Clear', c=core.alt.Callback(clear) )
+        cmds.menuItem(l='Clear', c=pdil.alt.Callback(clear) )
         
         if extraMenus:
             for label, action in extraMenus:
-                self.menu.append(cmds.menuItem(l=label, c=core.alt.Callback(action, self.field) ))
+                self.menu.append(cmds.menuItem(l=label, c=pdil.alt.Callback(action, self.field) ))
         
         self.set = setFunction
         self.clear = clearFunction
     
     def setMenu(self, extraMenus):
         for mi, (label, action) in zip(self.menu, extraMenus):
-            cmds.menuItem(mi, e=True, l=label, c=core.alt.Callback(action, self.field) )
+            cmds.menuItem(mi, e=True, l=label, c=pdil.alt.Callback(action, self.field) )
     
     def setup(self):
-        scriptJob( ro=True, e=('SelectionChanged', core.alt.Callback(self.getNextSelection)) )
+        scriptJob( ro=True, e=('SelectionChanged', pdil.alt.Callback(self.getNextSelection)) )
         self.current = selected()
         
     def getNextSelection(self):
@@ -288,7 +287,7 @@ class GetNextSelected(object):
             print( 'Passing', sel[0] )
             if self.set( sel[0] ):
                 print( 'GOODS' )
-            evalDeferred( core.alt.Callback(select, self.current) )
+            evalDeferred( pdil.alt.Callback(select, self.current) )
 
 
 def getSelectedCards():
@@ -304,7 +303,7 @@ def saveCardStates():
     cards = getSelectedCards()
     
     if not cards:
-        cards = core.findNode.allCards()
+        cards = core.find.blueprintCards()
 
     for c in cards:
         name = c.name()
@@ -317,12 +316,12 @@ def saveCardStates():
                 if c.hasAttr( shapeAttr ):
                     cardStateInfo[name][ shapeAttr ] = c.attr( shapeAttr ).get()
     
-    core.text.clipboard.set( json.dumps(cardStateInfo) )
+    pdil.text.clipboard.set( json.dumps(cardStateInfo) )
     
     
 def loadCardStates():
     try:
-        cardStateInfo = json.loads( core.text.clipboard.get() )
+        cardStateInfo = json.loads( pdil.text.clipboard.get() )
     except Exception:
         print( 'Valid json was not found in the clipboard' )
         return
@@ -331,7 +330,7 @@ def loadCardStates():
     
     # If there is a single card, just apply the data
     if len(cardStateInfo) == 1 and len(selectedCards) == 1:
-        info = cardStatInfo.values()[0]
+        info = cardStateInfo.values()[0]
         cardAndInfo = [(selectedCards[0], info)]
     
     # Otherwise apply data to as many cards with the same names
@@ -398,14 +397,14 @@ def selectedJoints():
         return []
 
 
-def runOnEach(func, completedMessage=''):
+def runOnEach(func, message=''):
 
     sel = selectedCards()
     if not sel:
         confirmDialog( m='No cards selected' )
         return
     
-    with core.ui.progressWin(title='Working on ' + completedMessage, max=len(sel) ) as prog:
+    with pdil.ui.progressWin(title=message, max=len(sel) ) as prog:
         
         errors = {}
         for i, card in enumerate(sel):
@@ -417,7 +416,7 @@ def runOnEach(func, completedMessage=''):
             prog.update()
         
     if not errors:
-        print( completedMessage )
+        print( message + ' Completed' )
     else:
         for card, text in errors.items():
             print(card, '-' * 80)
@@ -442,7 +441,7 @@ def polySkeleton(cards=None):
     '''
 
     if not cards:
-        cards = core.findNode.allCards()
+        cards = core.find.blueprintCards()
 
     jointGroup = group(em=True, n='jointGroup')
     # Make cylinders to represent joints
@@ -454,8 +453,8 @@ def polySkeleton(cards=None):
             
             if p:
                 bone = makeFakeBone()
-                core.dagObj.moveTo(bone, p)
-                s = core.dagObj.distanceBetween(j, p) * 0.5
+                pdil.dagObj.moveTo(bone, p)
+                s = pdil.dagObj.distanceBetween(j, p) * 0.5
                 bone.sy.set(s)
                 delete(aimConstraint(j, bone, aim=(0, 1, 0), u=(0, 0, 1)))
                 makeIdentity(bone, apply=True, s=True)
@@ -478,10 +477,7 @@ def polySkeleton(cards=None):
         poly = polyPlane(sh=True, sw=True)[0]
         poly.setParent(cardGroup)
         
-        core.dagObj.matchTo(poly, card)
+        pdil.dagObj.matchTo(poly, card)
         
         for p, v in zip(points, poly.vtx):
             xform(v, ws=True, t=p)
-
-
-

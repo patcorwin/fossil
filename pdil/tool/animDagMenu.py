@@ -4,13 +4,13 @@ from functools import partial
 from operator import eq
 import traceback
 
-from pymel.core import Callback, cmds, currentTime, menuItem, PyNode, selected, setParent
+from pymel.core import Callback, currentTime, menuItem, PyNode, selected, setParent
 
-from .. import core
+from .. import _core as core
 
 from .fossil import controllerShape
 from .fossil import kinematicSwitch
-from .fossil import rig
+from .fossil import node
 from .fossil import space
 
 
@@ -72,7 +72,7 @@ def animationSwitchMenu(objName):
         # Ik/Fk
         #-------
         if plug:
-            if rig.getMainController(obj).fossilCtrlType.get() in ['translate', 'rotate']:
+            if node.leadController(obj).fossilCtrlType.get() in ['translate', 'rotate']:
                 destType = 'Ik'
             else:
                 destType = 'Fk'
@@ -117,7 +117,7 @@ def animationSwitchMenu(objName):
                     switches[ switchPlug.rsplit('|')[-1] ] = o
                     currentLeads.append()'''
                 
-                currentLeads = [rig.getMainController(o) for o in sel if controllerShape.getSwitcherPlug(o)]
+                currentLeads = [node.leadController(o) for o in sel if controllerShape.getSwitcherPlug(o)]
                 
                 if len(currentLeads) == 1:
                     menuItem(l='Switch to ' + destType, c=core.alt.Callback(kinematicSwitch.multiSwitch, currentLeads, s, e, key=key))

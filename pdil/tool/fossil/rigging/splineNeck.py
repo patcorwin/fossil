@@ -4,16 +4,14 @@ from collections import OrderedDict
 from pymel.core import duplicate, dt, joint, group, hide, ikHandle, move, orientConstraint, parent, parentConstraint, \
     pointConstraint, PyNode, pointOnCurve, skinCluster, spaceLocator, xform
 
-from ....add import simpleName
-from .... import core
-from .... import nodeApi
+import pdil
 
 from ..cardRigging import MetaControl, ParamInfo
-from .. import controllerShape
-from .. import space
+from .._lib2 import controllerShape
+from .. import node
+from .._lib import space
 
 from . import _util as util
-from .. import node
 
 
 try:
@@ -49,7 +47,7 @@ def buildSplineNeck(start, end, name='', matchEndOrient=False, endOrient=util.En
             with other IK, where the main is the end of the chain.
     '''
     if not name:
-        name = simpleName(start)
+        name = pdil.simpleName(start)
         
     container = group(em=True, p=node.mainGroup(), n=name + "_controls")
     container.inheritsTransform.set(False)
@@ -102,11 +100,11 @@ def buildSplineNeck(start, end, name='', matchEndOrient=False, endOrient=util.En
     endJnt.setParent(w=True)
     
     midCtrl = controllerShape.build( name + "_Mid", controlSpec['middle'], controllerShape.ControlType.SPLINE )
-    core.dagObj.lockScale(midCtrl)
+    pdil.dagObj.lockScale(midCtrl)
     midPoint = pointOnCurve( crv, pr=0.5, p=True, top=True )
     midChain = findClosest(midPoint, util.getChain(start, end))
-    core.dagObj.matchTo(midCtrl, midChain)
-    midZero = core.dagObj.zero(midCtrl)
+    pdil.dagObj.matchTo(midCtrl, midChain)
+    midZero = pdil.dagObj.zero(midCtrl)
     midZero.t.set( midPoint )
     
     midJoint = joint(None)
@@ -119,7 +117,7 @@ def buildSplineNeck(start, end, name='', matchEndOrient=False, endOrient=util.En
     pointSpace = spaceLocator()
     pointSpace.rename('midPoint_{0}'.format(start))
     pointSpace.setParent(container)
-    core.dagObj.moveTo(pointSpace, midCtrl)
+    pdil.dagObj.moveTo(pointSpace, midCtrl)
     pointConstraint( startJnt, endJnt, pointSpace, mo=True )
     hide(pointSpace)
     space.add( midCtrl, pointSpace, spaceName='midPoint')
@@ -127,7 +125,7 @@ def buildSplineNeck(start, end, name='', matchEndOrient=False, endOrient=util.En
     childSpace = spaceLocator()
     childSpace.rename('midChild_{0}'.format(start))
     childSpace.setParent(container)
-    core.dagObj.matchTo(childSpace, midCtrl)
+    pdil.dagObj.matchTo(childSpace, midCtrl)
     parentConst = parentConstraint( startJnt, endJnt, childSpace, mo=True )
     parentConst.interpType.set( 2 ) # Set to `shortest`, which hopefully should always prevent flipping
     hide(childSpace)
@@ -136,7 +134,7 @@ def buildSplineNeck(start, end, name='', matchEndOrient=False, endOrient=util.En
     pntRotSpace = spaceLocator()
     pntRotSpace.rename('midPntRot_{0}'.format(start))
     pntRotSpace.setParent(container)
-    core.dagObj.matchTo(pntRotSpace, midCtrl)
+    pdil.dagObj.matchTo(pntRotSpace, midCtrl)
     pointConstraint( startJnt, endJnt, pntRotSpace, mo=True )
     orientConst = orientConstraint( startJnt, endJnt, pntRotSpace, mo=True )
     orientConst.interpType.set( 2 ) # Set to `shortest`, which hopefully should always prevent flipping
@@ -153,26 +151,26 @@ def buildSplineNeck(start, end, name='', matchEndOrient=False, endOrient=util.En
     skinCluster(startJnt, endJnt, midJoint, crv, tsb=True)
     
     startCtrl = controllerShape.build( name + '_Start', controlSpec['start'], controllerShape.ControlType.SPLINE )
-    core.dagObj.lockScale(startCtrl)
-    core.dagObj.matchTo( startCtrl, startJnt )
-    startSpace = core.dagObj.zero(startCtrl)
+    pdil.dagObj.lockScale(startCtrl)
+    pdil.dagObj.matchTo( startCtrl, startJnt )
+    startSpace = pdil.dagObj.zero(startCtrl)
     startSpace.setParent(container)
     
     endCtrl = controllerShape.build( name + '_End', controlSpec['main'], controllerShape.ControlType.SPLINE )
-    core.dagObj.lockScale(endCtrl)
+    pdil.dagObj.lockScale(endCtrl)
     
-    #core.dagObj.moveTo( endCtrl, end )
-    #core.dagObj.zero( endCtrl ).setParent( container )
+    #pdil.dagObj.moveTo( endCtrl, end )
+    #pdil.dagObj.zero( endCtrl ).setParent( container )
     
     """
     ORIGINAL matchEndOrient code
     if not matchEndOrient:
-        core.dagObj.matchTo( endCtrl, endJnt )
+        pdil.dagObj.matchTo( endCtrl, endJnt )
     else:
         print( 'JUST MOVING' )
-        core.dagObj.moveTo( endCtrl, endJnt )
+        pdil.dagObj.moveTo( endCtrl, endJnt )
     
-    core.dagObj.zero(endCtrl).setParent(container)
+    pdil.dagObj.zero(endCtrl).setParent(container)
     
     if matchEndOrient:
         rot = determineClosestWorldOrient(end)
@@ -184,15 +182,15 @@ def buildSplineNeck(start, end, name='', matchEndOrient=False, endOrient=util.En
     # matchEndOrient=False == TRUE_ZERO
     # matchEndOrient=True  == JOINT
     if endOrient == util.EndOrient.WORLD:
-        core.dagObj.moveTo( endCtrl, endJnt )
+        pdil.dagObj.moveTo( endCtrl, endJnt )
         
     elif endOrient == util.EndOrient.JOINT:
-        core.dagObj.matchTo( endCtrl, endJnt )
+        pdil.dagObj.matchTo( endCtrl, endJnt )
         
     elif endOrient == util.EndOrient.TRUE_ZERO:
-        core.dagObj.moveTo( endCtrl, endJnt )
+        pdil.dagObj.moveTo( endCtrl, endJnt )
     
-    core.dagObj.zero(endCtrl).setParent(container)
+    pdil.dagObj.zero(endCtrl).setParent(container)
     
     if endOrient == util.EndOrient.TRUE_ZERO:
         rot = util.determineClosestWorldOrient(end)
@@ -242,7 +240,7 @@ def buildSplineNeck(start, end, name='', matchEndOrient=False, endOrient=util.En
     jointChain = util.getChain(start, end)
         
     for j in jointChain:
-        distances[ core.dagObj.distanceBetween(j, midCtrl) ] = j
+        distances[ pdil.dagObj.distanceBetween(j, midCtrl) ] = j
     
     for dist, j in sorted(distances.items()):
         # Make a matcher here
@@ -252,7 +250,7 @@ def buildSplineNeck(start, end, name='', matchEndOrient=False, endOrient=util.En
     
     # Setup the endControl as the leader
     
-    endCtrl = nodeApi.RigController.convert(endCtrl)
+    endCtrl = pdil.nodeApi.RigController.convert(endCtrl)
     endCtrl.container = container
     endCtrl.subControl['start'] = startCtrl
     endCtrl.subControl['mid'] = midCtrl

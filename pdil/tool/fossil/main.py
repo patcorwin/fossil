@@ -1,7 +1,6 @@
 from __future__ import print_function, absolute_import
 
 from collections import OrderedDict
-from contextlib import contextmanager
 import json
 from functools import partial
 import operator
@@ -13,27 +12,23 @@ import logging
 from ...vendor import Qt
 
 
-from pymel.core import Callback, cmds, getAttr, hide, objExists, scriptJob, select, selected, setParent, setAttr, PyNode, \
+from pymel.core import Callback, cmds, hide, scriptJob, select, selected, setParent, PyNode, \
     showHidden, warning, xform, \
-    button, columnLayout, deleteUI, textFieldGrp, \
-    delete, orientConstraint, pointConstraint
+    button, columnLayout, deleteUI, textFieldGrp
     
 import pdil
-from ... import core
 from ... import nodeApi
 
 from . import card as fossil_card  # Hack to not deal with the fact that "card" is a var used all over, thusly shadowing this import
-from . import cardlister
 from . import cardparams
-from . import cardRigging
-from . import controllerShape
-from . import moveCard
-from .core import proxyskel
-from .core import config
-from .core import skinning
-from . import tpose
+from ._lib2 import controllerShape
+from ._core import config
+from ._core import find
+from ._core import skinning
+from ._lib import proxyskel
+from ._lib import tpose
+from . import updater
 from . import util
-from . import node
 
 from .ui import controllerEdit
 from .ui import _visGroup
@@ -45,45 +40,7 @@ from .ui import startingTab
 log = logging.getLogger(__name__)
 
 
-RigToolUI = core.ui.getQtUIClass( os.path.dirname(__file__) + '/ui/rigToolUI.ui', 'pdil.tool.fossil.ui.rigToolUI')
-
-if '_meshStorage' not in globals():
-    _meshStorage = {}
-
-
-def storeMeshes(meshes):
-    ''' Used by build/remove joints.  Temp storage for mesh weights as the rig is rebuilt.
-    &&& I think this should be replaced by skinning.py
-    '''
-    global _meshStorage
-    _meshStorage.clear()
-    
-    for mesh in meshes:
-        _meshStorage[mesh] = {
-            'weight': core.weights.get(mesh)
-            # &&& Add an entry for BPJ ids
-        }
-
-
-def restoreMeshes():
-    ''' Used by build/remove joints.  Try to load any temp stored meshes.
-    &&& I think this should be replaced by skinning.py
-    '''
-    global _meshStorage
-    
-    applied = []
-    for mesh, data in _meshStorage.items():
-        weights = data['weight']
-        for j in weights['jointNames']:
-            if not objExists(j):
-                break
-        else:
-            # All the joints exist, so skin it
-            core.weights.apply(mesh, weights)
-            applied.append(mesh)
-    
-    for mesh in applied:
-        del _meshStorage[mesh]
+RigToolUI = pdil.ui.getQtUIClass( os.path.dirname(__file__) + '/ui/rigToolUI.ui', 'pdil.tool.fossil.ui.rigToolUI')
 
 
 def matchOrient():
@@ -153,11 +110,6 @@ def simpleJson(s):
     return '\n'.join(output)
 
 
-@contextmanager
-def nothing():
-    yield
-
-
 class RigTool(Qt.QtWidgets.QMainWindow):
     
     _inst = None
@@ -166,7 +118,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
     FOSSIL_SPACE_TAB = 'Fossil_RigTool_SpacedTab'
         
     @staticmethod
-    @core.alt.name( 'Rig Tool' )
+    @pdil.alt.name( 'Rig Tool' )
     def run():
         return RigTool()
     
@@ -184,7 +136,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         val = self.ui.actionHandles.isChecked()
         
         #cards = ls( '*.skeletonInfo', o=1 )
-        for card in core.findNode.allCards():
+        for card in find.blueprintCards():
             for joint in card.joints:
                 joint.displayHandle.set(val)
     
@@ -198,7 +150,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
     
     def __init__(self, *args, **kwargs):
         
-        self.settings = core.ui.Settings( 'Fossil GUI Settings',
+        self.settings = pdil.ui.Settings( 'Fossil GUI Settings',
             {
                 'spineCount': 5,
                 'fingerCount': 4,
@@ -214,13 +166,15 @@ class RigTool(Qt.QtWidgets.QMainWindow):
                 
                 'showIndividualRestore': False,
                 'showRigStateDebug': False,
+                
+                'runUpdaters': True,
             })
         
         objectName = 'Rig_Tool'
         # Remove any existing windows first
-        core.ui.deleteByName(objectName)
+        pdil.ui.deleteByName(objectName)
         
-        super(RigTool, self).__init__(core.ui.mayaMainWindow())
+        super(RigTool, self).__init__(pdil.ui.mayaMainWindow())
         
         # Not sure how else to get window's scale factor for high dpi displays
         self.scaleFactor = self.font().pixelSize() / 11.0
@@ -255,12 +209,12 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         
         self.ui.makeCardBtn.clicked.connect(self.makeCard)
         self.ui.selectAllBtn.clicked.connect(self.selectAll)
-        self.ui.buildBonesBtn.clicked.connect(Callback(self.buildBones))
-        self.ui.deleteBonesBtn.clicked.connect( self.deleteBones )
-        self.ui.buildRigBtn.clicked.connect( self.buildRig )
-        self.ui.deleteRigBtn.clicked.connect( partial(util.runOnEach, operator.methodcaller('removeRig'), 'Rig deleted') )
-        self.ui.saveModsBtn.clicked.connect( partial(util.runOnEach, operator.methodcaller('saveState'), 'State saved') )
-        self.ui.restoreModsBtn.clicked.connect( partial(util.runOnEach, operator.methodcaller('restoreState'), 'State restored') )
+        self.ui.buildBonesBtn.clicked.connect(Callback(fossil_card.buildBones))
+        self.ui.deleteBonesBtn.clicked.connect( Callback(fossil_card.deleteBones) )
+        self.ui.buildRigBtn.clicked.connect( fossil_card.buildRig )
+        self.ui.deleteRigBtn.clicked.connect( partial(util.runOnEach, operator.methodcaller('removeRig'), 'Delting Rig') )
+        self.ui.saveModsBtn.clicked.connect( partial(util.runOnEach, operator.methodcaller('saveState'), 'Saving State') )
+        self.ui.restoreModsBtn.clicked.connect( partial(util.runOnEach, operator.methodcaller('restoreState'), 'Restoring State') )
         
         
         self.ui.duplicateCardBtn.clicked.connect(self.duplicateCard)
@@ -329,7 +283,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         
         
         # Card Lister setup
-        self.updateId = scriptJob( e=('SelectionChanged', core.alt.Callback(self.selectionChanged)) )
+        self.updateId = scriptJob( e=('SelectionChanged', pdil.alt.Callback(self.selectionChanged)) )
         self.ui.cardLister.setup(self.scaleFactor)
         
         self.ui.cardLister.itemSelectionChanged.connect(self.cardListerSelection)
@@ -344,26 +298,32 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         self.ui.restoreContainer.setVisible( self.settings['showIndividualRestore'] )
         self.ui.rigStateContainer.setVisible( self.settings['showRigStateDebug'] )
 
-        core.pubsub.subscribe('fossil rig type changed', self.forceCardParams)
+        pdil.pubsub.subscribe('fossil rig type changed', self.forceCardParams)
 
         # Controller Edit
         self.shapeEditor = controllerEdit.ShapeEditor(self)
+        
+        #-
         self.show()
         
-        core.pubsub.subscribe(core.pubsub.Event.MAYA_DAG_OBJECT_CREATED, self.ui.cardLister.newObjMade)
+        pdil.pubsub.subscribe(pdil.pubsub.Event.MAYA_DAG_OBJECT_CREATED, self.ui.cardLister.newObjMade)
     
         self.uiActive = True
         self._uiActiveStack = []
         
         self.ui.tabWidget.setCurrentIndex(self.settings['currentTabIndex'])
-        
+
         if 'geometry' in self.settings:
-            core.ui.setGeometry( self, self.settings['geometry'] )
+            pdil.ui.setGeometry( self, self.settings['geometry'] )
         
         pdil.pubsub.publish('fossil rig type changed')
         selectedCard = util.selectedCardsSoft(single=True)
         self.ui.jointLister.jointListerRefresh(selectedCard)
         self.ui.jointLister.refreshHighlight()
+        
+        if self.settings['runUpdaters']:
+            self.runUpdatersId = scriptJob( e=('SceneOpened', updater.checkAll) )
+            updater.checkAll()
         
     
     def forceCardParams(self):
@@ -398,7 +358,8 @@ class RigTool(Qt.QtWidgets.QMainWindow):
             harvestFunc, restoreFunc = nodeApi.Card.toSave[key]
             for card in util.selectedCards():
                 card._restoreData(restoreFunc, card.rigState[key])
-    
+
+    """
     @staticmethod
     def deleteBones(cards=None):
         global _meshStorage
@@ -414,7 +375,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         joints = cmds.ls(joints) # Quickly determine if any joints actually exists
         
         if joints:
-            meshes = core.weights.findBoundMeshes(joints)
+            meshes = pdil.weights.findBoundMeshes(joints)
             storeMeshes(meshes)
         '''
         #meshes = getBoundMeshes(cards)
@@ -422,10 +383,12 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         #    storeMeshes(meshes)
         skinning.cacheWeights(cards, _meshStorage)
         
-        with core.ui.progressWin(title='Deleting Bones', max=len(cards)) as prog:
+        with pdil.ui.progressWin(title='Deleting Bones', max=len(cards)) as prog:
             for card in cards:
                 card.removeBones()
                 prog.update()
+    """
+    
     
     def noUiUpdate(self):
         self._uiActiveStack.append( self.uiActive )
@@ -433,286 +396,41 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         yield
         self.uiActive = self._uiActiveStack.pop()
                 
-        self.updateId = scriptJob( e=('SelectionChanged', core.alt.Callback(self.selectionChanged)) )
-
+        self.updateId = scriptJob( e=('SelectionChanged', pdil.alt.Callback(self.selectionChanged)) )
+    
+    
     def restoreToggle(self):
         self.settings['showIndividualRestore'] = not self.settings['showIndividualRestore']
         self.ui.restoreContainer.setVisible( self.settings['showIndividualRestore'] )
-
+    
+    
     def rigStateToggle(self):
         self.settings['showRigStateDebug'] = not self.settings['showRigStateDebug']
         self.ui.rigStateContainer.setVisible( self.settings['showRigStateDebug'] )
 
 
     def selectAll(self):
-        select( core.findNode.allCards() )
+        select( find.blueprintCards() )
     
-    @staticmethod
-    def validateBoneNames(cards):
-        '''
-        Returns a list of any name issues building the given cards.
-        '''
-        issues = []
-        allJoints = { c: c.getOutputJoints() for c in core.findNode.allCards()}
-
-        untestedCards = list(allJoints.keys())
-
-        for current in cards:
-            
-            untestedCards.remove(current)
-
-            currentJoints = set( allJoints[current] )
-            if len(currentJoints) != len( allJoints[current] ):
-                issues.append(current.name() + ' does not have unique internal names')
-            
-            if 'NOT_ENOUGH_NAMES' in currentJoints:
-                issues.append( '{} does not have enough names'.format(current) )
-
-            for otherCard in untestedCards:
-                overlap = currentJoints.intersection( allJoints[otherCard] )
-                if overlap:
-                    issues.append( '{} and {} overlap {}'.format( current, otherCard, overlap ))
-
-        return issues
-
-
-    @staticmethod
-    def getRequiredHierarchy(cards):
-        hierachy = cardlister.cardHierarchy()
-        parentLookup = {child: parent for parent, children in hierachy for child in children}
-        
-        required = set()
-        
-        for card in cards:
-            c = card
-            while c:
-                if c in required:
-                    break
-                required.add(c)
-                c = parentLookup[c]
-
-        return [c for c, children in hierachy if c in required]
-
-
-    @classmethod
-    def buildBones(cls, cards=None, removeTempBind=True):
-        global _meshStorage
-        
-        if not cards:
-            cards = set(util.selectedCards())
-            if not cards:
-                pdil.ui.notify( m='No cards selected' )
-                return
-
-        issues = cls.validateBoneNames(cards)
-        if issues:
-            pdil.ui.notify(m='\n'.join(issues), t='Fix these')
-            return
-
-        cardBuildOrder = cardlister.cardJointBuildOrder()
-
-        skinning.cacheWeights(cards, _meshStorage)
-
-        useRepose = tpose.reposerExists()
-        if useRepose:
-            log.debug('Reposer Exists')
-            realJoints = []  # This is a list of the joints that are ACTUALLY built in this process
-            bindPoseJoints = []  # Matches realJoints, the cards that are bound
-            tempBindJoints = []  # Super set of bindPoseJoints, including the hierarchy leading up to the bindBoseJoints
-            
-            estRealJointCount = len(cmds.ls( '*.realJoint' ))
-            
-            with core.ui.progressWin(title='Build Bones', max=estRealJointCount * 3 + len(cards)) as prog:
-                # Build the tpose joints
-                with tpose.matchReposer(cardBuildOrder):
-                    for card in cardBuildOrder:
-                        if card in cards:
-                            newJoints = card.buildJoints_core(nodeApi.fossilNodes.JointMode.tpose)
-                            realJoints += newJoints
-                            
-                            accessoryFixup(newJoints, card)
-                            
-                        prog.update()
-                
-                    # The hierarchy has to be built to determine the right bindZero, so build everything if all cards
-                    # are being made, otherwise target just a few
-                    if len(cardBuildOrder) == len(cards):
-                        bindCardsToBuild = cardBuildOrder
-                    else:
-                        bindCardsToBuild = cls.getRequiredHierarchy(cards)
-                
-                # Temp build the bind pose joints
-                for card in bindCardsToBuild:
-                    joints = card.buildJoints_core(nodeApi.fossilNodes.JointMode.bind)
-                    tempBindJoints += joints
-                    if card in cards:
-                        bindPoseJoints += joints
-                
-                with tpose.goToBindPose():
-                    # Setup all the constraints first so joint order doesn't matter
-                    constraints = []
-                    prevTrans = []
-                    for bind, real in zip(bindPoseJoints, realJoints):
-                        #with core.dagObj.Solo(bind):
-                        #    bind.jo.set( real.jo.get() )
-                        
-                        prevTrans.append(real.t.get())
-                        constraints.append(
-                            [orientConstraint( bind, real ), pointConstraint( bind, real )]
-                        )
-                        
-                        real.addAttr( 'bindZero', at='double3' )
-                        real.addAttr( 'bindZeroX', at='double', p='bindZero' )
-                        real.addAttr( 'bindZeroY', at='double', p='bindZero' )
-                        real.addAttr( 'bindZeroZ', at='double', p='bindZero' )
-                        prog.update()
-                        #real.addAttr( 'bindZeroTr', at='double3' )
-                        #real.addAttr( 'bindZeroTrX', at='double', p='bindZeroTr' )
-                        #real.addAttr( 'bindZeroTrY', at='double', p='bindZeroTr' )
-                        #real.addAttr( 'bindZeroTrZ', at='double', p='bindZeroTr' )
-                        
-                        #real.bindZero.set( real.r.get() )
-                    
-                    # Harvest all the values
-                    for real in realJoints:
-                        real.bindZero.set( real.r.get() )
-                        #real.bindZeroTr.set( real.t.get() )
-                        prog.update()
-                        
-                    # Return the real joints back to their proper location/orientation
-                    for constraint, real, trans in zip(constraints, realJoints, prevTrans):
-                        delete(constraint)
-                        real.r.set(0, 0, 0)
-                        real.t.set(trans)
-                        prog.update()
-            
-            root = node.getTrueRoot()
-            topJoints = root.listRelatives(type='joint')
-            
-            for jnt in topJoints:
-                try:
-                    index = realJoints.index(jnt)
-                    real = jnt
-                    bind = bindPoseJoints[index]
-
-                    real.addAttr( 'bindZeroTr', at='double3' )
-                    real.addAttr( 'bindZeroTrX', at='double', p='bindZeroTr' )
-                    real.addAttr( 'bindZeroTrY', at='double', p='bindZeroTr' )
-                    real.addAttr( 'bindZeroTrZ', at='double', p='bindZeroTr' )
-                    
-                    delta = bind.worldMatrix[0].get() * real.worldInverseMatrix[0].get()
-                    real.bindZeroTr.set(delta[3][:3])
-
-                except ValueError:
-                    pass
-            
-            if removeTempBind:
-                delete( tempBindJoints )
-        
-        else:
-            log.debug('No reposer')
-            # Only build the selected cards, but always do it in the right order.
-            with core.ui.progressWin(title='Build Bones', max=len(cards)) as prog:
-                for card in cardBuildOrder:
-                    if card in cards:
-                        newJoints = card.buildJoints_core(nodeApi.fossilNodes.JointMode.default)
-                        accessoryFixup(newJoints, card)
-                        prog.update()
-        
-        
-        if useRepose:
-            with tpose.goToBindPose():
-                skinning.loadCachedWeights(_meshStorage)
-        else:
-            skinning.loadCachedWeights(_meshStorage)
-        
-        select(cards)
     
-    @staticmethod
-    def buildRig(cards=None):
-        '''
-        Makes the rig, saving shapes and removing the old rig if needed.
-        '''
-        # &&& Need to move cardJointBuildOrder to util and make selectedCards() use it.
-        if not cards:
-            cards = set(util.selectedCards())
-        
-        mode = 'Use Rig Info Shapes'
-        
-        if not cards:
-            pdil.ui.notify( m='No cards to selected to operate on.' )
-            return
-        
-        # &&& BUG, need to ONLY check against joints under the root, since other non-joint objects might have the same name
-        
-        # allJoints = ...
-                
-        for card in cards:
-            joints = card.getOutputJoints()
-            if joints and card.rigData.get('rigCmd', '') != 'Group':  # Group doesn't build joints
-                if len(cmds.ls(joints)) != len(joints):
-                    # &&& Ideall this prompts to build joints
-                    pdil.ui.notify(m='{} does not have joints built.'.format(card) )
-                    raise Exception('Joints not built')
-        
-        a = core.debug.Timer('Overall build')
-        
-        
-        #rootMotion = core.findNode.rootMotion(main=main)
-        #if not rootMotion:
-        #    rootMotion = node.rootMotion(main=main)
-        #    space.addMain(rootMotion)
-        #    space.addTrueWorld(rootMotion)
-        
-        
-        cardBuildOrder = cardlister.cardJointBuildOrder()
-        
-        with tpose.matchReposer(cardBuildOrder) if tpose.reposerExists() else nothing():
-            
-            with core.ui.progressWin(title='Building', max=len(cards) * 3 ) as pr:
-                
-                for card in cardBuildOrder:
-                    if card not in cards:
-                        continue
-                    pr.update(status=card.name() + ' prep')
-                    if mode == 'Use Current Shapes':
-                        card.saveShapes()
-                    
-                    # If this being rebuilt, also restore the if it's in ik or fk
-                    switchers = [controllerShape.getSwitcherPlug(x[0]) for x in card._outputs()]
-                    prevValues = [ (s, getAttr(s)) for s in switchers if s]
-
-                    card.removeRig()
-                    pr.update(status=card.name() + ' build')
-                    cardRigging.buildRig([card])
-                    
-                    pr.update(status=card.name() + ' build')
-                    if mode != 'Use Rig Info Shapes':
-                        card.restoreShapes()
-                        
-                    # Restore ik/fk-ness
-                    for switch, value in prevValues:
-                        if objExists(switch):
-                            setAttr(switch, value)
-                    
-        tpose.markBindPose(cards)
-        
-        select(cards)
-        a.stop()
-
     def closeEvent(self, event):
         #print('------  - - -  i am closing')
-        core.pubsub.unsubscribe(core.pubsub.Event.MAYA_DAG_OBJECT_CREATED, self.ui.cardLister.newObjMade)
+        pdil.pubsub.unsubscribe(pdil.pubsub.Event.MAYA_DAG_OBJECT_CREATED, self.ui.cardLister.newObjMade)
         try:
             if self.updateId is not None:
-                id = self.updateId
+                jid = self.updateId
                 self.updateId = None
-                scriptJob(kill=id)
+                scriptJob(kill=jid)
             
             self.spaceTab.close()
             
-            self.settings['geometry'] = core.ui.getGeometry(self)
+            self.settings['geometry'] = pdil.ui.getGeometry(self)
             self.settings['currentTabIndex'] = self.ui.tabWidget.currentIndex()
+            
+            if self.runUpdatersId is not None:
+                jid = self.runUpdatersId
+                self.updateId = None
+                scriptJob(kill=jid)
             
         except Exception:
             pass
@@ -751,9 +469,9 @@ class RigTool(Qt.QtWidgets.QMainWindow):
                 
                 allInfo = ''
                 for _node, side, type in selectedCard._outputs():
-                    shapeInfo = core.factory._getStringAttr( selectedCard, 'outputShape' + side + type)
+                    shapeInfo = pdil.factory._getStringAttr( selectedCard, 'outputShape' + side + type)
                     if shapeInfo:
-                        allInfo += core.text.asciiDecompress(shapeInfo).decode('utf-8') + '\n\n'
+                        allInfo += pdil.text.asciiDecompress(shapeInfo).decode('utf-8') + '\n\n'
                 
                 self.ui.shapesField.setText( allInfo )
             else:
@@ -835,11 +553,11 @@ class RigTool(Qt.QtWidgets.QMainWindow):
             if count > namedCount and not repeat:
                 raise Exception( 'No name was specified as repeating and too many joints were given.' )
             
-            #card = skeletonTool.core.Card( jointCount=count, name=name, rigInfo=None, size=(4, 6) )
+            #card = skeletonTool.pdil.Card( jointCount=count, name=name, rigInfo=None, size=(4, 6) )
             newCard = fossil_card.makeCard(jointCount=count, jointNames=name, rigInfo=None, size=(4, 6) )
             
             if targetParent:
-                moveCard.to( newCard, targetParent )
+                fossil_card.moveTo( newCard, targetParent )
                 
                 #skeletonTool.proxyskel.pointer( targetParent, newCard.start() )
                 newCard.start().setBPParent(targetParent)
@@ -994,6 +712,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         fossil_card.removeCardIk( selected()[0] )
 
 
+"""
 def accessoryFixup(newJoints, card):
     ''' Place the topmost joints in a separate group so they aren't exported.
     '''
@@ -1013,11 +732,11 @@ def accessoryFixup(newJoints, card):
                 
                 jnt.addAttr('fossilAccessoryInfo', dt='string')
                 jnt.fossilAccessoryInfo.set( json.dumps( {'parent': parent.longName()} ) )
-
+"""
 
 def nameRulesWindow():
     
-    with core.ui.singleWindow('nameRulesWindow', t='Choose what is displayed to indicate the side of the joints and controllers.') as win:
+    with pdil.ui.singleWindow('nameRulesWindow', t='Choose what is displayed to indicate the side of the joints and controllers.') as win:
         with columnLayout(adj=True):
             jl = textFieldGrp('jointLeft', l='Joint Left Side', tx=config._settings['joint_left'] )
             jr = textFieldGrp('jointRight', l='Joint Right Side', tx=config._settings['joint_right'] )
@@ -1074,7 +793,7 @@ def getBoundMeshes(cards=None):
     Defaults to using all cards but specific cards can be specified.
     '''
     if not cards:
-        cards = core.findNode.allCards()
+        cards = find.blueprintCards()
     
     allJoints = []
     for card in cards:
@@ -1084,7 +803,7 @@ def getBoundMeshes(cards=None):
             if joint.realMirror:
                 allJoints.append(joint.realMirror)
 
-    meshes = core.weights.findBoundMeshes(allJoints)
+    meshes = pdil.weights.findBoundMeshes(allJoints)
     return meshes
 
 
@@ -1092,16 +811,19 @@ def fullRebuild(weights=None):
     ''' Detached any bound meshes and rebuild everything, including the tpose if it exists.
     '''
     
-    cards = core.findNode.allCards()
+    cards = find.blueprintCards()
     
-    with core.ui.progressWin(title='Full Rebuild', max=len(cards) * 4 + 9 ) as pr:
+    meshStorage = {}
+    
+    with pdil.ui.progressWin(title='Full Rebuild', max=len(cards) * 4 + 9 ) as pr:
         pr.update(status='Searching for bound meshes')
         
         if not weights:
             meshes = getBoundMeshes(cards)
             if meshes:
                 pr.update(status='Storing weights')
-                storeMeshes(meshes)
+                #storeMeshes(meshes)
+                skinning.cacheWeights(cards, meshStorage)
         
         pr.update(status='Saving states')
         for card in cards:
@@ -1121,17 +843,17 @@ def fullRebuild(weights=None):
         #
         reposers = tpose.getReposeRoots()
         if reposers:
-            delete(reposers)
+            #delete(reposers)
             pr.update(status='New reposer')
-            tpose.generateReposer(cards)
+            tpose.updateReposers(cards)
             pr.update(status='Run adjusters')
             tpose.runAdjusters()
         
         pr.update(status='Build Bones')
-        RigTool.buildBones(cards)
+        fossil_card.buildBones(cards)
         
         pr.update(status='Build Rig')
-        RigTool.buildRig(cards)
+        fossil_card.buildRig(cards)
         
         pr.update(status='Restore State')
         for card in cards:
@@ -1142,11 +864,11 @@ def fullRebuild(weights=None):
             tpose.goToBindPose()
         
         if not weights:
-            restoreMeshes()
+            skinning.cacheWeights(cards, meshStorage)
         else:
             for obj, data in weights.items():
                 obj = PyNode(obj)
-                core.weights.apply(obj, data['weight'])
+                pdil.weights.apply(obj, data['weight'])
                 
 
 def fitControlsToMesh(cards, meshes):

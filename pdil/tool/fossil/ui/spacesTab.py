@@ -1,7 +1,9 @@
+from __future__ import absolute_import, division, print_function
 
-from ....vendor import Qt
-from .... import core
-from .. import space
+import pdil
+from pdil.vendor import Qt
+
+from .._lib import space
 
 from pymel.core import Callback, MeshVertex, scriptJob, select, selected, warning, promptDialog
 
@@ -76,7 +78,7 @@ def addSpace(mode, index):
         
             if ctrl.fossilCtrlType.get() in ['translate', 'rotate']:
 
-                bindBone = core.constraints.getOrientConstrainee(ctrl)
+                bindBone = pdil.constraints.getOrientConstrainee(ctrl)
                 if not bindBone:
                     # Handle Group cards
                     try:

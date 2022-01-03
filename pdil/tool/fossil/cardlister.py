@@ -7,12 +7,12 @@ from pymel.core import select
 from ...vendor.Qt import QtWidgets, QtCore
 from ...vendor.Qt.QtCore import Qt, Signal
 
-from ... import core
+import pdil
+
+from ._core import find
 
 from . import cardRigging
 from . import util
-
-import pdil
 
 
 class ComboBox(QtWidgets.QComboBox):
@@ -172,13 +172,14 @@ class CardRow(QtWidgets.QTreeWidgetItem):
         self.side.addItems( self.sideOptions )
         self.treeWidget().setItemWidget(self, self.SIDE_COL, self.side)
         
-        if rigData['mirrorCode'] == '':
+        mirrorCode = rigData.get('mirrorCode', None)
+        if mirrorCode == '':
             self.side.setCurrentIndex( self.sideOptions.index('-') )
             
-        elif rigData['mirrorCode'] == 'left':
+        elif mirrorCode == 'left':
             self.side.setCurrentIndex( self.sideOptions.index('<') )
             
-        elif rigData['mirrorCode'] == 'right':
+        elif mirrorCode == 'right':
             self.side.setCurrentIndex( self.sideOptions.index('>') )
         
         else:
@@ -188,6 +189,7 @@ class CardRow(QtWidgets.QTreeWidgetItem):
         self.side.currentIndexChanged.connect( self.sideChanged )
 
 
+"""
 def cardJointBuildOrder():
     '''
     Returns the cards in the order joints should be built in.  Spaces complicate
@@ -218,7 +220,7 @@ def cardHierarchy():
     # Also track parent and their children so we can lookup to add asymetrically made cards to child list
     parentCardsListed = {}
     
-    for card in core.findNode.allCards():
+    for card in find.blueprintCards():
         if not card.parentCard:
             
             # Only pick up cards that are actually top level and not parented to a mirror side
@@ -252,7 +254,7 @@ def cardHierarchy():
     
     
     return parentCards
-
+"""
 
 
 class CardLister(QtWidgets.QTreeWidget):
@@ -343,13 +345,13 @@ class CardLister(QtWidgets.QTreeWidget):
         
     def cardListerRefresh(self, force=False):
         
-        if self.allCards == core.findNode.allCards() and not force:
+        if self.allCards == find.blueprintCards() and not force:
             #print('No Refresh A')
             return
         
-        self.allCards = core.findNode.allCards()
+        self.allCards = find.blueprintCards()
         
-        cardOrder = cardHierarchy()
+        cardOrder = find.cardHierarchy()
         
         # Exit if nothing has changed
         if self.cardOrder == cardOrder and not force:
@@ -454,11 +456,11 @@ class CardLister(QtWidgets.QTreeWidget):
     
     def newObjMade(self):
         
-        if self.allCards == core.findNode.allCards():
+        if self.allCards == find.blueprintCards():
             #print('No new cards')
             return
         else:
-            #print('New CARD!', set(core.findNode.allCards()).difference(self.allCards) )
+            #print('New CARD!', set(find.blueprintCards()).difference(self.allCards) )
             self.cardListerRefresh(force=True)
     
     def updateNames(self, card):

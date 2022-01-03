@@ -5,19 +5,19 @@ import math
 
 from pymel.core import duplicate, dt, group, hide, joint, ikHandle, listConnections, makeIdentity, move, orientConstraint, parent, parentConstraint, PyNode, skinCluster, xform
 
-from .... import core
-from .... import lib
-from .... import nodeApi
+import pdil
 
-from .. import controllerShape
-from .. import space
+from .._lib2 import controllerShape
 
 from ..cardRigging import MetaControl, ParamInfo
 
-from . import _util as util
 from .. import node
 from .. import rig
+from .._core import find
+from .._lib import space
+from .._lib import visNode
 
+from . import _util as util
 
 @util.adds('stretch')
 @util.defaultspec( {'shape': 'box',    'color': 'orange 0.22', 'size': 10 },
@@ -80,7 +80,7 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
         
     # -- Base --  # I don't think there is any benefit to controlling this, but it might just be my weighting.
     base = joint(None, n='Base')
-    core.dagObj.moveTo(base, chain[0])
+    pdil.dagObj.moveTo(base, chain[0])
     base.setParent( container )
     parentConstraint( start.getParent(), base, mo=True)
     hide(base)
@@ -92,30 +92,30 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
     chestCtrl.stretch.set(1)
     chestCtrl.stretch.lock()
     chestCtrl.stretch.setKeyable(False)
-    core.dagObj.lockScale(chestCtrl)
+    pdil.dagObj.lockScale(chestCtrl)
 
     # Put pivot point at the bottom
     chestCtrl.ty.set( chestCtrl.boundingBox()[1][1] )
     
-    lib.sharedShape.remove(chestCtrl)
+    pdil.sharedShape.remove(chestCtrl, visNode.VIS_NODE_TYPE)
     chestCtrl.setPivots( [0, 0, 0], worldSpace=True )
     makeIdentity( chestCtrl, a=True, t=True )
-    lib.sharedShape.use(chestCtrl)
+    pdil.sharedShape.use(chestCtrl, visNode.get())
     
     move( chestCtrl, xform(chestBase, q=True, ws=True, t=True), rpr=True )
-    core.dagObj.zero(chestCtrl)
+    pdil.dagObj.zero(chestCtrl)
     
     if useTrueZero:
         rot = util.determineClosestWorldOrient(chestBase)
         
         util.storeTrueZero(chestCtrl, rot)
-        core.dagObj.rezero( chestCtrl )  # Not sure why this is needed but otherwise the translate isn't zeroed
+        pdil.dagObj.rezero( chestCtrl )  # Not sure why this is needed but otherwise the translate isn't zeroed
         chestCtrl.r.set( rot )
     
     chest = joint(None, n='Chest')
     chest.setParent( chestCtrl )
-    core.dagObj.moveTo(chest, chestBase)
-    core.dagObj.lockScale(core.dagObj.lockRot(core.dagObj.lockTrans(chest)))
+    pdil.dagObj.moveTo(chest, chestBase)
+    pdil.dagObj.lockScale(pdil.dagObj.lockRot(pdil.dagObj.lockTrans(chest)))
     hide(chest)
 
     chestMatcher = util.createMatcher(chestCtrl, srcChain[chestIndex])
@@ -126,37 +126,37 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
     space.add( chestCtrl, start.getParent(), 'local_posOnly', mode=space.Mode.TRANSLATE )
     space.addMain( chestCtrl )  # Not sure this space is useful...
     space.addTrueWorld( chestCtrl )
-    space.add( chestCtrl, start.getParent(), 'worldRotate', mode=space.Mode.ALT_ROTATE, rotateTarget=space.getMainGroup())
+    space.add( chestCtrl, start.getParent(), 'worldRotate', mode=space.Mode.ALT_ROTATE, rotateTarget=find.mainGroup())
     
     # -- Chest Offset -- &&& Currently hard coded to make a single offset joint
     chestOffsetCtrl = None
     if chestIndex < (len(chain) - 1):
         chestOffsetCtrl = controllerShape.build( name + '_bend', controlSpec['offset'], controllerShape.ControlType.SPLINE )
         chestOffsetCtrl.setParent(chestCtrl)
-        core.dagObj.matchTo( chestOffsetCtrl, chain[-1])
+        pdil.dagObj.matchTo( chestOffsetCtrl, chain[-1])
         #move(chestOffsetCtrl, [0, 0.7, 3], r=True)
-        core.dagObj.zero(chestOffsetCtrl)
-        core.dagObj.lockScale(chestOffsetCtrl)
+        pdil.dagObj.zero(chestOffsetCtrl)
+        pdil.dagObj.lockScale(chestOffsetCtrl)
         parentConstraint(chestOffsetCtrl, chain[-1], mo=True)
     
     # -- Mid --
     midCtrl = controllerShape.build( name + '_mid', controlSpec['middle'], controllerShape.ControlType.SPLINE )
-    #core.dagObj.matchTo( midCtrl, midPoint )
+    #pdil.dagObj.matchTo( midCtrl, midPoint )
     xform( midCtrl, ws=True, t=midPos )
 
 
-    core.dagObj.lockScale(midCtrl)
+    pdil.dagObj.lockScale(midCtrl)
     midCtrl.setParent( container )
     
     mid = joint(None, n='Mid')
-    #core.dagObj.moveTo( mid, midPoint )
+    #pdil.dagObj.moveTo( mid, midPoint )
     xform( mid, ws=True, t=midPos )
     mid.setParent( midCtrl )
-    core.dagObj.lockScale(core.dagObj.lockRot(core.dagObj.lockTrans(mid)))
+    pdil.dagObj.lockScale(pdil.dagObj.lockRot(pdil.dagObj.lockTrans(mid)))
     hide(mid)
     
     # Mid control's rotation aims at the chest
-    core.dagObj.zero(midCtrl)
+    pdil.dagObj.zero(midCtrl)
     
     aimer = util.midAimer(base, chestCtrl, midCtrl)
     aimer.setParent(container)
@@ -171,30 +171,30 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
     # -- Shoulders --
     if numChestJoints > 2: # The shoulder control is skipped if there aren't enough joints
         shoulderCtrl = controllerShape.build( name + '_shoulders', controlSpec['end'], controllerShape.ControlType.SPLINE )
-        core.dagObj.matchTo( shoulderCtrl, srcChain[-2])  # We want to use the penultimate joint orientation
-        core.dagObj.moveTo( shoulderCtrl, end)
+        pdil.dagObj.matchTo( shoulderCtrl, srcChain[-2])  # We want to use the penultimate joint orientation
+        pdil.dagObj.moveTo( shoulderCtrl, end)
         controllerShape.scaleAllCVs( shoulderCtrl, x=0.15 )
-        shoulderZero = core.dagObj.zero(shoulderCtrl)
+        shoulderZero = pdil.dagObj.zero(shoulderCtrl)
         shoulderZero.setParent(chestCtrl)
-        core.dagObj.lockScale(core.dagObj.lockTrans(shoulderCtrl))
+        pdil.dagObj.lockScale(pdil.dagObj.lockTrans(shoulderCtrl))
     
         neck = joint(None, n='Neck')
         neck.setParent( shoulderCtrl )
-        core.dagObj.moveTo( neck, end )
-        core.dagObj.lockScale(core.dagObj.lockRot(core.dagObj.lockTrans(neck)))
+        pdil.dagObj.moveTo( neck, end )
+        pdil.dagObj.lockScale(pdil.dagObj.lockRot(pdil.dagObj.lockTrans(neck)))
         hide(neck)
     
     # -- Neck --
     neckCtrl = controllerShape.build( name + '_neck', controlSpec['neck'], controllerShape.ControlType.ROTATE )
-    core.dagObj.matchTo( neckCtrl, end)
+    pdil.dagObj.matchTo( neckCtrl, end)
     if numChestJoints > 2: # The shoulder control is skipped if there aren't enough joints
-        core.dagObj.zero(neckCtrl).setParent( shoulderCtrl )
-        core.dagObj.lockScale(core.dagObj.lockTrans(neckCtrl))
+        pdil.dagObj.zero(neckCtrl).setParent( shoulderCtrl )
+        pdil.dagObj.lockScale(pdil.dagObj.lockTrans(neckCtrl))
         space.add( neckCtrl, srcChain[-2], 'chest' )
         
     else:
-        core.dagObj.zero(neckCtrl).setParent( chestCtrl )
-        core.dagObj.lockScale(core.dagObj.lockTrans(neckCtrl))
+        pdil.dagObj.zero(neckCtrl).setParent( chestCtrl )
+        pdil.dagObj.lockScale(pdil.dagObj.lockTrans(neckCtrl))
         space.add( neckCtrl, chestCtrl, 'chest' )
         
     space.addMain(neckCtrl)
@@ -202,8 +202,8 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
     # Constrain to spline proxy, up to the chest...
     constraints = []
     for src, dest in list(zip( chain, srcChain ))[:chestIndex]:
-        constraints.append( core.constraints.pointConst( src, dest ) )
-        constraints.append( core.constraints.orientConst( src, dest ) )
+        constraints.append( pdil.constraints.pointConst( src, dest ) )
+        constraints.append( pdil.constraints.orientConst( src, dest ) )
     
     # ... including the chest
     src = chain[chestIndex]
@@ -212,33 +212,33 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
     
     # &&& Gotta remove/figure out what is going on here, why can't I just constrain entirely the srcChain to it's dup'd chain?
     if False: # numChestJoints > 2: # The shoulder control is skipped if there aren't enough joints
-        constraints.append( core.constraints.pointConst( src, dest ) )
-        constraints.append( core.constraints.orientConst( src, dest ) )
+        constraints.append( pdil.constraints.pointConst( src, dest ) )
+        constraints.append( pdil.constraints.orientConst( src, dest ) )
     # ... not including the chest
     else:
         chestProxy = duplicate(src, po=True)[0]
         chestProxy.setParent(chestCtrl)
-        constraints.append( core.constraints.pointConst( chestProxy, dest ) )
-        constraints.append( core.constraints.orientConst( chestProxy, dest ) )
+        constraints.append( pdil.constraints.pointConst( chestProxy, dest ) )
+        constraints.append( pdil.constraints.orientConst( chestProxy, dest ) )
         hide(chestProxy)
     
     if chestOffsetCtrl:
-        constraints.append( core.constraints.pointConst( chain[-1], srcChain[-1] ) )
-        constraints.append( core.constraints.orientConst( chain[-1], srcChain[-1] ) )
+        constraints.append( pdil.constraints.pointConst( chain[-1], srcChain[-1] ) )
+        constraints.append( pdil.constraints.orientConst( chain[-1], srcChain[-1] ) )
     
      
-    #constraints.append( core.constraints.pointConst( neckCtrl, srcChain[-1] ) )
-    #constraints.append( core.constraints.orientConst( neckCtrl, srcChain[-1] ) )
+    #constraints.append( pdil.constraints.pointConst( neckCtrl, srcChain[-1] ) )
+    #constraints.append( pdil.constraints.orientConst( neckCtrl, srcChain[-1] ) )
     
     """
     if numChestJoints > 2: # The shoulder control is skipped if there aren't enough joints
         # Make a proxy since we can't constrain with maintainOffset=True if we're making fk too.
         proxy = duplicate(srcChain[-2], po=True)[0]
         proxy.setParent(neck)
-        core.dagObj.lockTrans(core.dagObj.lockRot(core.dagObj.lockScale(proxy)))
+        pdil.dagObj.lockTrans(pdil.dagObj.lockRot(pdil.dagObj.lockScale(proxy)))
         
-        constraints.append( core.constraints.pointConst( proxy, srcChain[-2] ) )
-        constraints.append( core.constraints.orientConst( proxy, srcChain[-2] ) )
+        constraints.append( pdil.constraints.pointConst( proxy, srcChain[-2] ) )
+        constraints.append( pdil.constraints.orientConst( proxy, srcChain[-2] ) )
     """
     
     hide(chain, mainIk)
@@ -249,7 +249,7 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
     else:
         skinCluster( crv, base, mid, chest, tsb=True )
     
-    chestCtrl = nodeApi.RigController.convert(chestCtrl)
+    chestCtrl = pdil.nodeApi.RigController.convert(chestCtrl)
     chestCtrl.container = container
     chestCtrl.subControl['mid'] = midCtrl
     if chestOffsetCtrl:
@@ -262,13 +262,13 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
     startAxis = duplicate( start, po=True )[0]
     startAxis.rename( 'startAxis' )
     startAxis.setParent( base )
-    core.dagObj.lockTrans(core.dagObj.lockRot(core.dagObj.lockScale(startAxis)))
+    pdil.dagObj.lockTrans(pdil.dagObj.lockRot(pdil.dagObj.lockScale(startAxis)))
     
     endAxis = duplicate( start, po=True )[0]
     endAxis.rename( 'endAxis' )
     endAxis.setParent( chestCtrl )
     endAxis.t.set(0, 0, 0)
-    core.dagObj.lockTrans(core.dagObj.lockRot(core.dagObj.lockScale(endAxis)))
+    pdil.dagObj.lockTrans(pdil.dagObj.lockRot(pdil.dagObj.lockScale(endAxis)))
     
     hide(startAxis, endAxis)
     

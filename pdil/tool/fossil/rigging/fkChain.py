@@ -1,6 +1,6 @@
 from collections import OrderedDict
 
-from .... import core
+import pdil
 
 from . import _util as util
 
@@ -34,10 +34,10 @@ class activator(object):
     def prep(leadControl):
         
         prepData = OrderedDict()
-        prepData['lead'] = core.constraints.getOrientConstrainee( leadControl )
+        prepData['lead'] = pdil.constraints.getOrientConstrainee( leadControl )
         
         for name, ctrl in leadControl.subControl.items():
-            prepData[name] = core.constraints.getOrientConstrainee( ctrl )
+            prepData[name] = pdil.constraints.getOrientConstrainee( ctrl )
         
         return prepData
 

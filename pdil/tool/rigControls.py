@@ -2,9 +2,9 @@ from __future__ import print_function
 
 from pymel.core import hide, showHidden, selected, select
 
-from .. import core
+from .. import _core as core
 from ..nodeApi import fossilNodes
-
+from ..tool import fossil
 
 class QuickHideControls(object):
     '''
@@ -25,7 +25,7 @@ class QuickHideControls(object):
     
     @classmethod
     def start(cls):
-        temp = core.findNode.controllers()
+        temp = fossil.find.controllers()
         ctrls = temp[:-2]  # Cut out the main controller and root motion
         
         # Artificially add the parents of the selected controls so they are hidden as a result
@@ -43,7 +43,7 @@ class QuickHideControls(object):
         cls.hideMain = main not in selectedControls
         
         if cls.hideMain:
-            cls.mainShapes = core.shape.getShapes(main)
+            cls.mainShapes = core.shape.getNurbsShapes(main)
             hide(cls.mainShapes)
             print( 'hide main', cls.mainShapes[0].isVisible() )
             if cls.mainShapes[0].isVisible():
@@ -72,7 +72,7 @@ def selectRelatedControllers():
     If any controllers are selected, all siblings are also selected.
     '''
     for obj in selected():
-        main = core.findNode.leadController(obj)
+        main = fossil.node.leadController(obj)
         if main:
             for name, ctrl in main.subControl.items():
                 select(ctrl, add=True)
@@ -85,7 +85,7 @@ def selectChildrenControllers():
     If any controllers are selected, any subsequent controllers are selected.
     '''
     for obj in selected():
-        main = core.findNode.leadController(obj)
+        main = fossil.node.leadController(obj)
         if main == obj:
             for name, ctrl in main.subControl.items():
                 select(ctrl, add=True)

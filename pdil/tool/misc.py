@@ -2,8 +2,8 @@ import json
 
 from pymel.core import confirmDialog, menu, menuBarLayout, objExists, PyNode, selected
 
-from .. import core
-from ..add import alt
+from .. import _core as core
+from .._add import alt
 
 _WEIGHTS = {}
 

@@ -3,17 +3,13 @@ import logging
 
 from pymel.core import group
 
-from .... import add
-from .... import core
-from .... import nodeApi
+import pdil
 
-from .. import controllerShape
-
+from .._lib2 import controllerShape
 from ..cardRigging import MetaControl, ParamInfo, OutputControls
-
-from . import _util as util
 from .. import node
 
+from . import _util as util
 
 log = logging.getLogger('fossil_controller_debug')
 
@@ -38,7 +34,7 @@ def buildFreeform(joints, translatable=False, mirroredTranslate=False, scalable=
     # Make a top level section for each lead joint in the subHierarchy
     #topLevel = [j for j in joints if j.getParent() not in joints]
 
-    topContainer = group(n=add.simpleName(joints[0], '{0}_Freeform'), p=node.mainGroup(), em=True)
+    topContainer = group(n=pdil.simpleName(joints[0], '{0}_Freeform'), p=node.mainGroup(), em=True)
     
     #top = container
     #leadOrient, leadPoint = None, None
@@ -55,11 +51,11 @@ def buildFreeform(joints, translatable=False, mirroredTranslate=False, scalable=
                                 controlSpec['main'],
                                 type=controllerShape.ControlType.TRANSLATE if translatable else controllerShape.ControlType.ROTATE )
         controls.append( ctrl )
-        core.dagObj.matchTo( ctrl, j )
+        pdil.dagObj.matchTo( ctrl, j )
 
         constraints = util.constrainTo( j, ctrl, includeScale=scalable )
 
-        space = core.dagObj.zero( ctrl )
+        space = pdil.dagObj.zero( ctrl )
         if mirroredTranslate:
             space.s.set(-1, -1, -1)
         
@@ -67,10 +63,10 @@ def buildFreeform(joints, translatable=False, mirroredTranslate=False, scalable=
 
         # Lock unneeded transforms
         if not translatable:
-            core.dagObj.lockTrans( ctrl )
+            pdil.dagObj.lockTrans( ctrl )
         
         if not scalable:
-            core.dagObj.lockScale( ctrl )
+            pdil.dagObj.lockScale( ctrl )
         else:
             # Preserving scaling symmetry if translations are mirrored
             if mirroredTranslate:
@@ -88,7 +84,7 @@ def buildFreeform(joints, translatable=False, mirroredTranslate=False, scalable=
             space.setParent(container)
 
     # A leader must be choosen, so just use the order they were built in
-    ctrl = nodeApi.RigController.convert(controls[0])
+    ctrl = pdil.nodeApi.RigController.convert(controls[0])
     log.debug( 'The leader is {}'.format(ctrl) )
     for i, c in enumerate(controls[1:]):
         ctrl.subControl[str(i)] = c

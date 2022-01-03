@@ -4,25 +4,14 @@ from collections import OrderedDict
 
 from pymel.core import delete, dt, group, hide, orientConstraint, parentConstraint, poleVectorConstraint, pointConstraint, PyNode, xform
 
-from ....add import simpleName
-from .... import core
-from .... import lib
-from .... import nodeApi
-
-from .. import controllerShape
-
-
-from ..cardRigging import MetaControl, ParamInfo
-
-from .. import space
-
-from . import _util as util
-from .. import rig
-from .. import node
-
 import pdil
 
+from ..cardRigging import MetaControl, ParamInfo
+from .. import node
+from .._lib import space
+from .._lib2 import controllerShape
 
+from . import _util as util
 from . import dogFrontLeg
 
 
@@ -52,27 +41,27 @@ def buildDogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.End
     # Make the control to translate/offset the limb's socket.
     socketOffset = controllerShape.build( name + '_socket', controlSpec['socket'], type=controllerShape.ControlType.TRANSLATE )
     pdil.dagObj.lock(socketOffset, 'r s')
-    core.dagObj.moveTo( socketOffset, hipJoint )
-    socketZero = core.dagObj.zero(socketOffset)
+    pdil.dagObj.moveTo( socketOffset, hipJoint )
+    socketZero = pdil.dagObj.zero(socketOffset)
     socketZero.setParent( chainGrp )
     
     footCtrl = controllerShape.build( name, controlSpec['main'], type=controllerShape.ControlType.IK)
     pdil.dagObj.lock(footCtrl, 's')
     footCtrl.addAttr( 'bend', at='double', k=True )
-    core.dagObj.moveTo( footCtrl, end )
+    pdil.dagObj.moveTo( footCtrl, end )
     
     if endOrientType == util.EndOrient.TRUE_ZERO:
         util.trueZeroSetup(end, footCtrl)
     elif endOrientType == util.EndOrient.TRUE_ZERO_FOOT:
         util.trueZeroFloorPlane(end, footCtrl)
     elif endOrientType == util.EndOrient.JOINT:
-        core.dagObj.matchTo(footCtrl, end)
+        pdil.dagObj.matchTo(footCtrl, end)
         
         footCtrl.rx.set( util.shortestAxis(footCtrl.rx.get()) )
         footCtrl.ry.set( util.shortestAxis(footCtrl.ry.get()) )
         footCtrl.rz.set( util.shortestAxis(footCtrl.rz.get()) )
         
-        core.dagObj.zero(footCtrl)
+        pdil.dagObj.zero(footCtrl)
     elif endOrientType == util.EndOrient.WORLD:
         # Do nothing, it's built world oriented
         pass
@@ -81,7 +70,7 @@ def buildDogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.End
 
     # Make the main ik chain which gives overall compression
     masterChain = util.dupChain(hipJoint, end)
-    masterChain[0].rename( simpleName(hipJoint, '{0}_OverallCompression') )
+    masterChain[0].rename( pdil.simpleName(hipJoint, '{0}_OverallCompression') )
     
     mainIk = util.ikRP('mainIk', masterChain[0], masterChain[-1])
     PyNode('ikSpringSolver').message >> mainIk.ikSolver
@@ -136,14 +125,14 @@ def buildDogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.End
     #offsetIk.rename('metatarsusIk')
 
     bend = controllerShape.build( name + '_bend', controlSpec['bend'], type=controllerShape.ControlType.ROTATE )
-    core.dagObj.matchTo(bend, masterChain[-1] )
+    pdil.dagObj.matchTo(bend, masterChain[-1] )
     
     if end.tx.get() < 0:
-        lib.anim.orientJoint(bend, boundChain[-2], upTarget=boundChain[-3], aim='-y', up='-x')
+        pdil.anim.orientJoint(bend, boundChain[-2], upTarget=boundChain[-3], aim='-y', up='-x')
     else:
-        lib.anim.orientJoint(bend, boundChain[-2], upTarget=boundChain[-3], aim='y', up='x')
+        pdil.anim.orientJoint(bend, boundChain[-2], upTarget=boundChain[-3], aim='y', up='x')
     
-    bendZero = core.dagObj.zero(bend)
+    bendZero = pdil.dagObj.zero(bend)
     bendZero.setParent(footCtrl)
     pdil.dagObj.lock(bend, 't s')
     orientConstraint( masterChain[-1], bendZero, mo=True)
@@ -183,7 +172,7 @@ def buildDogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.End
     '''
     temp = orientConstraint( footCtrl, offsetChain[-1], mo=True)
     
-    if not core.math.isClose( offsetChain[-1].r.get(), [0, 0, 0] ):
+    if not pdil.math.isClose( offsetChain[-1].r.get(), [0, 0, 0] ):
 
         badVals = offsetChain[-1].r.get()
         delete(temp)
@@ -212,7 +201,7 @@ def buildDogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.End
 #    if masterChain[-1].tx.get() > 0:
 #        masterChain[-1].tx >> ankleIk.ty
 #    else:
-#        core.math.multiply(masterChain[-1].tx, -1.0) >> ankleIk.ty
+#        pdil.math.multiply(masterChain[-1].tx, -1.0) >> ankleIk.ty
     
     ankleIk.tx.lock()
     ankleIk.tz.lock()
@@ -226,7 +215,7 @@ def buildDogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.End
     mainIk.setParent( footCtrl )
     offsetIk.setParent( footCtrl )
     
-    core.dagObj.zero(footCtrl).setParent( container )
+    pdil.dagObj.zero(footCtrl).setParent( container )
     
     hide(masterChain[0] )
     poleVectorConstraint( pvCtrl, ankleIk )
@@ -236,17 +225,15 @@ def buildDogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.End
     counterTwist = offsetChain[-2].rx.get() * (1.0 if offsetChain[-2].tx.get() < 0 else -1.0)
     offsetIk.twist.set( counterTwist )
     
-    core.dagObj.zero(pvCtrl).setParent( container )
+    pdil.dagObj.zero(pvCtrl).setParent( container )
     
     # Make stretchy ik, but the secondary chain needs the stretch hooked up too.
-    rig.makeStretchyNonSpline(footCtrl, mainIk)
-    #for src, dest in zip( util.getChain(masterChain, masterEnd)[1:], util.getChain( hipJoint, getDepth(hipJoint, 4) )[1:] ):
-    #    src.tx >> dest.tx
+    util.makeStretchyNonSpline(footCtrl, mainIk)
         
     for src, dest in zip( masterChain[1:], offsetChain[1:] ):
         src.tx >> dest.tx
     
-    footCtrl = nodeApi.RigController.convert(footCtrl)
+    footCtrl = pdil.nodeApi.RigController.convert(footCtrl)
     footCtrl.container = container
     footCtrl.subControl['socket'] = socketOffset
     footCtrl.subControl['pv'] = pvCtrl

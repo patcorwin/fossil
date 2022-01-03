@@ -3,21 +3,18 @@ from functools import partial
 
 from pymel.core import dt, hide, listRelatives, setDrivenKeyframe, spaceLocator, xform
 
-from .... import core
-from .... import lib
-from .... import nodeApi
-
-from .. import controllerShape
+import pdil
 
 
 from ..cardRigging import MetaControl, ParamInfo, colorParity, OutputControls
 
 from .. import log
-from .. import space
+from .. import node
+from .._lib import misc
+from .._lib import space
+from .._lib2 import controllerShape
 
 from . import _util as util
-from .. import node
-from ..lib import misc
 
 
 @util.adds()
@@ -38,19 +35,19 @@ def buildSquashAndStretch(joints, squashCenter, orientAsParent=True, rangeMin=-5
     mainCtrl = controllerShape.build(   util.trimName(joints[0].getParent()) + "SquashMain_ctrl",
                                 controlSpec['main'],
                                 type=controllerShape.ControlType.TRANSLATE )
-    mainCtrl = nodeApi.RigController.convert(mainCtrl)
+    mainCtrl = pdil.nodeApi.RigController.convert(mainCtrl)
     mainCtrl.setParent(container)
     
     mainCtrl.addAttr( 'size', at='double', min=rangeMin, max=rangeMax, dv=0.0, k=True )
     
-    core.dagObj.lockScale(mainCtrl)
+    pdil.dagObj.lockScale(mainCtrl)
     
     if orientAsParent:
-        core.dagObj.matchTo( mainCtrl, joints[0].getParent() )
+        pdil.dagObj.matchTo( mainCtrl, joints[0].getParent() )
                             
     xform(mainCtrl, ws=True, t=squashCenter)
     
-    core.dagObj.zero(mainCtrl)
+    pdil.dagObj.zero(mainCtrl)
     
     subControls = []
     for i, j in enumerate(joints):
@@ -58,15 +55,15 @@ def buildSquashAndStretch(joints, squashCenter, orientAsParent=True, rangeMin=-5
                                 controlSpec['manual'],
                                 type=controllerShape.ControlType.TRANSLATE )
         subControls.append(subCtrl)
-        core.dagObj.matchTo(subCtrl, j)
+        pdil.dagObj.matchTo(subCtrl, j)
         subCtrl.setParent(container)
-        core.dagObj.zero(subCtrl)
-        core.dagObj.lockRot(subCtrl)
-        core.dagObj.lockScale(subCtrl)
+        pdil.dagObj.zero(subCtrl)
+        pdil.dagObj.lockRot(subCtrl)
+        pdil.dagObj.lockScale(subCtrl)
         
         scalingLoc = spaceLocator()
         scalingLoc.rename( util.trimName(j) + '_squasher' )
-        core.dagObj.matchTo(scalingLoc, j)
+        pdil.dagObj.matchTo(scalingLoc, j)
         hide(scalingLoc)
         scalingLoc.setParent(mainCtrl)
         

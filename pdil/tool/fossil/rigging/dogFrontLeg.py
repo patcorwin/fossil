@@ -3,8 +3,8 @@ reload(pdil.tool.fossil.rigging.dogFrontLeg)
 c = PyNode('asdf_card')
 c.removeRig()
 c.removeBones()
-pdil.tool.fossil.main.RigTool.buildBones([c])
-pdil.tool.fossil.main.RigTool.buildRig([c])
+pdil.tool.fossil.card.buildBones([c])
+pdil.tool.fossil.card.buildRig([c])
 c.outputCenter.fk.IkSwitch.set(1)
 c.outputCenter.ik.display.set(0)
 pointConstraint('asdf02', 'locator5', mo=0)
@@ -21,20 +21,12 @@ from pymel.core import createNode, delete, dt, expression, group, hide, ikHandle
 
 import pdil
 
-from .... import core
-from .... import lib
-from .... import nodeApi
-
-from .. import controllerShape
-
-
 from ..cardRigging import MetaControl, ParamInfo
-
-from .. import space
+from .._lib2 import controllerShape
+from .. import node
+from .._lib import space
 
 from . import _util as util
-from .. import rig
-from .. import node
 
 
 @util.adds('stretch', 'length')
@@ -52,27 +44,27 @@ def buildDogFrontLeg(hipJoint, end, aim='x', upVector=dt.Vector(1, 0, 0), pvLen=
     
     # Make the control to translate/offset the limb's socket.
     socketOffset = controllerShape.build( name + '_socket', controlSpec['socket'], type=controllerShape.ControlType.TRANSLATE )
-    core.dagObj.lock(socketOffset, 'r s')
-    core.dagObj.moveTo( socketOffset, hipJoint )
-    socketZero = core.dagObj.zero(socketOffset)
+    pdil.dagObj.lock(socketOffset, 'r s')
+    pdil.dagObj.moveTo( socketOffset, hipJoint )
+    socketZero = pdil.dagObj.zero(socketOffset)
     socketZero.setParent( chainGrp )
     
     footCtrl = controllerShape.build( name, controlSpec['main'], type=controllerShape.ControlType.IK)
-    core.dagObj.lock(footCtrl, 's')
-    core.dagObj.moveTo( footCtrl, end )
+    pdil.dagObj.lock(footCtrl, 's')
+    pdil.dagObj.moveTo( footCtrl, end )
     
     if endOrientType == util.EndOrient.TRUE_ZERO:
         util.trueZeroSetup(end, footCtrl)
     elif endOrientType == util.EndOrient.TRUE_ZERO_FOOT:
         util.trueZeroFloorPlane(end, footCtrl)
     elif endOrientType == util.EndOrient.JOINT:
-        core.dagObj.matchTo(footCtrl, end)
+        pdil.dagObj.matchTo(footCtrl, end)
         
         footCtrl.rx.set( util.shortestAxis(footCtrl.rx.get()) )
         footCtrl.ry.set( util.shortestAxis(footCtrl.ry.get()) )
         footCtrl.rz.set( util.shortestAxis(footCtrl.rz.get()) )
         
-        core.dagObj.zero(footCtrl)
+        pdil.dagObj.zero(footCtrl)
     elif endOrientType == util.EndOrient.WORLD:
         # Do nothing, it's built world oriented
         pass
@@ -108,7 +100,7 @@ def buildDogFrontLeg(hipJoint, end, aim='x', upVector=dt.Vector(1, 0, 0), pvLen=
     pvPos = out * pvLen + dt.Vector(xform(boundChain[1], q=True, ws=True, t=True))
     
     pvCtrl = controllerShape.build( name + '_pv', controlSpec['pv'], type=controllerShape.ControlType.POLEVECTOR )
-    core.dagObj.lock(pvCtrl, 'r s')
+    pdil.dagObj.lock(pvCtrl, 'r s')
     xform(pvCtrl, ws=True, t=pvPos)
     poleVectorConstraint( pvCtrl, mainIk )
     
@@ -135,15 +127,15 @@ def buildDogFrontLeg(hipJoint, end, aim='x', upVector=dt.Vector(1, 0, 0), pvLen=
     pdil.dagObj.moveTo(offsetContainer, end)
     
     if end.tx.get() < 0:
-        lib.anim.orientJoint(offsetContainer, boundChain[-2], upTarget=boundChain[-3], aim='-y', up='-x')
+        pdil.anim.orientJoint(offsetContainer, boundChain[-2], upTarget=boundChain[-3], aim='-y', up='-x')
     else:
-        lib.anim.orientJoint(offsetContainer, boundChain[-2], upTarget=boundChain[-3], aim='y', up='x')
+        pdil.anim.orientJoint(offsetContainer, boundChain[-2], upTarget=boundChain[-3], aim='y', up='x')
 
     bend.setParent(offsetContainer)
     bend.t.set(0, 0, 0)
     bend.r.set(0, 0, 0)
 
-    core.dagObj.zero(bend)
+    pdil.dagObj.zero(bend)
     pdil.dagObj.lock( bend, 't s' )
 
     parentConstraint( masterChain[-1], offsetContainer, mo=True )
@@ -157,7 +149,7 @@ def buildDogFrontLeg(hipJoint, end, aim='x', upVector=dt.Vector(1, 0, 0), pvLen=
     '''
     temp = orientConstraint( footCtrl, offsetChain[-1], mo=True)
     
-    if not core.math.isClose( offsetChain[-1].r.get(), [0, 0, 0] ):
+    if not pdil.math.isClose( offsetChain[-1].r.get(), [0, 0, 0] ):
 
         badVals = offsetChain[-1].r.get()
         delete(temp)
@@ -178,7 +170,7 @@ def buildDogFrontLeg(hipJoint, end, aim='x', upVector=dt.Vector(1, 0, 0), pvLen=
     mainIk.setParent( footCtrl )
     offsetIk.setParent( footCtrl )
     
-    core.dagObj.zero(footCtrl).setParent( container )
+    pdil.dagObj.zero(footCtrl).setParent( container )
     
     hide(masterChain[0])
     poleVectorConstraint( pvCtrl, ankleIk )
@@ -188,7 +180,7 @@ def buildDogFrontLeg(hipJoint, end, aim='x', upVector=dt.Vector(1, 0, 0), pvLen=
     counterTwist = offsetChain[-2].rx.get() * (1.0 if offsetChain[-2].tx.get() < 0 else -1.0)
     offsetIk.twist.set( counterTwist )
     
-    core.dagObj.zero(pvCtrl).setParent( container )
+    pdil.dagObj.zero(pvCtrl).setParent( container )
     
     # Make stretchy ik, but the secondary chain needs the stretch hooked up too
     strechPlug, _, nodes = util.makeStretchyNonSpline(footCtrl, refIk)
@@ -211,7 +203,7 @@ def buildDogFrontLeg(hipJoint, end, aim='x', upVector=dt.Vector(1, 0, 0), pvLen=
 
     # Finish setting up the bend control to be lerpable from user controlled to fully straight
     bendAnchor = group(em=True, n='bendAnchor')
-    core.dagObj.matchTo(bendAnchor, ankleIk)
+    pdil.dagObj.matchTo(bendAnchor, ankleIk)
     
     bendAnchor.setParent( bend )
     refChain[3].tx >> bendAnchor.ty
@@ -238,7 +230,7 @@ def buildDogFrontLeg(hipJoint, end, aim='x', upVector=dt.Vector(1, 0, 0), pvLen=
     footCtrl.straighten.set(straighten)
     #-
 
-    footCtrl = nodeApi.RigController.convert(footCtrl)
+    footCtrl = pdil.nodeApi.RigController.convert(footCtrl)
     footCtrl.container = container
     footCtrl.subControl['socket'] = socketOffset
     footCtrl.subControl['pv'] = pvCtrl
@@ -342,7 +334,7 @@ class activator(object):
     @classmethod
     def apply(cls, objects, values, ctrl):
         pos, rot = cls.split(values)
-        out = rig.calcOutVector(pos['hip'], pos['knee'], pos['ankle'])
+        out = util.calcOutVector(pos['hip'], pos['knee'], pos['ankle'])
         out *= values['length']
 
         pvPos = values['knee'][0] + out

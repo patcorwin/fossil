@@ -2,17 +2,17 @@ import itertools
 
 from pymel.core import attributeQuery, ls, PyNode, select, selected, xform
 
-from ... import core
-from ... import lib
-from ...tool.fossil import space
-from ...tool.fossil import controllerShape
+import pdil
+
+from . import _core as core
+from ._lib2 import controllerShape
 
 
-@core.alt.name('Zero Controllers', 'Anim')
+@pdil.alt.name('Zero Controllers', 'Anim')
 def zeroPose(useTrueZero=True):
-    controllers = ls( selected(), '*.fossilCtrlType', o=True, r=True, sl=True )
+    controllers = ls( selected(), '*.' + core.config.FOSSIL_CTRL_TYPE, o=True, r=True, sl=True )
     if not controllers:
-        controllers = core.findNode.controllers()
+        controllers = core.find.controllers()
         
     for control in controllers:
         try:
@@ -55,7 +55,7 @@ def zeroPose(useTrueZero=True):
             pass
 
 
-@core.alt.name('Select All Controllers', 'Anim')
+@pdil.alt.name('Select All Controllers', 'Anim')
 def selectControlers(includeSwitchers=True):
     '''
     &&& I think this should recognize if you have a controller and select all the controls on that character,
@@ -67,17 +67,17 @@ def selectControlers(includeSwitchers=True):
     mains = set()
     
     for obj in sel:
-        if obj.hasAttr( 'fossilCtrlType' ):  # &&& Need to establish the source of truth for this value
-            main = space.getMainGroup(create=False, fromControl=obj)
+        if obj.hasAttr( core.config.FOSSIL_CTRL_TYPE ):
+            main = core.find.mainGroup(fromControl=obj)
             if main:
                 mains.add(main)
-        elif obj.hasAttr(core.findNode.MAIN_CONTROL_TAG):
+        elif obj.hasAttr(core.config.FOSSIL_MAIN_CONTROL):
             mains.add(obj)
                 
     if not mains:
-        mains = core.findNode.mainControls()
+        mains = core.find.mainGroups()
     
-    allCtrlIter = itertools.chain(core.findNode.controllers(main=m) for m in mains)
+    allCtrlIter = itertools.chain(core.find.controllers(main=m) for m in mains)
     
     if includeSwitchers:
         ikSwitches = {}
@@ -99,10 +99,10 @@ def selectControlers(includeSwitchers=True):
     select( allCtrls )
     
     
-@core.alt.name('Save Curves', 'Anim')
+@pdil.alt.name('Save Curves', 'Anim')
 def saveCurves():
     
-    filename = core.path.getTempPath('curve_transfer.ma')
+    filename = pdil.path.getTempPath('curve_transfer.ma')
     
     objs = selected()
     
@@ -115,20 +115,20 @@ def saveCurves():
         
     objs += [ PyNode( plug.split('.', 1)[0] ) for plug in ikSwitches.values() ]
     
-    lib.anim.save(filename, objs=objs, forceOverwrite=True, forceKeys=False, start=None, end=None)
+    pdil.anim.save(filename, objs=objs, forceOverwrite=True, forceKeys=False, start=None, end=None)
     
 
-@core.alt.name('Load Curves', 'Anim')
+@pdil.alt.name('Load Curves', 'Anim')
 def loadCurves():
     
-    filename = core.path.getTempPath('curve_transfer.ma')
-    lib.anim.load(filename, insertTime=None, alterPlug=None, bufferKeys=True, targetPool=None)
+    filename = pdil.path.getTempPath('curve_transfer.ma')
+    pdil.anim.load(filename, insertTime=None, alterPlug=None, bufferKeys=True, targetPool=None)
     
     
-@core.alt.name('Select Bindable Joints', 'Anim')
+@pdil.alt.name('Select Bindable Joints', 'Anim')
 def selectBindableJoints():
     select(cl=True)
-    for card in core.findNode.allCards():
+    for card in core.find.blueprintCards():
         try:
             select(card.getOutputJoints(), add=True)
         except:

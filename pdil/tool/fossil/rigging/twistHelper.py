@@ -5,19 +5,15 @@ from collections import OrderedDict
 
 from pymel.core import aimConstraint, duplicate, hide, orientConstraint, parent
 
-from ....add import simpleName
-
-from .... import core
-from .... import nodeApi
+import pdil
 
 from ..cardRigging import MetaControl, ParamInfo
-from .. import controllerShape
-from ..core import config
-#from .. import log
-#from .. import space
+
+from .._core import config
+from .._lib2 import controllerShape
+from .. import node
 
 from . import _util as util
-from .. import node
 
 
 @util.adds('AutoTwistPower')
@@ -42,9 +38,9 @@ def buildTwist(twist, twistDriver, twistLateralAxis=[0, 1, 0], driverLateralAxis
     anchor = duplicate( twist, po=True )[0]
     aimer = duplicate( twist, po=True )[0]
     space = duplicate( twist, po=True )[0]
-    anchor.rename( simpleName(twist, '{0}Anchor') )
-    aimer.rename( simpleName(twist, '{0}Aimer') )
-    space.rename( simpleName(twist, '{0}Space') )
+    anchor.rename( pdil.simpleName(twist, '{0}Anchor') )
+    aimer.rename( pdil.simpleName(twist, '{0}Aimer') )
+    space.rename( pdil.simpleName(twist, '{0}Space') )
     space.drawStyle.set(2)
     
     hide(anchor, aimer)
@@ -64,9 +60,9 @@ def buildTwist(twist, twistDriver, twistLateralAxis=[0, 1, 0], driverLateralAxis
     ctrl.setParent(space)
     ctrl.t.set( 0, 0, 0 )
     ctrl.r.set( 0, 0, 0 )
-    core.dagObj.lockScale( ctrl )
-    core.dagObj.lockTrans( ctrl )
-    core.dagObj.lockRot( ctrl )
+    pdil.dagObj.lockScale( ctrl )
+    pdil.dagObj.lockTrans( ctrl )
+    pdil.dagObj.lockRot( ctrl )
     # Unlock the twist axis
     ctrl.attr( 'r' + util.identifyAxis(twist) ).unlock()
     ctrl.attr( 'r' + util.identifyAxis(twist) ).setKeyable(True)
@@ -74,12 +70,12 @@ def buildTwist(twist, twistDriver, twistLateralAxis=[0, 1, 0], driverLateralAxis
     # Drive the space's constraint
     anchorAttr, autoAttr = orientConstraint( constraint, q=1, wal=1 )
     util.drive( ctrl, 'AutoTwistPower', autoAttr, minVal=0, maxVal=1, dv=defaultPower )
-    core.math.opposite( ctrl.AutoTwistPower ) >> anchorAttr
+    pdil.math.opposite( ctrl.AutoTwistPower ) >> anchorAttr
     ctrl.AutoTwistPower.set( defaultPower )
     
     orientConstraint( ctrl, twist )
     
-    ctrl = nodeApi.RigController.convert(ctrl)
+    ctrl = pdil.nodeApi.RigController.convert(ctrl)
     ctrl.container = container
     
     return ctrl, container

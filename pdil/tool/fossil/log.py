@@ -5,7 +5,8 @@ the users can be warned appropriately.
 
 from pymel.core import cmds, dt, listRelatives
 
-from ... import core
+import pdil
+
 from . import node
 
 
@@ -21,7 +22,7 @@ def findRotatedBones(joints=None):
     rotated = []
 
     for j in joints:
-        if not core.math.isClose( j.r.get(), [0, 0, 0] ):
+        if not pdil.math.isClose( j.r.get(), [0, 0, 0] ):
             rotated.append( (j, j.r.get()) )
 
     #print '{0} rotated of {1} tested'.format(len(rotated), len(joints) )
@@ -94,6 +95,7 @@ class MultiReporter(object):
     Convenience context manager for mutliple `Reporter`s being called in the
     same block.
     '''
+    
     def __init__(self, logFunc, *reporters):
         self.logFunc = logFunc
         self.reporters = reporters
@@ -141,7 +143,7 @@ class Centerline(Reporter):
         if not cls.offcenter:
             return ''
 
-        return ('These joints are really close to the center, are they supposed to be offcenter?\n    ' +
+        return ('These joints are really close to the center, are they supposed to be offcenter?\n    '
                 '\n    '.join( [str(j) for j in cls.offcenter] ) )
 
 
@@ -178,7 +180,7 @@ class Rotation(Reporter):
         if not cls.rotatedJoints:
             return ''
         
-        return ('The following joints had rotations that were cleared:\n    ' +
+        return ('The following joints had rotations that were cleared:\n    '
                 '\n    '.join(cls.rotatedJoints))
         
         

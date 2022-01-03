@@ -3,17 +3,16 @@ from collections import OrderedDict
 from pymel.core import delete, duplicate, dt, group, hide, ikHandle, orientConstraint, \
     parent, pointConstraint, poleVectorConstraint, showHidden, xform
 
-from ....add import simpleName
-from .... import core
-from .... import nodeApi
+import pdil
 
 from ..cardRigging import MetaControl, ParamInfo
-from .. import controllerShape
-from .. import space
 
-from . import _util as util
 from .. import node
 from .. import rig
+from .._lib import space
+from .._lib2 import controllerShape
+
+from . import _util as util
 
 
 try:
@@ -89,8 +88,8 @@ def buildIkChain(start, end, pvLen=None, stretchDefault=1, endOrientType=util.En
     container = group( n=name + '_grp' )
     container.setParent( node.mainGroup() )
     
-    core.dagObj.moveTo( ctrl, end )
-    core.dagObj.zero( ctrl ).setParent( container )
+    pdil.dagObj.moveTo( ctrl, end )
+    pdil.dagObj.zero( ctrl ).setParent( container )
 
     # Orient the main ik control
     if endOrientType == util.EndOrient.TRUE_ZERO:
@@ -98,31 +97,31 @@ def buildIkChain(start, end, pvLen=None, stretchDefault=1, endOrientType=util.En
     elif endOrientType == util.EndOrient.TRUE_ZERO_FOOT:
         util.trueZeroFloorPlane(end, ctrl)
     elif endOrientType == util.EndOrient.JOINT:
-        core.dagObj.matchTo(ctrl, end)
+        pdil.dagObj.matchTo(ctrl, end)
         
         ctrl.rx.set( util.shortestAxis(ctrl.rx.get()) )
         ctrl.ry.set( util.shortestAxis(ctrl.ry.get()) )
         ctrl.rz.set( util.shortestAxis(ctrl.rz.get()) )
         
-        core.dagObj.zero(ctrl)
+        pdil.dagObj.zero(ctrl)
     elif endOrientType == util.EndOrient.WORLD:
         # Do nothing, it's built world oriented
         pass
     
-    core.dagObj.lockScale(ctrl)
+    pdil.dagObj.lockScale(ctrl)
     
     mainIk.setParent( ctrl )
     
     # I think orientTarget is for matching fk to ik
     orientTarget = duplicate( end, po=True )[0]
     orientTarget.setParent(ctrl)
-    core.dagObj.lockTrans(core.dagObj.lockRot(core.dagObj.lockScale(orientTarget)))
+    pdil.dagObj.lockTrans(pdil.dagObj.lockRot(pdil.dagObj.lockScale(orientTarget)))
     orientConstraint( orientTarget, mainArmature[-1] )
     hide(orientTarget)
     
-    core.dagObj.lockRot(mainIk)
-    core.dagObj.lockTrans(mainIk)
-    core.dagObj.lockScale(mainIk)
+    pdil.dagObj.lockRot(mainIk)
+    pdil.dagObj.lockTrans(mainIk)
+    pdil.dagObj.lockScale(mainIk)
 
 
     attr, jointLenMultiplier, nodes = util.makeStretchyNonSpline(ctrl, mainIk, stretchDefault)
@@ -137,7 +136,7 @@ def buildIkChain(start, end, pvLen=None, stretchDefault=1, endOrientType=util.En
             j.drawStyle.set(2)  # Probably should make groups but not drawing bones works for now.
         offset = duplicate(j, po=True)[0]
         offset.setParent(j)
-        offset.rename( simpleName(j, '{}_Twist') )
+        offset.rename( pdil.simpleName(j, '{}_Twist') )
         
         #subArmature.append(offset)  ### OLD
         if True:  ### NEW
@@ -149,7 +148,7 @@ def buildIkChain(start, end, pvLen=None, stretchDefault=1, endOrientType=util.En
                 else:
                     offsetCtrl = controllerShape.build('Bend%i' % (len(bendCtrls) + 1),
                         {'shape': 'band', 'size': 10, 'color': 'green 0.22', 'align': 'x' })
-                    core.dagObj.matchTo(offsetCtrl, offset)
+                    pdil.dagObj.matchTo(offsetCtrl, offset)
                     offsetCtrl.setParent(offset)
                     showHidden(offsetCtrl, a=True)
                     subArmature.append(offsetCtrl)
@@ -158,7 +157,7 @@ def buildIkChain(start, end, pvLen=None, stretchDefault=1, endOrientType=util.En
         
         rotationOffsetCtrls.append(offset)  # &&& Deprectated?
         
-        attrName = simpleName(j, '{}_Twist')
+        attrName = pdil.simpleName(j, '{}_Twist')
         ctrl.addAttr( attrName, at='double', k=True )
         ctrl.attr(attrName) >> offset.rx
         
@@ -167,7 +166,7 @@ def buildIkChain(start, end, pvLen=None, stretchDefault=1, endOrientType=util.En
                 subTwist.setParent(j)
                 #subArmature.append(subTwist) ### NEW comment out
                 
-                attrName = simpleName(subTwist)
+                attrName = pdil.simpleName(subTwist)
                 ctrl.addAttr( attrName, at='double', k=True )
                 ctrl.attr(attrName) >> subTwist.rx
                 
@@ -177,7 +176,7 @@ def buildIkChain(start, end, pvLen=None, stretchDefault=1, endOrientType=util.En
                     if True: ### NEW
                         offsetCtrl = controllerShape.build('Bend%i' % (len(bendCtrls) + 1),
                             {'shape': 'band', 'size': 10, 'color': 'green 0.22', 'align': 'x' })
-                        core.dagObj.matchTo(offsetCtrl, subTwist)
+                        pdil.dagObj.matchTo(offsetCtrl, subTwist)
                         offsetCtrl.setParent(subTwist)
                         subTwist.drawStyle.set(2)  # Probably should make groups but not drawing bones works fine for now.
                         showHidden(offsetCtrl, a=True)
@@ -205,18 +204,18 @@ def buildIkChain(start, end, pvLen=None, stretchDefault=1, endOrientType=util.En
     for i, (j, nextJ) in enumerate(zip(mainArmature[:-1], mainArmature[1:])):
         g = group(em=True)
         parentConstraint(j, g)
-        g.rename( core.dagObj.simpleName(g, '{0}_grp') )
+        g.rename( pdil.dagObj.simpleName(g, '{0}_grp') )
         groups.append(g)
 
         g.setParent(container)
         
         if j in subTwists:
             
-            #totalDist = core.dagObj.distanceBetween(j, nextJ)
+            #totalDist = pdil.dagObj.distanceBetween(j, nextJ)
             
             for subTwist in subTwists[j]:
                 
-                dist = core.dagObj.distanceBetween(j, subTwist)
+                dist = pdil.dagObj.distanceBetween(j, subTwist)
                 
                 #disc = 'disc'()
                 disc = controllerShape.build('Twist', {'shape': 'disc', 'align': 'x', 'size': 3})
@@ -224,12 +223,12 @@ def buildIkChain(start, end, pvLen=None, stretchDefault=1, endOrientType=util.En
                 disc.t.set( 0, 0, 0 )
                 disc.r.set( 0, 0, 0 )
                 
-                core.dagObj.lockAll(disc)
+                pdil.dagObj.lockAll(disc)
                 disc.rx.unlock()
                 disc.tx.unlock()
                 
                 # Manage the lengths of the twist joints and their controls
-                mult = core.math.multiply( dist, jointLenMultiplier)
+                mult = pdil.math.multiply( dist, jointLenMultiplier)
                 mult >> disc.tx
                 mult >> subTwist.tx
                 
@@ -246,21 +245,21 @@ def buildIkChain(start, end, pvLen=None, stretchDefault=1, endOrientType=util.En
     pvPos = out * pvLen + dt.Vector(xform(mainArmature[1], q=True, ws=True, t=True))
     pvCtrl = controllerShape.build( name + '_pv', controlSpec['pv'], type=controllerShape.ControlType.POLEVECTOR )
     
-    core.dagObj.lockScale(core.dagObj.lockRot(pvCtrl))
+    pdil.dagObj.lockScale(pdil.dagObj.lockRot(pvCtrl))
     xform(pvCtrl, ws=True, t=pvPos)
     controllerShape.connectingLine(pvCtrl, mainArmature[1] )
     poleVectorConstraint( pvCtrl, mainIk )
-    core.dagObj.zero(pvCtrl).setParent(container)
+    pdil.dagObj.zero(pvCtrl).setParent(container)
     
     # Socket offset control
     socketOffset = controllerShape.build( name + '_socket', controlSpec['socket'], type=controllerShape.ControlType.TRANSLATE )
     socketContainer = util.parentGroup( start )
     socketContainer.setParent( container )
     
-    core.dagObj.moveTo( socketOffset, start )
-    core.dagObj.zero( socketOffset ).setParent( socketContainer )
-    core.dagObj.lockRot( socketOffset )
-    core.dagObj.lockScale( socketOffset )
+    pdil.dagObj.moveTo( socketOffset, start )
+    pdil.dagObj.zero( socketOffset ).setParent( socketContainer )
+    pdil.dagObj.lockRot( socketOffset )
+    pdil.dagObj.lockScale( socketOffset )
     pointConstraint( socketOffset, mainArmature[0] )
     
     # Reuse the socketOffset container for the controlling chain
@@ -271,16 +270,16 @@ def buildIkChain(start, end, pvLen=None, stretchDefault=1, endOrientType=util.En
     # Add switch to reverse the direction of the bend
     reverseAngle = controlChain[1].jointOrient.get()[1] * -1.1
     ctrl.addAttr( 'reverse', at='short', min=0, max=1, dv=0, k=True )
-    preferredAngle = core.math.condition( ctrl.reverse, '=', 0, 0, reverseAngle )
-    twist = core.math.condition( ctrl.reverse, '=', 0, 0, -180)
+    preferredAngle = pdil.math.condition( ctrl.reverse, '=', 0, 0, reverseAngle )
+    twist = pdil.math.condition( ctrl.reverse, '=', 0, 0, -180)
     preferredAngle >> controlChain[1].preferredAngleY
     twist >> mainIk.twist
-    core.math.condition( mainIk.twist, '!=', 0, 0, 1 ) >> mainIk.twistType # Force updating??
+    pdil.math.condition( mainIk.twist, '!=', 0, 0, 1 ) >> mainIk.twistType # Force updating??
     '''
     
     if True: # &&& LOCKABLE
-        endToMidDist, g1 = core.dagObj.measure(ctrl, pvCtrl, 'end_to_mid')
-        startToMidDist, g2 = core.dagObj.measure(socketOffset, pvCtrl, 'start_to_mid')
+        endToMidDist, g1 = pdil.dagObj.measure(ctrl, pvCtrl, 'end_to_mid')
+        startToMidDist, g2 = pdil.dagObj.measure(socketOffset, pvCtrl, 'start_to_mid')
         parent(endToMidDist, g1, startToMidDist, g2, container)
         
         #ctrl.addAttr( 'lockPV', at='double', min=0.0, dv=0.0, max=1.0, k=True )
@@ -294,7 +293,7 @@ def buildIkChain(start, end, pvLen=None, stretchDefault=1, endOrientType=util.En
             axis = util.identifyAxis(jnt)
             lockSwitch = jnt.attr('t' + axis).listConnections(s=True, d=False)[0]
             if jnt.attr('t' + axis).get() < 0:
-                core.math.multiply( dist.distance, -1) >> lockSwitch.input[1]
+                pdil.math.multiply( dist.distance, -1) >> lockSwitch.input[1]
             else:
                 dist.distance >> lockSwitch.input[1]
             
@@ -304,7 +303,7 @@ def buildIkChain(start, end, pvLen=None, stretchDefault=1, endOrientType=util.En
         axis = identifyAxis(mainArmature[-1])
         lockSwitchA = mainArmature[-1].attr('t' + axis).listConnections(s=True, d=False)[0]
         if mainArmature[-1].attr('t' + axis).get() < 0:
-            core.math.multiply( endToMidDist.distance, -1) >> lockSwitchA.input[1]
+            pdil.math.multiply( endToMidDist.distance, -1) >> lockSwitchA.input[1]
         else:
             endToMidDist.distance, -1 >> lockSwitchA.input[1]
         
@@ -316,7 +315,7 @@ def buildIkChain(start, end, pvLen=None, stretchDefault=1, endOrientType=util.En
         """
     
     # Register all the parts of the control for easy identification at other times.
-    ctrl = nodeApi.RigController.convert(ctrl)
+    ctrl = pdil.nodeApi.RigController.convert(ctrl)
     ctrl.container = container
     
     ctrl.subControl['socket'] = socketOffset
@@ -394,7 +393,7 @@ class activator(object):
             raise Exception( 'End joint of ikHandle {0} could not be determined, unable to active_ikChain()'.format(ik) )
             
         # Figure out what is constrained to the ik and match to it
-        endJnt = core.constraints.getOrientConstrainee( ikEndJoint )
+        endJnt = pdil.constraints.getOrientConstrainee( ikEndJoint )
 
         
         midJnt = endJnt.getParent()
@@ -457,7 +456,7 @@ class activator(object):
         tempAligner.r.lock()
         tempAligner.setParent( data['end'] )
         
-        xform( ikControl, ws=True, ro=core.dagObj.getRot(tempAligner) )
+        xform( ikControl, ws=True, ro=pdil.dagObj.getRot(tempAligner) )
         delete( tempAligner )
 
         # In case the PV is spaced to the controller, put it back

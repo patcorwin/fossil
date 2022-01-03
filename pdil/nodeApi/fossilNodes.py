@@ -12,24 +12,27 @@ import traceback
 from maya.api import OpenMaya
 
 import pymel.api
-from pymel.core import cmds, select, objExists, PyNode, ls, nt, listRelatives, joint, hasAttr, removeMultiInstance, \
+from pymel.core import cmds, objExists, PyNode, ls, nt, listRelatives, joint, hasAttr, removeMultiInstance, \
     xform, delete, warning, dt, connectAttr, pointConstraint, getAttr
 
-from ..add import simpleName, shortName, meters
-from .. import core
-from .. import lib
+import pdil
 
 from ..tool.fossil import cardRigging
-from ..tool.fossil import controllerShape
+from ..tool.fossil import enums
 from ..tool.fossil import rig
+from ..tool.fossil import node
 from ..tool.fossil import log
-from ..tool.fossil.core import proxyskel
-from ..tool.fossil.core import ids
-from ..tool.fossil.core import config
-from ..tool.fossil import space
+from ..tool.fossil._core import ids
+from ..tool.fossil._core import config
+from ..tool.fossil._lib import misc
+from ..tool.fossil._lib import proxyskel
+from ..tool.fossil._lib import visNode
+from ..tool.fossil._lib import space
+from ..tool.fossil._lib2 import controllerShape
+
 from ..tool.fossil import util
 
-from ..tool.fossil.lib import misc
+
 
 from . import registerNodeType
 
@@ -40,68 +43,32 @@ except NameError:
 
 
 def findConstraints(ctrl):
-    align = core.dagObj.align(ctrl)
-
+    ''' Returns dict { 'ctrl': <fullSerialize>, 'align': <fullSerialize> }
     '''
-    &&& Can I just use contstraints.fullSerialize/fullDeserialize here?
     
-    ctrlAim = core.constraints.aimSerialize(ctrl)
-    alignAim = core.constraints.aimSerialize(align)
-
-    res = {}
-    if ctrlAim:
-        res['main'] = ctrlAim
-    if alignAim:
-        res['align'] = alignAim
-
-    return res
-    '''
-    constTypes = ['aim', 'point', 'parent', 'orient']
-    res = {}
-    for const in constTypes:
-        ctrlConst = getattr( core.constraints, const + 'Serialize' )(ctrl, ids.toIdSpec)
-        
-        if align:
-            alignConst = getattr( core.constraints, const + 'Serialize' )(align, ids.toIdSpec)
-        else:
-            alignConst = None
+    align = pdil.dagObj.align(ctrl)
     
-        if ctrlConst:
-            res[const + ' ctrl'] = ctrlConst
-            
-        if alignConst:
-            res[const + ' align'] = alignConst
+    ctrlConstraints = pdil.constraints.fullSerialize(ctrl, nodeConv=ids.getIdSpec)
+    alignConstraints = pdil.constraints.fullSerialize(align, nodeConv=ids.getIdSpec) if align else {}
     
-    return res
+    return { 'ctrl': ctrlConstraints, 'align': alignConstraints }
 
 
 def applyConstraints(ctrl, data):
+    ''' Reverse of `findConstraints`
     '''
-    if 'main' in data:
-        core.constraints.aimDeserialize(ctrl, data['main'])
 
-    if 'align' in data:
-        align = core.dagObj.align(ctrl)
-        core.constraints.aimDeserialize(align, data['align'])
-        
-    &&& Can I just use contstraints.fullSerialize/fullDeserialize here?
-    '''
-    #print( ctrl, data, 'DATA' )
+    align = pdil.dagObj.align(ctrl)
 
-    constTypes = ['aim', 'point', 'parent', 'orient']
-    align = core.dagObj.align(ctrl)
-    for const in constTypes:
-        ctrlConst = data.get(const + ' ctrl')
-        if ctrlConst:
-            getattr(core.constraints, const + 'Deserialize')(ctrl, ctrlConst, ids.fromIdSpec)
-        
-        alignConst = data.get(const + ' align')
-        if alignConst:
-            getattr(core.constraints, const + 'Deserialize')(align, alignConst, ids.fromIdSpec)
+    if data['ctrl']:
+        pdil.constraints.fullDeserialize(ctrl, data['ctrl'], nodeDeconv=ids.readIdSpec)
+    
+    if data['align']:
+        pdil.constraints.fullDeserialize(align, data['align'], nodeDeconv=ids.readIdSpec)
 
 
 def findSDK(ctrl):
-    align = core.dagObj.align(ctrl)
+    align = pdil.dagObj.align(ctrl)
     
     data = {
         'main': misc.findSDK(ctrl),
@@ -116,7 +83,7 @@ def findSDK(ctrl):
 
 def applySDK(ctrl, info):
     misc.applySDK(ctrl, info['main'])
-    misc.applySDK(core.dagObj.align(ctrl), info['align'])
+    misc.applySDK(pdil.dagObj.align(ctrl), info['align'])
     
 
 def getLinks(ctrl):
@@ -152,7 +119,7 @@ def addExtraRigAttr(obj):
     if obj.hasAttr('extraRigNodes'):
         return
 
-    mobj = core.capi.asMObject(obj)
+    mobj = pdil.capi.asMObject(obj)
     cattr = OpenMaya.MFnCompoundAttribute()
     mattr = OpenMaya.MFnMessageAttribute()
 
@@ -199,7 +166,7 @@ def getMirror(name, tempJoint=None):
             if len(mirrors) > 1:
                 for child in listRelatives( tempJoint.parent.realMirror ):
                     for m in mirrors:
-                        if shortName(child) == shortName(m):
+                        if pdil.shortName(child) == pdil.shortName(m):
                             return m
             
     if name.count( '|' ):
@@ -231,7 +198,7 @@ def _createTempJoint():
     newJoint.addAttr( 'children', at='message' )
     newJoint.addAttr( 'realJoint', at='message' )
     
-    mObj = core.capi.asMObject(newJoint)
+    mObj = pdil.capi.asMObject(newJoint)
     mAttr = OpenMaya.MFnMessageAttribute()
     link = mAttr.create( 'realJointExtra', 'rje' )
     mAttr.array = True
@@ -348,12 +315,6 @@ def deprecatedSuffixSetter(obj, value):
     obj.rigData = rigData
 
 
-def deprecatedRigCommandSetter(obj, value):
-    rigData = obj.rigData
-    rigData['rigCmd'] = value
-    obj.rigData = rigData
-
-
 def deprecated_nameInfo_get(obj):
     nameInfo = obj.rigData.get('nameInfo', {} )
     
@@ -399,7 +360,7 @@ class Card(nt.Transform):
     
     version = 1
     
-    parentCardLink = core.factory.SingleStringConnectionAccess('moParentCardLink')
+    parentCardLink = pdil.factory.SingleStringConnectionAccess('moParentCardLink')
         
     @classmethod
     def _isVirtual(cls, obj, name):
@@ -419,74 +380,21 @@ class Card(nt.Transform):
             
         return False
     
-    ikControllerOptions = core.factory.StringAccess('ikControllerOptions')
-    fkControllerOptions = core.factory.StringAccess('fkControllerOptions')
+    ikControllerOptions = pdil.factory.StringAccess('ikControllerOptions')
+    fkControllerOptions = pdil.factory.StringAccess('fkControllerOptions')
     
-    rigData             = core.factory.JsonAccess('fossilRigData', {'version': 1})  # This replaces NameInfo, Suffix, RigCmd,
-    rigState            = core.factory.JsonAccess('fossilRigState')  # &&& This replaces MoVisGroup, MoCtrlLink, MoSDK, MoCustumAttr, MoSpaces
+    rigData             = pdil.factory.JsonAccess('fossilRigData', {'version': 1})  # This replaces NameInfo, Suffix, RigCmd,
+    rigState            = pdil.factory.JsonAccess('fossilRigState')  # Storage for all rig modifications like shapes, spaces and vis groups
     
     # Need to update these with direct references to rigData[*]
     
     # !*suffix -> mirrorCode*!
-    suffix              = core.factory.DeprecatedAttr( lambda obj: obj.rigData.get('mirrorCode'), deprecatedSuffixSetter)
-    nameInfo            = core.factory.DeprecatedAttr( deprecated_nameInfo_get, deprecated_nameInfo_set )
-    
-    rigCommand          = core.factory.DeprecatedAttr( lambda obj: obj.rigData.get('rigCmd'), deprecatedRigCommandSetter, mayaAttr=False)
-    
-    # &&& Eventually remove when all the rigs have been updated to use fkControllerOptions/ikControllerOptions
-    rigOptions = core.factory.StringAccess('rigOptions')
-    
+    suffix              = pdil.factory.DeprecatedAttr( lambda obj: obj.rigData.get('mirrorCode'), deprecatedSuffixSetter)
+    nameInfo            = pdil.factory.DeprecatedAttr( deprecated_nameInfo_get, deprecated_nameInfo_set )
+        
     # This actually only does ik params.  Probably should be renamed to reflect this.
-    rigParams = core.factory.StringAccess('rigParameters')
-    
-        
-    def updateToRigData(self):
-        rigData = self.rigData
-        
-        if self.hasAttr('nameInfo'):
-            head, repeat, tail = util.parse(self.attr('nameInfo').get())
-            rigData.update( {'nameInfo': {'head': head, 'repeat': repeat, 'tail': tail}} )
-        
-        if self.hasAttr('rigCmd'):
-            rigData.update( {'rigCmd': self.rigCmd.get()} )
-        
-        if self.hasAttr('suffix'):
-            rigData.update( {'mirrorCode': self.suffix.get()} )
-        
-        if self.hasAttr('rigParameters'):
-            d = cardRigging.ParamInfo.toDict(self.rigParams)
+    rigParams = pdil.factory.StringAccess('rigParameters')
             
-            ikParams = rigData.get('ikParams', {})
-            ikParams.update(d)
-            rigData.update( {'ikParams': ikParams} )
-
-        if rigData.get('rigCmd') == 'Arm':
-            ikParams = rigData.get('ikParams', {})
-            print('ik', ikParams, 'ikParams' in rigData)
-            if 'name' not in ikParams:
-                ikParams['name'] = 'Arm'
-            if 'endOrient' not in ikParams:
-                ikParams['endOrient'] = 'True_Zero'
-                
-            rigData['rigCmd'] = 'IkChain'
-            rigData['ikParams'] = ikParams
-
-
-        elif rigData.get('rigCmd') == 'Leg':
-            ikParams = rigData.get('ikParams', {})
-            if 'name' not in ikParams:
-                ikParams['name'] = 'Leg'
-            if 'endOrient' not in ikParams:
-                ikParams['endOrient'] = 'True_Zero_Foot'
-            
-            rigData['rigCmd'] = 'IkChain'
-            rigData['ikParams'] = ikParams
-
-        elif rigData.get('rigCmd') in ('Head', 'Neck'):
-            rigData['rigCmd'] = 'TranslateChain'
-
-        self.rigData = rigData
-        
     '''
     DEPRECATED, the lead controller's vis dictates groups (is this still deprecated or did I resurrect it?)
     
@@ -494,7 +402,7 @@ class Card(nt.Transform):
     control's visGroup, if it exists.  Otherwise the pieces are put as a
     child of main.  Use `getGroupName()` which has this logic.
     '''
-    rigGroupName = core.factory.StringAccess('groupName')
+    rigGroupName = pdil.factory.StringAccess('groupName')
         
     @property
     def outputCenter(self):
@@ -529,35 +437,35 @@ class Card(nt.Transform):
     @property
     def rigCommandClass(self):
         try:
-            return cardRigging.registeredControls[self.rigCommand]
+            return cardRigging.registeredControls[self.rigData.get(enums.RigData.rigCmd)]
         except Exception:
             return None
         
     @property
     def buildIk(self):
-        return not core.factory._getStringAttr( self, 'metaControl' ).count( 'skipIk;' )
+        return not pdil.factory._getStringAttr( self, 'metaControl' ).count( 'skipIk;' )
         
     @buildIk.setter
     def buildIk(self, val):
         if val:
             if not self.buildIk:
-                core.factory._setStringAttr( self, 'metaControl', core.factory._getStringAttr( self, 'metaControl' ).replace('skipIk;', ''))
+                pdil.factory._setStringAttr( self, 'metaControl', pdil.factory._getStringAttr( self, 'metaControl' ).replace('skipIk;', ''))
         else:
             if self.buildIk:
-                core.factory._setStringAttr( self, 'metaControl', core.factory._getStringAttr( self, 'metaControl' ) + 'skipIk;')
+                pdil.factory._setStringAttr( self, 'metaControl', pdil.factory._getStringAttr( self, 'metaControl' ) + 'skipIk;')
 
     @property
     def buildFk(self):
-        return not core.factory._getStringAttr( self, 'metaControl' ).count( 'skipFk;' )
+        return not pdil.factory._getStringAttr( self, 'metaControl' ).count( 'skipFk;' )
         
     @buildFk.setter
     def buildFk(self, val):
         if val:
             if not self.buildFk:
-                core.factory._setStringAttr( self, 'metaControl', core.factory._getStringAttr( self, 'metaControl' ).replace('skipFk;', ''))
+                pdil.factory._setStringAttr( self, 'metaControl', pdil.factory._getStringAttr( self, 'metaControl' ).replace('skipFk;', ''))
         else:
             if self.buildFk:
-                core.factory._setStringAttr( self, 'metaControl', core.factory._getStringAttr( self, 'metaControl' ) + 'skipFk;')
+                pdil.factory._setStringAttr( self, 'metaControl', pdil.factory._getStringAttr( self, 'metaControl' ) + 'skipFk;')
                 
     def getGroupName(self, controlSpec):
         '''
@@ -601,7 +509,7 @@ class Card(nt.Transform):
             <str> = A string of comma separated pairs, ex "oldA newA, oldB newB, ..."
         '''
         if self.hasAttr( 'mirrorSubst' ):
-            val = core.factory._getStringAttr(self, 'mirrorSubst')
+            val = pdil.factory._getStringAttr(self, 'mirrorSubst')
             if val == 'DO_NOT_MIRROR':
                 return False
             else:
@@ -616,13 +524,13 @@ class Card(nt.Transform):
         '''
         if s is not None:
             if s is True:
-                core.factory._setStringAttr(self, 'mirrorSubst', '')
+                pdil.factory._setStringAttr(self, 'mirrorSubst', '')
             elif s is False:
-                core.factory._setStringAttr(self, 'mirrorSubst', 'DO_NOT_MIRROR')
+                pdil.factory._setStringAttr(self, 'mirrorSubst', 'DO_NOT_MIRROR')
             elif s == 'twin':
-                core.factory._setStringAttr(self, 'mirrorSubst', 'twin')
+                pdil.factory._setStringAttr(self, 'mirrorSubst', 'twin')
             else:
-                core.factory._setStringAttr(self, 'mirrorSubst', s)
+                pdil.factory._setStringAttr(self, 'mirrorSubst', s)
         else:
             if self.hasAttr( 'mirrorSubst' ):
                 self.mirrorSubst.delete()
@@ -708,7 +616,7 @@ class Card(nt.Transform):
             else:
                 repeatCount = validJointCount - len(head) - len(tail)
                 
-                startNumResult = re.search( '\d+$', repeat )
+                startNumResult = re.search( r'\d+$', repeat )
                 if startNumResult:
                     startNum = int(startNumResult.group())
                     repeat = repeat[ : -len(startNumResult.group()) ] # Trim off the number since it's used to denote start num
@@ -767,17 +675,19 @@ class Card(nt.Transform):
         
     
     def getRealJoints(self, side=None):
-        '''
+        ''' Returns a list of real joints, optionally taking 'left', 'right' or 'center'.
+        
         ..  todo:: This fails on weapons generally, which have a 'mirror by name'
                 so both cards report having the joint.
 
                 I might have to do a complex check on sided-ness and mirroring
                 to determine the truth.
         '''
-            
+        assert side in (None, 'left', 'right', 'center')
+        
         sideName = self.findSuffix()
         if not sideName:
-            primarySide = 'Center'
+            primarySide = 'center'
             otherSide = ''
         else:
             #primarySide = config.letterToWord[suffix]
@@ -833,12 +743,11 @@ class Card(nt.Transform):
         return joints
     
     def getSide(self, side):
-        '''
-        Basically a wrapper for getattr(self, side), expects 'left', 'right' and (maybe?) 'center'
+        ''' A wrapper for getattr(self, side), expects 'left', 'right' and 'center'
         '''
         return getattr(self, 'output' + side.title())
 
-    def getKinematic(self, side, kinematic):
+    def getLeadControl(self, side, kinematic):
         '''
         Helper to make it easier to procedurally go through output controls.
         '''
@@ -897,7 +806,7 @@ class Card(nt.Transform):
         
         trueRoot = getTrueRoot()
 
-        core.layer.putInLayer(trueRoot, 'Joints')
+        pdil.layer.putInLayer(trueRoot, 'Joints')
         trueRoot.drawStyle.set(2)
                 
         data = self.rigData
@@ -936,22 +845,20 @@ class Card(nt.Transform):
             if mode != JointMode.bind:
                 j.msg >> bpJoint.realJoint
             else:
-                core.factory._setSingleConnection(bpJoint, 'bind', j)
+                pdil.factory._setSingleConnection(bpJoint, 'bind', j)
 
 
             if checkOffcenter:
                 log.Centerline.check(j)
             
             #------ Orient it -------
-            state, target = bpJoint.getOrientStateNEW()
+            state, target = bpJoint.getOrientState()
 
             upAxis = 'y'
             aimAxis = self.getAimAxis(bpJoint.suffixOverride)
             
             upVector = self.upVector(bpJoint.customUp)  # If not custom, will default to card's up arrow
-                                
-            #state, target = bpJoint.getOrientState()
-            
+                                            
             #print( bpJoint, state, target )
                         
             #------- Parent it (so orient as parent works) -------
@@ -1006,7 +913,7 @@ class Card(nt.Transform):
                             BPJoint.Orient.RELATED_CHILD,
                             BPJoint.Orient.CENTER_CHILD ]:
 
-                lib.anim.orientJoint(j, target, None, aim=aimAxis, up=upAxis, upVector=upVector)
+                pdil.anim.orientJoint(j, target, None, aim=aimAxis, up=upAxis, upVector=upVector)
                 
             elif state == BPJoint.Orient.AS_PARENT:
                 #print('Orienting as parent', j)
@@ -1025,7 +932,7 @@ class Card(nt.Transform):
                 targetPos = bpJoint.getTranslation(space='world') - dt.Vector( matrix[0][:3] )
                 upVector = dt.Vector( matrix[1][:3] )
                 
-                lib.anim.orientJoint(j, targetPos, None, aim=aimAxis, up=upAxis, upVector=upVector)
+                pdil.anim.orientJoint(j, targetPos, None, aim=aimAxis, up=upAxis, upVector=upVector)
             
             elif state == BPJoint.Orient.FAIL:
                 warning('FAIL ' + j.name())
@@ -1055,7 +962,7 @@ class Card(nt.Transform):
                 
                 m[12] *= -1
                 
-                jo = core.math.eulerFromMatrix(dt.Matrix(m), degrees=True)
+                jo = pdil.math.eulerFromMatrix(dt.Matrix(m), degrees=True)
                 pos = j.getTranslation(space='world')
                 pos.x *= -1
 
@@ -1067,9 +974,9 @@ class Card(nt.Transform):
                 
                 # Hard link of output joint to blueprint joint to avoid any ambiguity
                 if mode != JointMode.bind:
-                    core.factory._setSingleConnection(bpJoint, 'realJointMirror', mj)
+                    pdil.factory._setSingleConnection(bpJoint, 'realJointMirror', mj)
                 else:
-                    core.factory._setSingleConnection(bpJoint, 'bindMirror', mj)
+                    pdil.factory._setSingleConnection(bpJoint, 'bindMirror', mj)
             
                 # Figure out if parent is mirrored to and parent appropriately
                 if bpJoint.parent:
@@ -1169,13 +1076,13 @@ class Card(nt.Transform):
             connectAttr( jnt.message, card.attr('joints[%i].jmsg' % i), f=True )
         
         if targetJoint.bpParent:
-            a = core.dagObj.getPos(targetJoint)
-            b = core.dagObj.getPos(targetJoint.bpParent)
-            core.dagObj.moveTo( newJoint, a + (a - b) / 2.0 )
+            a = pdil.dagObj.getPos(targetJoint)
+            b = pdil.dagObj.getPos(targetJoint.bpParent)
+            pdil.dagObj.moveTo( newJoint, a + (a - b) / 2.0 )
             
             proxyskel.pointer(targetJoint.bpParent, newJoint)
         else:
-            core.dagObj.moveTo( newJoint, targetJoint )
+            pdil.dagObj.moveTo( newJoint, targetJoint )
         
         proxyskel.pointer(newJoint, targetJoint)
         return newJoint
@@ -1249,7 +1156,7 @@ class Card(nt.Transform):
         
         a.set(0.5)
         
-        core.math.opposite(b) >> a
+        pdil.math.opposite(b) >> a
         
         rig.drive(newJoint, 'weight', b, 0, 1.0)
         
@@ -1336,7 +1243,7 @@ class Card(nt.Transform):
             else:
                 # Should they be renamed after their parent?
                 if not jnt.name().endswith('_tip'):
-                    jnt.rename( simpleName(jnt.parent, '{0}_tip') )
+                    jnt.rename( pdil.simpleName(jnt.parent, '{0}_tip') )
         """
         
         queued = {}
@@ -1346,7 +1253,7 @@ class Card(nt.Transform):
         for jnt in self.joints:
             if not jnt.isHelper:
                 targetName = next(names) + '_bpj'
-                if simpleName(jnt) != targetName:
+                if pdil.simpleName(jnt) != targetName:
                     if cmds.ls(targetName, r=1) and targetName != 'NOT_ENOUGH_NAMES_bpj':
                         jnt.rename('_temp_')
                         queued[jnt] = targetName
@@ -1354,7 +1261,7 @@ class Card(nt.Transform):
                         jnt.rename(targetName)
             else:
                 #jnt.rename('_helper_bpj')
-                jnt.rename( simpleName(self, '{}_helper_bpj') )
+                jnt.rename( pdil.simpleName(self, '{}_helper_bpj') )
         
         for jnt, targetName in queued.items():
             jnt.rename(targetName)
@@ -1498,9 +1405,9 @@ class Card(nt.Transform):
         '''
         for side in ['Left', 'Right', 'Center' ]:
             for type in ['ik', 'fk']:
-                node = getattr( getattr( self, 'output' + side ), type)
-                if node:
-                    yield (node, side, type)
+                ctrl = getattr( getattr( self, 'output' + side ), type)
+                if ctrl:
+                    yield (ctrl, side, type)
                 
     getMainControls = _outputs
     # Much better name
@@ -1511,27 +1418,26 @@ class Card(nt.Transform):
         Done as unique attr because I've had trouble in the past with compound
         array attrs with strings.
         '''
-        for node, side, type in self._outputs():
-            shapeInfo = controllerShape.saveControlShapes(node)
-            shapeInfo = core.text.asciiCompress(shapeInfo)
-            core.factory._setStringAttr( self, 'outputShape' + side + type, shapeInfo)
+        for ctrl, side, type in self.getMainControls():
+            shapeInfo = controllerShape.saveControlShapes(ctrl)
+            shapeInfo = pdil.text.asciiCompress(shapeInfo)
+            pdil.factory._setStringAttr( self, 'outputShape' + side + type, shapeInfo)
                     
     def restoreShapes(self, objectSpace=True, targetKeys=None, targetSide=None, targetMotion=None):
         '''
         Apply any shape data saved via saveShapes
         '''
-        for node, side, type in self._outputs():
-            print(side, type)
+        for ctrl, side, type in self._outputs():
             if targetSide and targetSide != side:
                 continue
             
             if targetMotion and targetMotion != type:
                 continue
             
-            shapeInfo = core.factory._getStringAttr( self, 'outputShape' + side + type)
+            shapeInfo = pdil.factory._getStringAttr( self, 'outputShape' + side + type)
             if shapeInfo:
-                shapeInfo = core.text.asciiDecompress(shapeInfo)
-                controllerShape.loadControlShapes( node, shapeInfo.splitlines(), useObjectSpace=objectSpace, targetCtrlKeys=targetKeys)
+                shapeInfo = pdil.text.asciiDecompress(shapeInfo)
+                controllerShape.loadControlShapes( ctrl, shapeInfo.splitlines(), useObjectSpace=objectSpace, targetCtrlKeys=targetKeys)
         
     def _saveData(self, function):
         '''
@@ -1616,7 +1522,7 @@ class Card(nt.Transform):
         delete(self.getRealJoints())
 
     thingsToSave = [
-        ('visGroup',    lib.sharedShape.getVisGroup,        lib.sharedShape.connect),
+        ('visGroup',    visNode.getVisLevel,               visNode.connect),
         ('connections', getLinks,                           setLinks),
         ('setDriven',   findSDK,                            applySDK),
         ('customAttrs', controllerShape.identifyCustomAttrs, controllerShape.restoreAttr),
@@ -1626,21 +1532,21 @@ class Card(nt.Transform):
     ]
     
     toSave = collections.OrderedDict( [
-        ('visGroup',    (lib.sharedShape.getVisGroup,        lib.sharedShape.connect)),
-        ('connections', (getLinks,                           setLinks)),
-        ('setDriven',   (findSDK,                            applySDK)),
+        ('visGroup',    (visNode.getVisLevel,               visNode.connect)),
+        ('connections', (getLinks,                          setLinks)),
+        ('setDriven',   (findSDK,                           applySDK)),
         ('customAttrs', (controllerShape.identifyCustomAttrs, controllerShape.restoreAttr)),
-        ('spaces',      (space.serializeSpaces,              space.deserializeSpaces)),
-        ('constraints', (findConstraints,                    applyConstraints)),
-        ('lockedAttrs', (findLockedAttrs,                    lockAttrs)),
+        ('spaces',      (space.serializeSpaces,             space.deserializeSpaces)),
+        ('constraints', (findConstraints,                   applyConstraints)),
+        ('lockedAttrs', (findLockedAttrs,                   lockAttrs)),
     ] )
     
     def saveState(self):
         allData = self.rigState
-
+        
         for niceName, (harvestFunc, restoreFunc) in self.toSave.items():
             data = self._saveData(harvestFunc)
-
+            
             # I think this is a good idea.  Helping the corner case if you accidentally go fk
             # to preserve ik data instead of clobbering it.
             
@@ -1648,7 +1554,7 @@ class Card(nt.Transform):
                 allData[niceName] = data
             else:
                 allData[niceName].update( data )
-
+                
         self.rigState = allData
         
         rigClass = self.rigCommandClass
@@ -1660,6 +1566,10 @@ class Card(nt.Transform):
     def restoreState(self, shapesInObjectSpace=True):
         '''
         Restores everything listed in `toSave`, returning a list of ones that failed.
+        
+        &&& Need to have optional error ignoring for testing but a nicer user experience.
+            Currently the test_controller_shape_restore looks at the result but defaulting
+            to erroring would be better.
         '''
 
         allData = self.rigState
@@ -1730,11 +1640,11 @@ class Card(nt.Transform):
         
 '''
 def findConstraints(ctr):
-    align = core.dagObj.align(ctrl)
+    align = pdil.dagObj.align(ctrl)
 
     return {
-        'main': core.constraints.aimSerialize(ctrl) if aimConstraint(ctrl, q=True) else None,
-        'align': core.constraints.aimSerialize(align) if align and aimConstraint(align, q=True) else None,
+        'main': pdil.constraints.aimSerialize(ctrl) if aimConstraint(ctrl, q=True) else None,
+        'align': pdil.constraints.aimSerialize(align) if align and aimConstraint(align, q=True) else None,
     }
 '''
 
@@ -1780,20 +1690,20 @@ def getReparentCommand(tempJoint):
 
 class BPJoint(nt.Joint):
 
-    postCommand     = core.factory.StringAccess('postCommand')
-    real            = core.factory.SingleConnectionAccess('realJoint')
-    realMirror      = core.factory.SingleConnectionAccess('realJointMirror')
-    suffixOverride  = core.factory.StringAccess('suffixOverride')
-    customUp        = core.factory.SingleConnectionAccess('customUp')
-    customOrient    = core.factory.SingleConnectionAccess('moCustomOrient')
-    proxy           = core.factory.SingleConnectionAccess('proxy')
-    orientTarget    = core.factory.SingleStringConnectionAccess('orientTargetJnt')
-    info            = core.factory.JsonAccess('fossilInfo')
+    postCommand     = pdil.factory.StringAccess('postCommand')
+    real            = pdil.factory.SingleConnectionAccess('realJoint')
+    realMirror      = pdil.factory.SingleConnectionAccess('realJointMirror')
+    suffixOverride  = pdil.factory.StringAccess('suffixOverride')
+    customUp        = pdil.factory.SingleConnectionAccess('customUp')
+    customOrient    = pdil.factory.SingleConnectionAccess('moCustomOrient')
+    proxy           = pdil.factory.SingleConnectionAccess('proxy')
+    orientTarget    = pdil.factory.SingleStringConnectionAccess('orientTargetJnt')
+    info            = pdil.factory.JsonAccess('fossilInfo')
 
     
     # &&& I need to deprecate this to remove any conflicts with pymel and replace it with property `bpParent`
     # AND change the local storage to something like fslBPParent
-    parent          = core.factory.SingleConnectionAccess('parent')
+    parent          = pdil.factory.SingleConnectionAccess('parent')
 
     @classmethod
     def _isVirtual(cls, obj, name):
@@ -1818,7 +1728,7 @@ class BPJoint(nt.Joint):
         
     @property
     def bpParent(self):
-        return core.factory._getSingleConnection(self, 'parent')
+        return pdil.factory._getSingleConnection(self, 'parent')
     
     @bpParent.setter
     def bpParent(self, val):
@@ -1875,7 +1785,7 @@ class BPJoint(nt.Joint):
         CUSTOM = 'CUSTOM'
         Result = collections.namedtuple( 'Result', 'status joint' )
 
-    def getOrientStateNEW(self):
+    def getOrientState(self):
         '''
             Future children are not considered for orientation
         '''
@@ -1901,12 +1811,12 @@ class BPJoint(nt.Joint):
         _pos = xform(self, q=True, ws=True, t=True)
         
         def tooClose(other):
-            return core.math.isClose( _pos, xform(other, q=True, ws=True, t=True))
+            return pdil.math.isClose( _pos, xform(other, q=True, ws=True, t=True))
             
         cardJoints = self.card.joints
         children = self.proxyChildren
         localChildren = [c for c in children if c in cardJoints]
-        outerChildren = [c for c in children if c not in localChildren and c.card.rigCommand != 'Group']
+        outerChildren = [c for c in children if c not in localChildren and c.card.rigData.get( enums.RigData.rigCmd ) != 'Group']
         
         if self.customOrient:
             return self.Orient.Result( self.Orient.CUSTOM, self.customOrient )
@@ -2012,68 +1922,7 @@ class BPJoint(nt.Joint):
         
         return self.Orient.Result( self.Orient.FAIL, None )
         '''
-        
-    def getOrientState(self):
-        '''
-        ..  todo::
-            This should probably be changed to look at virtual children so a
-            card that is a child who's parent mirrors can mirror on it's own.
             
-            But this might be too complicated.Orient
-            OR future children DO NOT COUNT as orient targets!  JUST MAKE IT INVALID!  Does that sound good?
-        '''
-        
-        children = self.real.listRelatives(type='joint')
-    
-        # First check if there are explicit orient instructions.
-        if self.orientTarget:
-            if isinstance(self.orientTarget, basestring):
-                if self.orientTarget == '-world-':
-                    return self.Orient.Result( self.Orient.WORLD, None )
-                elif self.orientTarget == '-parent-':
-                    return self.Orient.Result( self.Orient.AS_PARENT, None )
-            elif self.orientTarget:
-                return self.Orient.Result( self.Orient.HAS_TARGET, self.orientTarget )
-        
-        # Otherwise try to determine a sensible orientation from the children joints.
-        if len(children) == 0:
-            return self.Orient.Result( self.Orient.AS_PARENT, None )
-            
-        elif len(children) == 1:
-            # If the child is on top of the joint, orient as the parent
-            if core.math.isClose( xform(self, q=True, ws=True, t=True), xform(children[0], q=True, ws=True, t=True)):
-                return self.Orient.Result( self.Orient.AS_PARENT, None )
-            else:
-                return self.Orient.Result( self.Orient.SINGLE_CHILD, children[0] )
-            
-        else:
-            # Since we have multiple children, see if only one is in the center.
-            # THis centers stuff looks like garbage, and is because helper joints ruin it...
-            
-            centers = []
-            for child in children:
-                if abs(xform(child, q=True, ws=True, t=True)[0]) < 0.001:
-                    centers.append(child)
-
-            if len(centers) == 1:
-                return self.Orient.Result( self.Orient.CENTER_CHILD, centers[0] )
-                
-            else:
-                related = []
-                for temp in self.cardCon.node().joints:
-                    related.append( temp.real )
-                related.remove( self.real )
-                
-                relatedChildren = []
-                for j in related:
-                    if j in children:
-                        relatedChildren.append(j)
-                
-                if len(relatedChildren) == 1:
-                    return self.Orient.Result( self.Orient.RELATED_CHILD, relatedChildren[0] )
-                else:
-                    return self.Orient.Result( self.Orient.FAIL, None )
-    
     def addRealExtra(self, joint):
         indicies = self.realJointExtra.getArrayIndices()
         if len(indicies) == indicies[-1] + 1:
@@ -2086,7 +1935,7 @@ class BPJoint(nt.Joint):
     
     def setBPParent(self, parent):
         # Freeform and Squash allows non-linear parenting, but everything else must be kept linear.
-        if self.card.rigCommand not in ('Freeform', 'SquashStretch', 'SurfaceFollow'):
+        if self.card.rigData.get( enums.RigData.rigCmd ) not in ('Freeform', 'SquashStretch', 'SurfaceFollow'):
             if parent is None:
                 if self.parent and self.parent.card != self.card:
                     self.card.parentCardLink = None
@@ -2190,7 +2039,7 @@ class RigController(nt.Transform):
         '''
         
         if not mainControl.hasAttr('controlLinks'):
-            mobj = core.capi.asMObject(mainControl)
+            mobj = pdil.capi.asMObject(mainControl)
             cattr = OpenMaya.MFnCompoundAttribute()
             tattr = OpenMaya.MFnTypedAttribute()
             mattr = OpenMaya.MFnMessageAttribute()
@@ -2293,7 +2142,20 @@ class RigController(nt.Transform):
             return outputAttr.plug.name().split('.')[-1] + '.ik'
         else:
             return outputAttr.plug.name().split('.')[-1] + '.fk'
+    
+    def getMotionKeys(self):
+        ''' Return [<side>, <kinematic>], ex ['Center', 'ik'].  Use with `Card.getLeadController()`.
+        '''
+        outputAttr = self._outputAttr()
         
+        side = outputAttr.plug.name().split('.')[-1][6:]
+        
+        if self == getattr(outputAttr, 'ik'):
+            return [side, 'ik']
+        else:
+            return [side, 'fk']
+        
+    
     def getCreateFunction(self):
         outputAttr = self._outputAttr()
         rigClass = self.card.rigCommandClass
@@ -2394,7 +2256,7 @@ class RigController(nt.Transform):
                 if children:
                     # Hop to the start of the first child card
                     for child in children:
-                        side = rig.getMainController(current)._outputAttr().side
+                        side = node.leadController(current)._outputAttr().side
                         nextCtrl = findSimilarOutput(side, children[0], 'down')
                         if nextCtrl:
                             return nextCtrl
@@ -2416,7 +2278,7 @@ class RigController(nt.Transform):
                 parentCardFinal = self.src.card.parentCardFinal
                 
                 if parentCardFinal:
-                    side = rig.getMainController(current)._outputAttr().side
+                    side = node.leadController(current)._outputAttr().side
                     # Handle swapping side if future reparent is used
                     # DOES NOT WORK
                     #if parentCardFinal != self.src.card.parentCard:
@@ -2481,7 +2343,7 @@ class SubController(nt.Transform):
         # Returns True if it's message is connected to a .controlLink ()
         
         if name:  # Not sure why, but sometimes this is called without an name.
-            obj = core.capi.asMObject(name)
+            obj = pdil.capi.asMObject(name)
             
             msgplug = obj.findPlug('message', False)
 
@@ -2496,7 +2358,7 @@ class SubController(nt.Transform):
         Returns the node that has this as a sub control and the key to access it.
         '''
         
-        obj = core.capi.asMObject(self)
+        obj = pdil.capi.asMObject(self)
         
         msgplug = obj.findPlug('message', False)
 

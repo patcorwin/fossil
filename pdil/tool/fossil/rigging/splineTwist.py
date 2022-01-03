@@ -5,17 +5,15 @@ import math
 
 from pymel.core import curve, cluster, delete, dt, duplicate, expression, group, hide, ikHandle, insertKnotCurve, joint, move, orientConstraint, parent, parentConstraint, pointConstraint, xform
 
-from ....add import simpleName, shortName
-from .... import core
-from .... import nodeApi
+import pdil
 
-from .. import controllerShape
-from .. import space
+from .._lib2 import controllerShape
+from .. import node
+from .._lib import space
 
 from ..cardRigging import MetaControl, ParamInfo
 
 from . import _util as util
-from .. import node
 
 
 class OrientMode:
@@ -132,8 +130,8 @@ def buildSplineTwist(start, end, controlCountOrCrv=4, twistInfDist=0, simplifyCu
         crv.getShape().worldSpace[0] >> mainIk.inCurve
     
     hide(mainIk)
-    mainIk.rename( simpleName(start, "{0}_ikHandle") )
-    crv.rename( simpleName(start, "{0}_curve") )
+    mainIk.rename( pdil.simpleName(start, "{0}_ikHandle") )
+    crv.rename( pdil.simpleName(start, "{0}_curve") )
         
     if not name:
         name = util.trimName(start)
@@ -167,7 +165,7 @@ def buildSplineTwist(start, end, controlCountOrCrv=4, twistInfDist=0, simplifyCu
     
     controls = util.addControlsToCurve(name + 'Ctrl', crv, controlSpec['main'])
     for ctrl in controls:
-        core.dagObj.zero(ctrl).setParent( grp )
+        pdil.dagObj.zero(ctrl).setParent( grp )
 
 
     if controlOrient == OrientMode.CLOSEST_JOINT:
@@ -189,31 +187,9 @@ def buildSplineTwist(start, end, controlCountOrCrv=4, twistInfDist=0, simplifyCu
             if True:  # distances[0][0] < 100:
                 r = xform(distances[0][1], q=True, ro=True, ws=True)
 
-                with core.dagObj.Solo(ctrl):
+                with pdil.dagObj.Solo(ctrl):
                     xform(ctrl, ro=r, ws=True)
-                    core.dagObj.zero(ctrl)
-                    
-            
-            """
-            # Otherwise split the distances by the percentages
-            else:
-                #m1 = xform(distances[0][1], q=True, m=True, ws=True)
-                #m2 = xform(distances[1][1], q=True, m=True, ws=True)
-                
-                distA, jointA = distances[0]
-                distB, jointB = distances[1]
-                x, y, z = midOrient2(jointA, jointB)
-                
-                matrix = list(x) + [0] + list(y) + [0] + list(z) + [0] + xform(ctrl, q=True, ws=True, t=True) + [1.0]
-                
-                print( ctrl, 'to', jointA, jointB )
-                with Solo(ctrl):
-                    xform(ctrl, ws=True, m=matrix)
-                    # Need to improve my matrix skills, for now it's easy enough to just rotate it
-                    #rotate(ctrl, [0, 180, 0], os=1, r=1)
-                    core.dagObj.zero(ctrl)
-            """
-                
+                    pdil.dagObj.zero(ctrl)
 
     if endName:
         controls[-1].rename(endName + 'Ctrl')
@@ -228,7 +204,7 @@ def buildSplineTwist(start, end, controlCountOrCrv=4, twistInfDist=0, simplifyCu
         
         parent( controls[-2].getChildren(), controls[-1] )
         name = controls[-2].name()
-        delete( core.dagObj.zero(controls[-2]) )
+        delete( pdil.dagObj.zero(controls[-2]) )
 
         if not endName:
             controls[-1].rename(name)
@@ -255,11 +231,11 @@ def buildSplineTwist(start, end, controlCountOrCrv=4, twistInfDist=0, simplifyCu
             controls[0].setRotation( start.getRotation(space='world'), space='world' )
             
         parent( controls[1].getChildren(), controls[0] )
-        delete( core.dagObj.zero(controls[1]) )
+        delete( pdil.dagObj.zero(controls[1]) )
         
         del controls[1]
         
-    controls[0] = nodeApi.RigController.convert(controls[0])
+    controls[0] = pdil.nodeApi.RigController.convert(controls[0])
     controls[0].container = grp
     
     stretchAttr, jointLenMultiplier = util.makeStretchySpline(controls[0], mainIk)
@@ -275,9 +251,9 @@ def buildSplineTwist(start, end, controlCountOrCrv=4, twistInfDist=0, simplifyCu
         twistInfDist = max(1, twistInfDist)
     
     noInherit = group(em=True, p=grp, n='NoInheritTransform')
-    core.dagObj.lockTrans(noInherit)
-    core.dagObj.lockRot(noInherit)
-    core.dagObj.lockScale(noInherit)
+    pdil.dagObj.lockTrans(noInherit)
+    pdil.dagObj.lockRot(noInherit)
+    pdil.dagObj.lockScale(noInherit)
     noInherit.inheritsTransform.set(False)
     noInherit.inheritsTransform.lock()
 
@@ -306,9 +282,9 @@ def buildSplineTwist(start, end, controlCountOrCrv=4, twistInfDist=0, simplifyCu
     hide(endProxy)
     endProxy.setParent(grp)
     
-    stretchAttr >> core.constraints.pointConst( controls[-1], endProxy, mo=True )
-    core.math.opposite(stretchAttr) >> core.constraints.pointConst( finalRigJoint, endProxy )
-    constraints.point >> core.constraints.pointConst( endProxy, end )
+    stretchAttr >> pdil.constraints.pointConst( controls[-1], endProxy, mo=True )
+    pdil.math.opposite(stretchAttr) >> pdil.constraints.pointConst( finalRigJoint, endProxy )
+    constraints.point >> pdil.constraints.pointConst( endProxy, end )
     
     hide(twists)
     
@@ -330,11 +306,11 @@ def buildSplineTwist(start, end, controlCountOrCrv=4, twistInfDist=0, simplifyCu
     
     # Do not want to scale but let rotate for "fk-like" space mode
     for ctrl, _parent in zip(controls, parents):
-        core.dagObj.lockScale( ctrl )
+        pdil.dagObj.lockScale( ctrl )
         
         if useLeadOrient:
             ctrl.setRotation( start.getRotation(space='world'), space='world' )
-            core.dagObj.zero(ctrl)
+            pdil.dagObj.zero(ctrl)
         
         space.addMain(ctrl)
         space.add( ctrl, _parent, 'parent')
@@ -370,22 +346,22 @@ def buildSplineTwist(start, end, controlCountOrCrv=4, twistInfDist=0, simplifyCu
         if twistStyle == TwistStyle.X:
             controls[-1].rx >> mainIk.twist
         elif twistStyle == TwistStyle.NEG_X:
-            core.math.multiply(controls[-1].rx, -1.0) >> mainIk.twist
+            pdil.math.multiply(controls[-1].rx, -1.0) >> mainIk.twist
             
         elif twistStyle == TwistStyle.Y:
             controls[-1].ry >> mainIk.twist
         elif twistStyle == TwistStyle.NEG_Y:
-            core.math.multiply(controls[-1].ry, -1.0) >> mainIk.twist
+            pdil.math.multiply(controls[-1].ry, -1.0) >> mainIk.twist
             
         elif twistStyle == TwistStyle.Z:
             controls[-1].rz >> mainIk.twist
         elif twistStyle == TwistStyle.NEG_Z:
-            core.math.multiply(controls[-1].rz, -1.0) >> mainIk.twist
+            pdil.math.multiply(controls[-1].rz, -1.0) >> mainIk.twist
         
         # To make .twist work, the chain needs to follow parent joint
         follow = group(em=True, p=grp)
         target = start.getParent()
-        core.dagObj.matchTo(follow, stretchingChain[0])
+        pdil.dagObj.matchTo(follow, stretchingChain[0])
         parentConstraint( target, follow, mo=1 )
         follow.rename(target + '_follow')
         stretchingChain[0].setParent(follow)
@@ -415,7 +391,7 @@ def addTwistControls(controlChain, boundChain, boundEnd, influenceDist=3):
     
     #controlJoints = getChain( controlChain, findChild(controlChain, shortName(boundEnd)) )
     controlJoints = controlChain
-    boundJoints = util.getChain( boundChain, util.findChild(boundChain, shortName(boundEnd)) )
+    boundJoints = util.getChain( boundChain, util.findChild(boundChain, pdil.shortName(boundEnd)) )
     
     assert len(controlJoints) == len(boundJoints), "Failure when adding twist controls, somehow the chains don't match length, contorls {0} != {1}".format( len(controlJoints), len(boundJoints) )
     
@@ -445,8 +421,8 @@ def addTwistControls(controlChain, boundChain, boundEnd, influenceDist=3):
         
         groups.append(spinner)
 
-        pointConstraints.append( core.constraints.pointConst( obj, target, maintainOffset=False ) )
-        orientConstraints.append( core.constraints.orientConst( spinner, target, maintainOffset=False ) )
+        pointConstraints.append( pdil.constraints.pointConst( obj, target, maintainOffset=False ) )
+        orientConstraints.append( pdil.constraints.orientConst( spinner, target, maintainOffset=False ) )
         
         children = obj.listRelatives(type='joint')
         if children:

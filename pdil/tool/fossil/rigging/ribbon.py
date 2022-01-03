@@ -5,17 +5,13 @@ from maya.api import OpenMaya
 from pymel.core import createNode, curve, delete, duplicate, dt, group, hide, joint, \
     loft, pointOnSurface, rebuildSurface, skinCluster, xform
 
-from .... import core
-from .... import lib
-from .... import nodeApi
+import pdil
 
-from .. import controllerShape
-
-
+from .._lib2 import controllerShape
 from ..cardRigging import MetaControl, ParamInfo
+from .. import node
 
 from . import _util as util
-from .. import node
 
 
 @util.adds()
@@ -101,7 +97,7 @@ def buildRibbon(start, end, normal, numControls=3, name='Ribbon', groupName='', 
         
     constraints = util.constrainAtoB(chain, controlChain)
     
-    temp = core.capi.asMObject( surfaceShape )
+    temp = pdil.capi.asMObject( surfaceShape )
     nurbsObj = OpenMaya.MFnNurbsSurface( temp.object() )
 
     controls = []
@@ -127,20 +123,20 @@ def buildRibbon(start, end, normal, numControls=3, name='Ribbon', groupName='', 
         if i < numControls - 1:
             target = chain[i + 1]
             normal = nurbsObj.normal(0.5, percent)
-            lib.anim.orientJoint(ctrl, target, upVector=dt.Vector(normal.x, normal.y, normal.z))
-            core.dagObj.zero(ctrl)
+            pdil.anim.orientJoint(ctrl, target, upVector=dt.Vector(normal.x, normal.y, normal.z))
+            pdil.dagObj.zero(ctrl)
         
         controls.append( ctrl )
     
     # Orient the final control to the final joint
-    core.dagObj.matchTo( controls[-1], chain[-1])
-    core.dagObj.zero(controls[-1])
+    pdil.dagObj.matchTo( controls[-1], chain[-1])
+    pdil.dagObj.zero(controls[-1])
 
 
     skinCluster( surfaceShape, controlJoints, tsb=True )
 
 
-    mainCtrl = nodeApi.RigController.convert(controls[0])
+    mainCtrl = pdil.nodeApi.RigController.convert(controls[0])
     mainCtrl.container = container
     for i, ctrl in enumerate(controls[1:], 1):
         mainCtrl.subControl[str(i)] = ctrl

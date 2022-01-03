@@ -8,15 +8,17 @@ import traceback
 
 import PySide2
 
-from pymel.core import Callback, colorEditor, colorIndex, columnLayout, objectType, NurbsCurveCV
-from pymel.core import palettePort, PyNode, rotate, select, selected, selectedNodes, setParent, warning
+from pymel.core import Callback, colorEditor, colorIndex, objectType, NurbsCurveCV
+from pymel.core import palettePort, PyNode, rotate, select, selected, selectedNodes, warning
 
-from ....vendor import Qt
-from .... import core
-from .. import controllerShape
-from .. import rig
-from .. import cardlister
-from .. import util
+import pdil
+
+from pdil.vendor import Qt
+
+from .. import node
+
+from .._core import find
+from .._lib2 import controllerShape
 
 
 if 'SHAPE_DEBUG' not in globals():
@@ -27,7 +29,7 @@ class ShapeEditor(object):
     '''
     def __init__(self):
         with columnLayout() as self.main:
-            button( l='Select CVs', c=core.alt.Callback(self.selectCVs) )
+            button( l='Select CVs', c=pdil.alt.Callback(self.selectCVs) )
             button( l='Select Pin Head', c=Callback(self.selectPinHead) )
     '''
 
@@ -115,7 +117,7 @@ class ShapeEditor(object):
         try:
             info = controllerShape.getShapeInfo(selected()[0])
             s = json.dumps(info)
-            core.text.clipboard.set( s )
+            pdil.text.clipboard.set( s )
         except Exception:
             warning('Unable to copy shapes')
         
@@ -124,7 +126,7 @@ class ShapeEditor(object):
         Deserialize shape info from the clipboard and apply it, either in space='os', object space, or 'ws', world space.
         '''
         try:
-            info = json.loads( core.text.clipboard.get() )
+            info = json.loads( pdil.text.clipboard.get() )
             for obj in selected():
                 controllerShape.applyShapeInfo(obj, info, space)
         except Exception:
@@ -147,7 +149,7 @@ class ShapeEditor(object):
                 controllerShape.scaleAllCVs(obj, val)
             except Exception: # This is to ignore trying to 'scale' the switcher curve
                 pass
-            #for shape in core.shape.getShapes(obj):
+            #for shape in pdil.shape.getNurbsShapes(obj):
             #    scale(shape.cv, scaleFactor, r=True, os=True)
 
 
@@ -161,7 +163,7 @@ class ShapeEditor(object):
         # it works for now.
         tube, outline, head = None, None, None
         
-        shapes = core.shape.getShapes(sel[0]) # This culls out switchers/vis shapes
+        shapes = pdil.shape.getNurbsShapes(sel[0]) # This culls out switchers/vis shapes
         
         for shape in shapes[:]:
             if shape.name().count('tube'):
@@ -195,7 +197,7 @@ class ShapeEditor(object):
         if not obj.hasAttr('shapeType') or obj.shapeType.get() != 'band':
             return
         
-        shapes = core.shape.getShapes(obj)
+        shapes = pdil.shape.getNurbsShapes(obj)
         
         if shapes[0].type() == 'nurbsSurface':
             surface = shapes[0]
@@ -215,7 +217,7 @@ class ShapeEditor(object):
         sel = selected()
         select(cl=True)
         for obj in sel:
-            for shape in core.shape.getShapes(obj):
+            for shape in pdil.shape.getNurbsShapes(obj):
                 select( shape.cv, add=True )
     
     
@@ -228,7 +230,7 @@ class ShapeEditor(object):
         trans += [ PyNode(obj).getParent() for obj in selectedNodes() if objectType(obj).startswith('nurbs') ]
         
         for obj in set(trans):
-            for shape in core.shape.getShapes(obj):
+            for shape in pdil.shape.getNurbsShapes(obj):
                 if space == 'world':
                     rotate( shape.cv, rot, r=True, ws=True )
                 else:
@@ -311,7 +313,7 @@ class ShapeEditor(object):
         # cardOrder = cardHierarchy()
         '''
         return
-        cards = cardlister.cardHierarchy()
+        cards = find.cardHierarchy()
 
         cardToItem = {None: self.controlCardList.invisibleRootItem()}
 
@@ -334,8 +336,8 @@ class ShapeEditor(object):
                 else:
                     return
                 
-                if not card.c.__class__.__name__ == 'Card':  # &&& Not a great verification this is a card node.
-                    main = rig.getMainController(card)
+                if not card.__class__.__name__ == 'Card':  # &&& Not a great verification this is a card node.
+                    main = node.leadController(card)
                     if main:
                         card = main.card
                             
@@ -345,7 +347,7 @@ class ShapeEditor(object):
                     for attr in ['outputShape' + side + kin for side in ['Left', 'Right', 'Center'] for kin in ['ik', 'fk']]:
                         if card.hasAttr(attr):
                             text += '---- ' + attr + '\n\n'
-                            text += core.text.asciiDecompress( card.attr(attr).get() ) + '\n\n'
+                            text += pdil.text.asciiDecompress( card.attr(attr).get() ) + '\n\n'
                 except Exception:
                     print( traceback.format_exc() )
                 
@@ -368,13 +370,13 @@ class SurfaceColorEditor(object):
             td=True,
             colorEditable=False)
         """
-        #self.surfacePalette.changeCommand( core.alt.Callback(self.changeSurfaceColor) )
+        #self.surfacePalette.changeCommand( pdil.alt.Callback(self.changeSurfaceColor) )
         
         #self.surfacePalette.setRgbValue( [0] + self.customColor )
-        #for i, (name, c) in enumerate(core.shader.namedColors.items()):
+        #for i, (name, c) in enumerate(pdil.shader.namedColors.items()):
         #    self.surfacePalette.setRgbValue( [i + 1] + list(c) )
         
-        for i, (name, c) in enumerate(core.shader.namedColors.items()):
+        for i, (name, c) in enumerate(pdil.shader.namedColors.items()):
             col = i % self.WIDTH
             row = math.floor(i / self.WIDTH)
             
@@ -396,14 +398,14 @@ class SurfaceColorEditor(object):
             self.defineSurfaceColor()
             color = self.customColor[:]
         else:
-            color = list( list(core.shader.namedColors.values())[colorIndex] )
+            color = list( list(pdil.shader.namedColors.values())[colorIndex] )
 
         color.append(0.5)
 
         sel = selected()
         for obj in sel:
             try:
-                core.shader.assign(obj, color)
+                pdil.shader.assign(obj, color)
             except Exception:
                 pass
         if sel:
@@ -434,7 +436,7 @@ class CurveColorEditor(object):
             td=True,
             colorEditable=False,
             transparent=0)
-        self.curvePalette.changeCommand( core.alt.Callback(self.changeCurveColor) )
+        self.curvePalette.changeCommand( pdil.alt.Callback(self.changeCurveColor) )
         
         for i in range(1, 32):
             param = [i] + colorIndex(i, q=True)
@@ -480,7 +482,7 @@ def mirrorAllKinematicShapes(ctrls):
     done = set()
     
     for ctrl in selected():
-        main = rig.getMainController(ctrl)
+        main = node.leadController(ctrl)
         
         if main in done:
             continue

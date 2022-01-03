@@ -1,40 +1,15 @@
 from __future__ import print_function, absolute_import
 
-import inspect
 import os
 
-from .add import *  # noqa
-from .core import *  # noqa
-from .lib import *  # noqa
+from pymel.core import confirmDialog
 
+from ._add import *  # noqa
+from ._core import *  # noqa
+from ._lib import *  # noqa
 
-def deprecatedStub(funcOrClass, error=False):
-    '''
-    Wrap calls to functions that have been moved.  `error=True` is for when you
-    think you have updated all usage to the new location but can still have the
-    breadcrumb.
-    '''
-    if inspect.isclass(funcOrClass):
     
-        class newThing(funcOrClass):
-            def __init__(self, *args, **kwargs):
-                #print('You have called a class from a deprecated module, update to the new location')
-                if error:
-                    raise DeprecationWarning(str(funcOrClass) + ' is being called from an old location')
-                funcOrClass.__init__(self, *args, **kwargs)
-    
-    else:
-        def newThing(*args, **kwargs):
-            #print('You have called a function from a deprecated module, update to the new location')
-            if error:
-                raise DeprecationWarning(str(funcOrClass) + ' is being called from an old location')
-            return funcOrClass(*args, **kwargs)
-    
-    return newThing
-    
-    
-    
-def addIconPath():
+def _addIconPath():
     pdilIcons = os.path.normpath( os.path.normcase( os.path.dirname(__file__) + '/icons' ) )
     iconPaths = os.path.normpath( os.path.normcase( os.environ['XBMLANGPATH'] ) )
     
@@ -42,4 +17,27 @@ def addIconPath():
         os.environ['XBMLANGPATH'] += ';' + pdilIcons
 
 
-addIconPath()
+_addIconPath()
+
+
+class core:
+    
+    class _alt:
+        
+        def __getattr__(self, member):
+            confirmDialog(m="""Code was restructed and this function was moved,
+(but I don't expect it to move again).
+
+Please update shelf icons.
+
+If you're technically inclined, see the script editor for how to edit the code.
+(It's actually pretty easy)
+
+Sorry for the inconvenience.
+""")
+            print('---- How To Update ---')
+            print('Remove "core" from "pdil.core.alt" so it is just "pdil.alt".  That is it.')
+            print('Sorry for the inconvenience.')
+            return getattr(alt, member)
+
+    alt = _alt()

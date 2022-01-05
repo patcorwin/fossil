@@ -98,6 +98,7 @@ def getReposeContainer():
             return obj
     
     grp = group(n=name, em=True)
+    grp.visibility.set(False)
     grp.setParent(mainBP)
     return grp
 

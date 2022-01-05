@@ -4,7 +4,7 @@ from collections import OrderedDict
 import inspect
 import os
 
-from pymel.core import Callback, listRelatives
+from pymel.core import Callback, listRelatives, PyNode
 
 import pdil
 from pdil.vendor import Qt
@@ -21,6 +21,8 @@ ReposerGUI = pdil.ui.getQtUIClass( os.path.dirname(os.path.dirname(os.path.dirna
 
 
 class GUI(Qt.QtWidgets.QMainWindow):
+    
+    MAX_INPUTS = 3
     
     def __init__(self):
     
@@ -76,11 +78,11 @@ class GUI(Qt.QtWidgets.QMainWindow):
         card = self.cardNames[self.ui.cardChooser.currentText()]
         cmdName = self.ui.adjustmentChooser.currentText()
         
-        for i in range(3):
+        for i in range(self.MAX_INPUTS):
             self.entry[i] = {}
         
         if cmdName == '':
-            for i in range(3):
+            for i in range(self.MAX_INPUTS):
                 label = getattr(self.ui, 'label%i' % i)
                 label.setEnabled(False)
                 label.setText('')
@@ -91,44 +93,38 @@ class GUI(Qt.QtWidgets.QMainWindow):
         else:
             cmd = adjusters.adjustCommands[cmdName]
             spec = inspect.getargspec(cmd)
-
-            for i, arg in enumerate(spec.args):
+            
+            # First arge is auto filled in as the card, so get the rest buffered with None to clear the entry.
+            args = spec.args[1:] + ([None] * self.MAX_INPUTS)
+            
+            for i, arg in enumerate(args[:self.MAX_INPUTS]):
                 
                 label = getattr(self.ui, 'label%i' % i)
                 entry = getattr(self.ui, 'input%i' % i)
                 entry.clear()
                 
-                if 'Card' in arg and i == 0:
-                    label.setText('card')
-                    entry.addItems(['self'])
+                if arg is None:
+                    label.setText('')
                     label.setEnabled(False)
                     entry.setEnabled(False)
-                    continue
-                
-                
-                elif 'Joint' in arg:
-                    if i == 0:
-                        self.entry[i] = OrderedDict( sorted( [(j.name(), j) for j in card.joints] ))
-                    else:
-                        self.entry[i] = OrderedDict( sorted( [(j.name(), j) for card in find.blueprintCards() for j in card.joints if not j.isHelper] ))
-                    entry.addItems( self.entry[i].keys() )
-                
+                    entry.clear()
+                    
                 else:
-                    entry.addItems( [str(i) for i in range(1, 40)] )
+                    if 'Joint' in arg:
+                        if i == 0:
+                            self.entry[i] = OrderedDict( sorted( [(j.name(), j) for j in card.joints] ))
+                        else:
+                            self.entry[i] = OrderedDict( sorted( [(j.name(), j) for card in find.blueprintCards() for j in card.joints if not j.isHelper] ))
+                        entry.addItems( self.entry[i].keys() )
+                    
+                    else:
+                        entry.addItems( [str(i) for i in range(1, 40)] )
+                        self.entry[i] = { str(i): i for i in range(1, 40) }
+                    
+                    label.setText(arg)
+                    label.setEnabled(True)
+                    entry.setEnabled(True)
                 
-                label.setText(arg)
-                label.setEnabled(True)
-                entry.setEnabled(True)
-                
-            for post_i in range(i + 1, 3):
-                label = getattr(self.ui, 'label%i' % post_i)
-                label.setText('')
-                label.setEnabled(False)
-                
-                entry = getattr(self.ui, 'input%i' % post_i)
-                entry.setEnabled(False)
-                entry.clear()
-
     
     def listAdjustments(self):
         self.ui.aligns.clearContents()
@@ -202,44 +198,23 @@ class GUI(Qt.QtWidgets.QMainWindow):
         if not command:
             return
         
-        args = []
+        args = ['self']
         
-        for i in range(3):
+        for i in range(self.MAX_INPUTS):
             if getattr( self.ui, 'label%i' % i ).text():
-                val = getattr(self.ui, 'input%i' % i).text()
-                if val == 'self':
-                    args.append( val )
+                valName = getattr(self.ui, 'input%i' % i).currentText()
+                
+                objOrValue = self.entry[i][ valName ]
+                
+                if isinstance(objOrValue, PyNode):
+                    spec = ids.getIdSpec(objOrValue)
+                    args.append( spec )
                 else:
-                    obj = self.entry[i][ val ]
-                    
-                    spec = ids.getIdSpec(obj)
-                    
-                    if spec['type'] == 'fossil_card':
-                        args.append( 'id:' + spec['id'] )
-                        
-                    elif spec['type'] == 'fossil_bpj':
-                        args.append( 'id:' + spec['card']['id'] + '.joint[%i]' % spec['index'] )
+                    args.append( objOrValue )
         
+        adjusters.addAdjuster(card, command, args)
         
-        # Find the next `order` number
-        order = 0
-        for _card in find.blueprintCards():
-
-            for adjuster in _card.rigData.get('tpose', []):
-                order = max(order, adjuster['order'])
-        order += 1
-        
-        
-        with card.rigData as data:
-            adjusters = data['tpose'].getdefault([])
-            
-            adjusters.append(
-                OrderedDict([
-                    ('args', args),
-                    ('call', command),
-                    ('order', order),
-                ])
-            )
+        self.listAdjustments()
         
 
     def closeEvent(self, event):

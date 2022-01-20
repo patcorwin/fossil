@@ -60,9 +60,7 @@ def buildTwist(twist, twistDriver, twistLateralAxis=[0, 1, 0], driverLateralAxis
     ctrl.setParent(space)
     ctrl.t.set( 0, 0, 0 )
     ctrl.r.set( 0, 0, 0 )
-    pdil.dagObj.lockScale( ctrl )
-    pdil.dagObj.lockTrans( ctrl )
-    pdil.dagObj.lockRot( ctrl )
+    pdil.dagObj.lock( ctrl )
     # Unlock the twist axis
     ctrl.attr( 'r' + util.identifyAxis(twist) ).unlock()
     ctrl.attr( 'r' + util.identifyAxis(twist) ).setKeyable(True)

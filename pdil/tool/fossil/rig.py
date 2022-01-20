@@ -309,9 +309,7 @@ def twistSetup(control, twistJoints, startSegment, endSegment, jointLenMultiplie
     #ctrl.setParent(space)
     #ctrl.t.set( 0, 0, 0 )
     #ctrl.r.set( 0, 0, 0 )
-    #lockScale( ctrl )
-    #lockTrans( ctrl )
-    #lockRot( ctrl )
+    #lock( ctrl )
     # # Unlock the twist axis
     #ctrl.attr( 'r' + identifyAxis(twist) ).unlock()
     #ctrl.attr( 'r' + identifyAxis(twist) ).setKeyable(True)

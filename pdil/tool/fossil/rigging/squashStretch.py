@@ -40,7 +40,7 @@ def buildSquashAndStretch(joints, squashCenter, orientAsParent=True, rangeMin=-5
     
     mainCtrl.addAttr( 'size', at='double', min=rangeMin, max=rangeMax, dv=0.0, k=True )
     
-    pdil.dagObj.lockScale(mainCtrl)
+    pdil.dagObj.lock(mainCtrl, 's')
     
     if orientAsParent:
         pdil.dagObj.matchTo( mainCtrl, joints[0].getParent() )
@@ -58,8 +58,7 @@ def buildSquashAndStretch(joints, squashCenter, orientAsParent=True, rangeMin=-5
         pdil.dagObj.matchTo(subCtrl, j)
         subCtrl.setParent(container)
         pdil.dagObj.zero(subCtrl)
-        pdil.dagObj.lockRot(subCtrl)
-        pdil.dagObj.lockScale(subCtrl)
+        pdil.dagObj.lock(subCtrl, 'r s')
         
         scalingLoc = spaceLocator()
         scalingLoc.rename( util.trimName(j) + '_squasher' )

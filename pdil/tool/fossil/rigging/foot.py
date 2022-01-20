@@ -218,13 +218,13 @@ def buildFoot(ballJnt, toePos, ballPos, heelPos, legControl, side, controlSpec={
     
     ballOffset = joint(ball, n='ballOffset')
     pdil.dagObj.matchTo(ballOffset, ballJnt)
-    pdil.dagObj.lockAll( ballOffset )
+    pdil.dagObj.lock( ballOffset )
     
-    pdil.dagObj.lockScale( footCtrl )
-    pdil.dagObj.lockTrans( pdil.dagObj.lockScale( toeCtrl ) )
-    pdil.dagObj.lockTrans( pdil.dagObj.lockScale( ballCtrl ) )
-    pdil.dagObj.lockTrans( pdil.dagObj.lockScale( toeTapCtrl ) )
-    pdil.dagObj.lockTrans( pdil.dagObj.lockScale( heelRaiseCtrl ) )
+    pdil.dagObj.lock( footCtrl, 's' )
+    pdil.dagObj.lock( toeCtrl, 't s' )
+    pdil.dagObj.lock( ballCtrl, 't s' )
+    pdil.dagObj.lock( toeTapCtrl, 't s' )
+    pdil.dagObj.lock( heelRaiseCtrl, 't s' )
     
     constraints = util.constrainAtoB( [ballJnt], [ballOffset], mo=True )
     

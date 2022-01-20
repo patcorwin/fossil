@@ -47,10 +47,10 @@ def buildCtrlGroup(parentJoint, point, rotation, name='Group', translatable=True
         util.storeTrueZero(ctrl, rotation)
         
     if not translatable:
-        pdil.dagObj.lockTrans( ctrl )
+        pdil.dagObj.lock( ctrl, 't' )
         
     if not scalable:
-        pdil.dagObj.lockScale( ctrl )
+        pdil.dagObj.lock( ctrl, 's' )
     
     if mirroredTranslate:
         zeroGroup.s.set(-1, -1, -1)

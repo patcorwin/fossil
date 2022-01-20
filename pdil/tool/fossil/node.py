@@ -16,7 +16,7 @@ def mainGroup(create=True, nodes=None):
     if create:
         # Draw outer arrow shape
         main = curve( name='main', d=True, p=[(-40, 0, 20 ), (0, 0, 60 ), (40, 0, 20 ), (40, 0, -40 ), (0, 0, -20 ), (-40, 0, -40 ), (-40, 0, 20 )] )
-        pdil.dagObj.lockScale(main)
+        pdil.dagObj.lock(main, 's')
         main.visibility.setKeyable(False)
         main.visibility.set(cb=True)
     
@@ -107,7 +107,7 @@ def rootMotion(create=True, main=None):
         # Draw inner arrow shape
         rootMotion = curve( name='rootMotion', d=True, p=[(-32, 0, -12), (-32, 0, 20), (0, 0, 52), (32, 0, 20), (32, 0, -12), (-32, 0, -12)] )
         rootMotion.setParent( mainGroup() )
-        pdil.dagObj.lockScale( rootMotion )
+        pdil.dagObj.lock( rootMotion, 's' )
         #skeletonTool.controller.sharedShape.use(rootMotion)
         
         rootMotion.addAttr( 'fossilCtrlType', dt='string' )

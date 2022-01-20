@@ -92,7 +92,7 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
     chestCtrl.stretch.set(1)
     chestCtrl.stretch.lock()
     chestCtrl.stretch.setKeyable(False)
-    pdil.dagObj.lockScale(chestCtrl)
+    pdil.dagObj.lock(chestCtrl, 's')
 
     # Put pivot point at the bottom
     chestCtrl.ty.set( chestCtrl.boundingBox()[1][1] )
@@ -115,7 +115,7 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
     chest = joint(None, n='Chest')
     chest.setParent( chestCtrl )
     pdil.dagObj.moveTo(chest, chestBase)
-    pdil.dagObj.lockScale(pdil.dagObj.lockRot(pdil.dagObj.lockTrans(chest)))
+    pdil.dagObj.lock(chest)
     hide(chest)
 
     chestMatcher = util.createMatcher(chestCtrl, srcChain[chestIndex])
@@ -136,7 +136,7 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
         pdil.dagObj.matchTo( chestOffsetCtrl, chain[-1])
         #move(chestOffsetCtrl, [0, 0.7, 3], r=True)
         pdil.dagObj.zero(chestOffsetCtrl)
-        pdil.dagObj.lockScale(chestOffsetCtrl)
+        pdil.dagObj.lock(chestOffsetCtrl, 's')
         parentConstraint(chestOffsetCtrl, chain[-1], mo=True)
     
     # -- Mid --
@@ -145,14 +145,14 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
     xform( midCtrl, ws=True, t=midPos )
 
 
-    pdil.dagObj.lockScale(midCtrl)
+    pdil.dagObj.lock(midCtrl, 's')
     midCtrl.setParent( container )
     
     mid = joint(None, n='Mid')
     #pdil.dagObj.moveTo( mid, midPoint )
     xform( mid, ws=True, t=midPos )
     mid.setParent( midCtrl )
-    pdil.dagObj.lockScale(pdil.dagObj.lockRot(pdil.dagObj.lockTrans(mid)))
+    pdil.dagObj.lock(mid)
     hide(mid)
     
     # Mid control's rotation aims at the chest
@@ -176,12 +176,12 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
         controllerShape.scaleAllCVs( shoulderCtrl, x=0.15 )
         shoulderZero = pdil.dagObj.zero(shoulderCtrl)
         shoulderZero.setParent(chestCtrl)
-        pdil.dagObj.lockScale(pdil.dagObj.lockTrans(shoulderCtrl))
+        pdil.dagObj.lock(shoulderCtrl, 't s')
     
         neck = joint(None, n='Neck')
         neck.setParent( shoulderCtrl )
         pdil.dagObj.moveTo( neck, end )
-        pdil.dagObj.lockScale(pdil.dagObj.lockRot(pdil.dagObj.lockTrans(neck)))
+        pdil.dagObj.lock(neck)
         hide(neck)
     
     # -- Neck --
@@ -189,12 +189,12 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
     pdil.dagObj.matchTo( neckCtrl, end)
     if numChestJoints > 2: # The shoulder control is skipped if there aren't enough joints
         pdil.dagObj.zero(neckCtrl).setParent( shoulderCtrl )
-        pdil.dagObj.lockScale(pdil.dagObj.lockTrans(neckCtrl))
+        pdil.dagObj.lock(neckCtrl, 's t')
         space.add( neckCtrl, srcChain[-2], 'chest' )
         
     else:
         pdil.dagObj.zero(neckCtrl).setParent( chestCtrl )
-        pdil.dagObj.lockScale(pdil.dagObj.lockTrans(neckCtrl))
+        pdil.dagObj.lock(neckCtrl, 't s')
         space.add( neckCtrl, chestCtrl, 'chest' )
         
     space.addMain(neckCtrl)
@@ -235,7 +235,7 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
         # Make a proxy since we can't constrain with maintainOffset=True if we're making fk too.
         proxy = duplicate(srcChain[-2], po=True)[0]
         proxy.setParent(neck)
-        pdil.dagObj.lockTrans(pdil.dagObj.lockRot(pdil.dagObj.lockScale(proxy)))
+        pdil.dagObj.lock(proxy)
         
         constraints.append( pdil.constraints.pointConst( proxy, srcChain[-2] ) )
         constraints.append( pdil.constraints.orientConst( proxy, srcChain[-2] ) )
@@ -262,13 +262,13 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
     startAxis = duplicate( start, po=True )[0]
     startAxis.rename( 'startAxis' )
     startAxis.setParent( base )
-    pdil.dagObj.lockTrans(pdil.dagObj.lockRot(pdil.dagObj.lockScale(startAxis)))
+    pdil.dagObj.lock(startAxis)
     
     endAxis = duplicate( start, po=True )[0]
     endAxis.rename( 'endAxis' )
     endAxis.setParent( chestCtrl )
     endAxis.t.set(0, 0, 0)
-    pdil.dagObj.lockTrans(pdil.dagObj.lockRot(pdil.dagObj.lockScale(endAxis)))
+    pdil.dagObj.lock(endAxis)
     
     hide(startAxis, endAxis)
     

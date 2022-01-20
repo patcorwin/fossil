@@ -612,13 +612,13 @@ def advancedTwist(start, end, baseCtrl, endCtrl, ik):
     startAxis = duplicate( start, po=True )[0]
     startAxis.rename( 'startAxis' )
     startAxis.setParent( baseCtrl )
-    pdil.dagObj.lockTrans(pdil.dagObj.lockRot(pdil.dagObj.lockScale(startAxis)))
+    pdil.dagObj.lock(startAxis)
     
     endAxis = duplicate( start, po=True )[0]
     endAxis.rename( 'endAxis' )
     endAxis.setParent( endCtrl )
     endAxis.t.set(0, 0, 0)
-    pdil.dagObj.lockTrans(pdil.dagObj.lockRot(pdil.dagObj.lockScale(endAxis)))
+    pdil.dagObj.lock(endAxis)
     
     hide(startAxis, endAxis)
     

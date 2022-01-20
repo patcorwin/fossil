@@ -157,6 +157,7 @@ def animStateSwitch(leads, start, end, spaces={}, dense=False, key=True):
             others = [obj for name, obj in other.subControl.items()] + [other]
                 
         switcher = controllerShape.getSwitcherPlug(lead)
+        print('switcher', switcher, lead)
         target = 0 if lead.getMotionKeys()[1] == 'fk' else 1
         opposite = (target + 1) % 2
         #print('Target=', target, '   Opposite=', opposite)
@@ -191,17 +192,17 @@ def animStateSwitch(leads, start, end, spaces={}, dense=False, key=True):
             
             allTimes.update(times)
             
-            
-            toClear = []
+            if switcher: # Only clear keys if switching is possible
+                toClear = []
+                            
+                for t in times:
+                    if getAttr(switcher, t=t) == opposite:
+                        toClear.append(t)
+                    else:
+                        _clearKeys(controls[lead], toClear)
+                        toClear = []
                         
-            for t in times:
-                if getAttr(switcher, t=t) == opposite:
-                    toClear.append(t)
-                else:
-                    _clearKeys(controls[lead], toClear)
-                    toClear = []
-                    
-            _clearKeys(controls[lead], toClear) # Clears the final span
+                _clearKeys(controls[lead], toClear) # Clears the final span
         
         # Check if a control will be switched to so we can just pre-change its space
         for ctrl in controlsWithSpaces[:]:
@@ -216,7 +217,7 @@ def animStateSwitch(leads, start, end, spaces={}, dense=False, key=True):
                     spaceOnlyData[ctrl]  = {}
                     spaceOnlyTimes[ctrl] = {}
                 
-                controlsWithSpaces.pop(ctrl)
+                controlsWithSpaces.remove(ctrl)
         
     #print(controlsWithSpaces, 'controlsWithSpaces')
     # controlsWithSpaces are not in any kinematic switch
@@ -273,6 +274,9 @@ def animStateSwitch(leads, start, end, spaces={}, dense=False, key=True):
                 
 
     for switcher, target in targets.items():
+        if not switcher:
+            continue
+            
         cutKey(switcher, t=(start, end))
         if key:
             setKeyframe(switcher, t=start, v=target)

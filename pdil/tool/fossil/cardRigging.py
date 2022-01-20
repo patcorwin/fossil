@@ -573,7 +573,7 @@ class MetaControl(six.with_metaclass(RegisterdMetaControl)):
         
         for ctrl in [leadCtrl] + leadCtrl.values():
             zero = pdil.dagObj.zero(ctrl)
-            pdil.dagObj.lockRot( pdil.dagObj.lockTrans(zero) )
+            pdil.dagObj.lock(zero, 't r' )
             ctrl.addAttr('fossilData', at='string')
             pdil.factory.setJsonAttr(ctrl, 'fossilData',
                 { 't': ctrl.t.get(), 'r': ctrl.r.get() }

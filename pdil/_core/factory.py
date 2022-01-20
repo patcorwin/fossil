@@ -134,9 +134,9 @@ def _setSingleStringConnection(obj, attrName, value):
             if obj.node().hasAttr(attrName) and obj.attr(attrName).listConnections():
                 obj.attr(attrName).disconnect()
                 
-            _setStringAttr(obj, attrName, value)
+            setStringAttr(obj, attrName, value)
         else:
-            _setStringAttr(obj, attrName, None)
+            setStringAttr(obj, attrName, None)
             value.message >> obj.attr( attrName )
     else:
         if hasAttr(obj.node(), attrName):
@@ -158,7 +158,7 @@ def setStringAttr(obj, attrName, val):
     
     
 def setJsonAttr(obj, attrName, val):
-    _setStringAttr(obj, attrName, json.dumps(val))
+    setStringAttr(obj, attrName, json.dumps(val))
 
 
 def getJsonAttr(obj, attrName, ):
@@ -252,7 +252,7 @@ class StringAccess(object):
         return getStringAttr(instance, self.attr)
     
     def __set__(self, instance, value):
-        _setStringAttr(instance, self.attr, value)
+        setStringAttr(instance, self.attr, value)
         
 
 class SingleConnectionAccess(object):

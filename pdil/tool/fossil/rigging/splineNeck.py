@@ -100,7 +100,7 @@ def buildSplineNeck(start, end, name='', matchEndOrient=False, endOrient=util.En
     endJnt.setParent(w=True)
     
     midCtrl = controllerShape.build( name + "_Mid", controlSpec['middle'], controllerShape.ControlType.SPLINE )
-    pdil.dagObj.lockScale(midCtrl)
+    pdil.dagObj.lock(midCtrl, 's')
     midPoint = pointOnCurve( crv, pr=0.5, p=True, top=True )
     midChain = findClosest(midPoint, util.getChain(start, end))
     pdil.dagObj.matchTo(midCtrl, midChain)
@@ -151,13 +151,13 @@ def buildSplineNeck(start, end, name='', matchEndOrient=False, endOrient=util.En
     skinCluster(startJnt, endJnt, midJoint, crv, tsb=True)
     
     startCtrl = controllerShape.build( name + '_Start', controlSpec['start'], controllerShape.ControlType.SPLINE )
-    pdil.dagObj.lockScale(startCtrl)
+    pdil.dagObj.lock(startCtrl, 's')
     pdil.dagObj.matchTo( startCtrl, startJnt )
     startSpace = pdil.dagObj.zero(startCtrl)
     startSpace.setParent(container)
     
     endCtrl = controllerShape.build( name + '_End', controlSpec['main'], controllerShape.ControlType.SPLINE )
-    pdil.dagObj.lockScale(endCtrl)
+    pdil.dagObj.lock(endCtrl, 's')
     
     #pdil.dagObj.moveTo( endCtrl, end )
     #pdil.dagObj.zero( endCtrl ).setParent( container )

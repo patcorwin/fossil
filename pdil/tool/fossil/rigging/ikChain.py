@@ -108,20 +108,18 @@ def buildIkChain(start, end, pvLen=None, stretchDefault=1, endOrientType=util.En
         # Do nothing, it's built world oriented
         pass
     
-    pdil.dagObj.lockScale(ctrl)
+    pdil.dagObj.lock(ctrl, 's')
     
     mainIk.setParent( ctrl )
     
     # I think orientTarget is for matching fk to ik
     orientTarget = duplicate( end, po=True )[0]
     orientTarget.setParent(ctrl)
-    pdil.dagObj.lockTrans(pdil.dagObj.lockRot(pdil.dagObj.lockScale(orientTarget)))
+    pdil.dagObj.lock(orientTarget)
     orientConstraint( orientTarget, mainArmature[-1] )
     hide(orientTarget)
     
-    pdil.dagObj.lockRot(mainIk)
-    pdil.dagObj.lockTrans(mainIk)
-    pdil.dagObj.lockScale(mainIk)
+    pdil.dagObj.lock(mainIk)
 
 
     attr, jointLenMultiplier, nodes = util.makeStretchyNonSpline(ctrl, mainIk, stretchDefault)
@@ -223,7 +221,7 @@ def buildIkChain(start, end, pvLen=None, stretchDefault=1, endOrientType=util.En
                 disc.t.set( 0, 0, 0 )
                 disc.r.set( 0, 0, 0 )
                 
-                pdil.dagObj.lockAll(disc)
+                pdil.dagObj.lock(disc)
                 disc.rx.unlock()
                 disc.tx.unlock()
                 
@@ -245,7 +243,7 @@ def buildIkChain(start, end, pvLen=None, stretchDefault=1, endOrientType=util.En
     pvPos = out * pvLen + dt.Vector(xform(mainArmature[1], q=True, ws=True, t=True))
     pvCtrl = controllerShape.build( name + '_pv', controlSpec['pv'], type=controllerShape.ControlType.POLEVECTOR )
     
-    pdil.dagObj.lockScale(pdil.dagObj.lockRot(pvCtrl))
+    pdil.dagObj.lock(pvCtrl, 'r s')
     xform(pvCtrl, ws=True, t=pvPos)
     controllerShape.connectingLine(pvCtrl, mainArmature[1] )
     poleVectorConstraint( pvCtrl, mainIk )
@@ -258,8 +256,7 @@ def buildIkChain(start, end, pvLen=None, stretchDefault=1, endOrientType=util.En
     
     pdil.dagObj.moveTo( socketOffset, start )
     pdil.dagObj.zero( socketOffset ).setParent( socketContainer )
-    pdil.dagObj.lockRot( socketOffset )
-    pdil.dagObj.lockScale( socketOffset )
+    pdil.dagObj.lock( socketOffset, 'r s' )
     pointConstraint( socketOffset, mainArmature[0] )
     
     # Reuse the socketOffset container for the controlling chain

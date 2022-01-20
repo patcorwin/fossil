@@ -43,7 +43,7 @@ def buildSurfaceFollow(joints, groupOrigin, surface=None, controlSpec={}):
     mainCtrl.setParent(container)
     xform(mainCtrl, ws=True, t=groupOrigin)
     
-    pdil.dagObj.lockScale(mainCtrl)
+    pdil.dagObj.lock(mainCtrl, 's')
     
     pdil.dagObj.zero(mainCtrl)
     
@@ -89,9 +89,8 @@ def buildSurfaceFollow(joints, groupOrigin, surface=None, controlSpec={}):
         
         pointConstraint(subCtrl, loc)
         
-        pdil.dagObj.lockRot(subCtrl)
-        pdil.dagObj.lockScale(subCtrl)
-        pdil.dagObj.lockScale(offsetCtrl)
+        pdil.dagObj.lock(subCtrl, 'r s')
+        pdil.dagObj.lock(offsetCtrl, 's')
         
         loc.setParent(subCtrl)
         

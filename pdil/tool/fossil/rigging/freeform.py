@@ -63,10 +63,10 @@ def buildFreeform(joints, translatable=False, mirroredTranslate=False, scalable=
 
         # Lock unneeded transforms
         if not translatable:
-            pdil.dagObj.lockTrans( ctrl )
+            pdil.dagObj.lock( ctrl, 't' )
         
         if not scalable:
-            pdil.dagObj.lockScale( ctrl )
+            pdil.dagObj.lock( ctrl, 's' )
         else:
             # Preserving scaling symmetry if translations are mirrored
             if mirroredTranslate:

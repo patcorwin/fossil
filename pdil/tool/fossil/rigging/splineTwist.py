@@ -251,9 +251,7 @@ def buildSplineTwist(start, end, controlCountOrCrv=4, twistInfDist=0, simplifyCu
         twistInfDist = max(1, twistInfDist)
     
     noInherit = group(em=True, p=grp, n='NoInheritTransform')
-    pdil.dagObj.lockTrans(noInherit)
-    pdil.dagObj.lockRot(noInherit)
-    pdil.dagObj.lockScale(noInherit)
+    pdil.dagObj.lock(noInherit)
     noInherit.inheritsTransform.set(False)
     noInherit.inheritsTransform.lock()
 
@@ -306,7 +304,7 @@ def buildSplineTwist(start, end, controlCountOrCrv=4, twistInfDist=0, simplifyCu
     
     # Do not want to scale but let rotate for "fk-like" space mode
     for ctrl, _parent in zip(controls, parents):
-        pdil.dagObj.lockScale( ctrl )
+        pdil.dagObj.lock( ctrl, 's' )
         
         if useLeadOrient:
             ctrl.setRotation( start.getRotation(space='world'), space='world' )

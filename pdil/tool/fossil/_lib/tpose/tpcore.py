@@ -326,7 +326,7 @@ def generateReposer(cards=None, placeholder=False, progress=None):
                 delete(child)
         rCards.append(rCard)
         makeIdentity(rCard, t=False, r=False, s=True, apply=True)
-        pdil.dagObj.lockScale( rCard )
+        pdil.dagObj.lock( rCard, 's' )
 
         for jnt in card.joints:
             reposeJoint = joint(None)
@@ -384,7 +384,7 @@ def generateReposer(cards=None, placeholder=False, progress=None):
                 
             #cmds.parent(str(rCard), str(jointMapping[bpj]))
             xform(rCard, ws=True, piv=xform(start, q=True, t=True, ws=True) )
-            pdil.dagObj.lockTrans(rCard)
+            pdil.dagObj.lock(rCard, 't')
             
         else:
             if not placeholder:

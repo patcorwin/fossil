@@ -43,7 +43,6 @@ try: # python 3 compatibility
 except NameError:
     long = int # long is just an int in py3
 
-
 try:
     from importlib import reload
 except ImportError:
@@ -52,6 +51,27 @@ except ImportError:
 
 from pymel.core import *
 #from pymel.core import optionVar, Callback, checkBox, frameLayout, menuItem
+
+__all__ = [
+    'singleWindow',
+    'mayaMainWindow',
+    'deleteByName',
+    'convertToQt',
+    'getQtUIClass',
+    'loadUiType',
+    'NoUpdate',
+    'NoFilePrompt',
+    'NoAutokey',
+    'RedirectOutput',
+    'Settings',
+    'getGeometry',
+    'setGeometry',
+    'autoRedistribute',
+    'ProgressHelper',
+    'progressWin',
+    'notify',
+    'disableNotify',
+]
 
 # Make a top level 'module' so ui files can refer to it directly, aka the generated py code works.
 VENDORIMPORT = 'QT_PDIL_vendored'

@@ -5,8 +5,33 @@ import os
 from pymel.core import confirmDialog
 
 from ._add import *  # noqa
-from ._core import *  # noqa
-from ._lib import *  # noqa
+
+from . import (
+    anim,
+    capi,
+    constraints,
+    dagObj,
+    debug,
+    factory,
+    image,
+    keyModifier,
+    layer,
+    math,
+    names,
+    pubsub,
+    shader,
+    shape,
+    text,
+    time,
+    ui,
+    weights,
+)
+
+from ._core import version, undoBlock
+
+from ._lib import sharedShape  # noqa
+
+from . import vendor
 
     
 def _addIconPath():
@@ -28,7 +53,7 @@ class core:
             confirmDialog(m="""Code was restructured and this function was moved,
 (but I don't expect it to move again).
 
-Please update shelf icons.
+Please update shelf items.
 
 If you're technically inclined, see the script editor for how to edit the code.
 (It's actually pretty easy)
@@ -36,7 +61,7 @@ If you're technically inclined, see the script editor for how to edit the code.
 Sorry for the inconvenience.
 """)
             print('---- How To Update ---')
-            print('Remove "core" from "pdil.core.alt" so it is just "pdil.alt".  That is it.')
+            print('Remove "core" so "pdil.core.alt" becomes "pdil.alt".  That is it.')
             print('Sorry for the inconvenience.')
             return getattr(alt, member)
 

@@ -6,6 +6,15 @@ import time
 
 from pymel.core import dt, polyColorPerVertex, polyCylinder, polyUnite, PyNode, selected, xform
 
+__all__ = [
+    'numf',
+    'matrixDisplay',
+    'axisWidget',
+    'Timer',
+    'TimerBasic',
+    'TimerAggregate',
+]
+
 
 def numf(num):
     ''' Display floats nicely.

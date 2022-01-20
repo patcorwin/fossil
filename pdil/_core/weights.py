@@ -16,6 +16,25 @@ from pymel.core import cmds, dt, duplicate, mel, listConnections, skinCluster, s
 
 from . import capi
 
+__all__ = [
+    'get',
+    'substGen',
+    'processWeightData',
+    'apply',
+    'save',
+    'load',
+    'mergePieces',
+    'weightChildren',
+    'findRelatedSkinCluster',
+    'addMissingJoints',
+    'removeUnwantedInfluence',
+    'skeletonToJson',
+    'copySkinning',
+    'findBoundMeshes',
+    'parallelTransfer',
+]
+
+
 '''
 Timing tests on a 44k vert mesh, generally under 0.2s to save! under 2s load.
 

@@ -9,6 +9,8 @@ import functools
 
 from pymel.core import warning, scriptJob
 
+__all__ = [ 'Event', 'clear', 'subscribe', 'unsubscribe', 'publish' ]
+
 
 def getCallableAsStr(callable):
     '''

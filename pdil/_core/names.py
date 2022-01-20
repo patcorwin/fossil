@@ -11,8 +11,9 @@ import re
 import pymel.core
 from pymel.core import objExists, listReferences, ls, cmds
 
-
 from ..import _add
+
+__all__ = ['findAlternates', 'findUniqueReferenceNamespace']
 
 
 def _formatResults(newJoints):

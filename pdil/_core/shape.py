@@ -3,6 +3,14 @@ from pymel.core import cmds, attributeQuery
 
 from . import capi  # &&& Need to move this to lib since it imports a neighbor
 
+__all__ = [
+    'SHARED_SHAPE',
+    'isValidNurbsCurve',
+    'getNurbsShapes',
+    'uniformPointsOnCurve',
+]
+
+
 SHARED_SHAPE = 'sharedShapeData'
 
 

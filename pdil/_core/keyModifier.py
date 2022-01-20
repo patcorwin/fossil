@@ -5,6 +5,10 @@ we can ask the OS directly.
 
 import ctypes
 
+
+__all__ = ['shift', 'control']
+
+
 VK_SHIFT    = 0x10 # http://msdn.microsoft.com/en-us/library/dd375731
 VK_CONTROL  = 0x11
 

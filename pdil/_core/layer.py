@@ -1,6 +1,9 @@
 from pymel.core import ls, createDisplayLayer
 
 
+__all__ = ['putInLayer']
+
+
 def putInLayer(objs, layerName):
     '''
     Puts the given objects in a layer of the given name.

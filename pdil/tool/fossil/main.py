@@ -469,7 +469,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
                 
                 allInfo = ''
                 for _node, side, type in selectedCard._outputs():
-                    shapeInfo = pdil.factory._getStringAttr( selectedCard, 'outputShape' + side + type)
+                    shapeInfo = pdil.factory.getStringAttr( selectedCard, 'outputShape' + side + type)
                     if shapeInfo:
                         allInfo += pdil.text.asciiDecompress(shapeInfo).decode('utf-8') + '\n\n'
                 

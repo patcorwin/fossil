@@ -29,17 +29,23 @@ def checkAll(ask=True):
     toUpdate = []
     
     for updater in _updaters.values():
+        updater.emptyStorage()
         if updater.check():
             toUpdate.append( updater )
 
     if toUpdate:
         if ask:
-            res = confirmDialog(t='Updates needed, run now?', m='\n'.join([u.__name__ for u in toUpdate]), b=['Yes', 'No'] )
+            res = confirmDialog(
+                t='Updates required',
+                m='Updates needed, run now?\n\n' + '\n'.join([u.__name__ for u in toUpdate]),
+                b=['Yes', 'No'],
+            )
             if res == 'No':
                 return
         
         for updater in toUpdate:
             updater.fix()
+            updater.emptyStorage()
     
 
 class RegisterUpdater(type):
@@ -72,8 +78,14 @@ class SharedShape(Updater):
     dep_visAttr = 'sharedShape'
     dep_kinematicAttr = 'kinematicSwitch'
         
-    oldVis = {}
-    oldKinematic = {}
+    oldVis = set()
+    oldKinematic = set()
+    
+    @classmethod
+    def emptyStorage(cls):
+        cls.oldVis = set()
+        cls.oldKinematic = set()
+        
     
     @classmethod
     def check(cls):
@@ -121,6 +133,10 @@ class CardsToRigData(Updater):
     '''
     
     old = []
+    
+    @classmethod
+    def emptyStorage(cls):
+        cls.old = []
     
     @classmethod
     def check(cls):
@@ -224,6 +240,10 @@ class StoredSpaces(Updater):
     rigStateToUpdate = []
     
     @classmethod
+    def emptyStorage(cls):
+        cls.rigStateToUpdate = []
+    
+    @classmethod
     def _checkCard(cls, card):
         for outputName, spaces in card.rigState.get(RigState.spaces, {}).items():
             for ctrlKey, spaceList in spaces.items():
@@ -287,7 +307,7 @@ class StoredSpaces(Updater):
                             '''
                             if isinstance( spaceData['target'], list ):
                                 success = False
-                                if objExists(spaceData['target'][0]):
+                                if len(ls(spaceData['target'][0])) == 1:
                                     spaceData['target'] = ids.getIdSpec( PyNode(spaceData['target'][0]) )
                                     success = True
                                 elif spaceData['target'][1]:
@@ -410,6 +430,12 @@ class SpaceTypeName(Updater):
     }
     
     @classmethod
+    def emptyStorage(cls):
+        cls.conditions = []
+        cls.matrices = []
+        
+    
+    @classmethod
     def check(cls):
         cls.conditions = ls( '*.spaceType', o=True, type='condition')
         cls.matrices = ls( '*.spaceName', o=True, type='fourByFourMatrix')
@@ -443,6 +469,10 @@ class Constraints(Updater):
     update = []
 
     @classmethod
+    def emptyStorage(cls):
+        cls.update = []
+
+    @classmethod
     def checkCard(cls, card):
         constData = card.rigState.get( RigState.constraints, {} )
         
@@ -473,10 +503,7 @@ class Constraints(Updater):
                         const, obj = oldKey.split()
                         
                         oldData['targets'] = [ ids.getIdSpec( fromIdSpec(t) ) for t in oldData['targets'] ]
-                            
-                        
         
-        cls.update = []
 
 
 """ fixed by updateConstraints()

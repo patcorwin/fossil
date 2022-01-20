@@ -1,114 +1,170 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'G://Projects/_tools/_maya/fossil\pdil\tool\fossil/ui/reposer_gui.ui',
-# licensing of 'G://Projects/_tools/_maya/fossil\pdil\tool\fossil/ui/reposer_gui.ui' applies.
-#
-# Created: Mon Nov  8 23:26:28 2021
-#      by: pyside2-uic  running on PySide2 5.15.2
-#
-# WARNING! All changes made in this file will be lost!
+################################################################################
+## Form generated from reading UI file 'reposer_gui.ui'
+##
+## Created by: Qt User Interface Compiler version 5.15.2
+##
+## WARNING! All changes made in this file will be lost when recompiling UI file!
+################################################################################
 
-from QT_PDIL_vendored import QtCompat, QtCore, QtGui, QtWidgets
+from PySide2.QtCore import *
+from PySide2.QtGui import *
+from PySide2.QtWidgets import *
+
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
-        MainWindow.setObjectName("MainWindow")
+        if not MainWindow.objectName():
+            MainWindow.setObjectName(u"MainWindow")
         MainWindow.resize(409, 673)
-        self.centralwidget = QtWidgets.QWidget(MainWindow)
-        self.centralwidget.setObjectName("centralwidget")
-        self.verticalLayout = QtWidgets.QVBoxLayout(self.centralwidget)
-        self.verticalLayout.setObjectName("verticalLayout")
-        self.updateAll = QtWidgets.QPushButton(self.centralwidget)
-        self.updateAll.setObjectName("updateAll")
-        self.verticalLayout.addWidget(self.updateAll)
-        self.updateSelected = QtWidgets.QPushButton(self.centralwidget)
-        self.updateSelected.setObjectName("updateSelected")
-        self.verticalLayout.addWidget(self.updateSelected)
-        self.line = QtWidgets.QFrame(self.centralwidget)
-        self.line.setFrameShape(QtWidgets.QFrame.HLine)
-        self.line.setFrameShadow(QtWidgets.QFrame.Sunken)
-        self.line.setObjectName("line")
-        self.verticalLayout.addWidget(self.line)
-        self.runAll = QtWidgets.QPushButton(self.centralwidget)
-        self.runAll.setObjectName("runAll")
-        self.verticalLayout.addWidget(self.runAll)
-        self.runSelected = QtWidgets.QPushButton(self.centralwidget)
-        self.runSelected.setObjectName("runSelected")
-        self.verticalLayout.addWidget(self.runSelected)
-        self.line_2 = QtWidgets.QFrame(self.centralwidget)
-        self.line_2.setFrameShape(QtWidgets.QFrame.HLine)
-        self.line_2.setFrameShadow(QtWidgets.QFrame.Sunken)
-        self.line_2.setObjectName("line_2")
+        self.centralwidget = QWidget(MainWindow)
+        self.centralwidget.setObjectName(u"centralwidget")
+        self.verticalLayout = QVBoxLayout(self.centralwidget)
+        self.verticalLayout.setObjectName(u"verticalLayout")
+        self.horizontalLayout_2 = QHBoxLayout()
+        self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
+        self.horizontalLayout_2.setContentsMargins(-1, 0, -1, -1)
+        self.updateAll = QPushButton(self.centralwidget)
+        self.updateAll.setObjectName(u"updateAll")
+
+        self.horizontalLayout_2.addWidget(self.updateAll)
+
+        self.updateSelected = QPushButton(self.centralwidget)
+        self.updateSelected.setObjectName(u"updateSelected")
+
+        self.horizontalLayout_2.addWidget(self.updateSelected)
+
+
+        self.verticalLayout.addLayout(self.horizontalLayout_2)
+
+        self.horizontalLayout_3 = QHBoxLayout()
+        self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
+        self.horizontalLayout_3.setContentsMargins(-1, 0, -1, -1)
+        self.runAll = QPushButton(self.centralwidget)
+        self.runAll.setObjectName(u"runAll")
+
+        self.horizontalLayout_3.addWidget(self.runAll)
+
+        self.runSelected = QPushButton(self.centralwidget)
+        self.runSelected.setObjectName(u"runSelected")
+
+        self.horizontalLayout_3.addWidget(self.runSelected)
+
+
+        self.verticalLayout.addLayout(self.horizontalLayout_3)
+
+        self.line_2 = QFrame(self.centralwidget)
+        self.line_2.setObjectName(u"line_2")
+        self.line_2.setFrameShape(QFrame.HLine)
+        self.line_2.setFrameShadow(QFrame.Sunken)
+
         self.verticalLayout.addWidget(self.line_2)
-        self.goToBind = QtWidgets.QPushButton(self.centralwidget)
-        self.goToBind.setObjectName("goToBind")
+
+        self.goToBind = QPushButton(self.centralwidget)
+        self.goToBind.setObjectName(u"goToBind")
+
         self.verticalLayout.addWidget(self.goToBind)
-        self.aligns = QtWidgets.QTableWidget(self.centralwidget)
+
+        self.aligns = QTableWidget(self.centralwidget)
+        if (self.aligns.columnCount() < 4):
+            self.aligns.setColumnCount(4)
+        self.aligns.setObjectName(u"aligns")
         self.aligns.setColumnCount(4)
-        self.aligns.setObjectName("aligns")
-        self.aligns.setColumnCount(4)
-        self.aligns.setRowCount(0)
         self.aligns.horizontalHeader().setDefaultSectionSize(35)
         self.aligns.horizontalHeader().setStretchLastSection(True)
+
         self.verticalLayout.addWidget(self.aligns)
-        self.widget = QtWidgets.QWidget(self.centralwidget)
-        self.widget.setObjectName("widget")
-        self.horizontalLayout = QtWidgets.QHBoxLayout(self.widget)
+
+        self.widget = QWidget(self.centralwidget)
+        self.widget.setObjectName(u"widget")
+        self.horizontalLayout = QHBoxLayout(self.widget)
+        self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.horizontalLayout.setContentsMargins(0, -1, 0, -1)
-        self.horizontalLayout.setObjectName("horizontalLayout")
-        self.cardChooser = QtWidgets.QComboBox(self.widget)
-        self.cardChooser.setObjectName("cardChooser")
+        self.cardChooser = QComboBox(self.widget)
+        self.cardChooser.setObjectName(u"cardChooser")
+
         self.horizontalLayout.addWidget(self.cardChooser)
-        self.adjustmentChooser = QtWidgets.QComboBox(self.widget)
-        self.adjustmentChooser.setObjectName("adjustmentChooser")
+
+        self.adjustmentChooser = QComboBox(self.widget)
+        self.adjustmentChooser.setObjectName(u"adjustmentChooser")
+
         self.horizontalLayout.addWidget(self.adjustmentChooser)
-        self.addAdjustment = QtWidgets.QPushButton(self.widget)
-        self.addAdjustment.setObjectName("addAdjustment")
+
+        self.addAdjustment = QPushButton(self.widget)
+        self.addAdjustment.setObjectName(u"addAdjustment")
+
         self.horizontalLayout.addWidget(self.addAdjustment)
+
+        self.removeAdjustment = QPushButton(self.widget)
+        self.removeAdjustment.setObjectName(u"removeAdjustment")
+
+        self.horizontalLayout.addWidget(self.removeAdjustment)
+
+
         self.verticalLayout.addWidget(self.widget)
-        self.gridLayout = QtWidgets.QGridLayout()
+
+        self.gridLayout = QGridLayout()
+        self.gridLayout.setObjectName(u"gridLayout")
         self.gridLayout.setContentsMargins(-1, 10, -1, -1)
-        self.gridLayout.setObjectName("gridLayout")
-        self.label0 = QtWidgets.QLabel(self.centralwidget)
-        self.label0.setObjectName("label0")
+        self.label0 = QLabel(self.centralwidget)
+        self.label0.setObjectName(u"label0")
+
         self.gridLayout.addWidget(self.label0, 0, 0, 1, 1)
-        self.label1 = QtWidgets.QLabel(self.centralwidget)
-        self.label1.setObjectName("label1")
+
+        self.label1 = QLabel(self.centralwidget)
+        self.label1.setObjectName(u"label1")
+
         self.gridLayout.addWidget(self.label1, 1, 0, 1, 1)
-        self.input0 = QtWidgets.QComboBox(self.centralwidget)
-        self.input0.setObjectName("input0")
+
+        self.input0 = QComboBox(self.centralwidget)
+        self.input0.setObjectName(u"input0")
+
         self.gridLayout.addWidget(self.input0, 0, 2, 1, 1)
-        self.input1 = QtWidgets.QComboBox(self.centralwidget)
-        self.input1.setObjectName("input1")
+
+        self.input1 = QComboBox(self.centralwidget)
+        self.input1.setObjectName(u"input1")
+
         self.gridLayout.addWidget(self.input1, 1, 2, 1, 1)
-        self.label2 = QtWidgets.QLabel(self.centralwidget)
-        self.label2.setObjectName("label2")
+
+        self.label2 = QLabel(self.centralwidget)
+        self.label2.setObjectName(u"label2")
+
         self.gridLayout.addWidget(self.label2, 2, 0, 1, 1)
-        self.input2 = QtWidgets.QComboBox(self.centralwidget)
-        self.input2.setObjectName("input2")
+
+        self.input2 = QComboBox(self.centralwidget)
+        self.input2.setObjectName(u"input2")
+
         self.gridLayout.addWidget(self.input2, 2, 2, 1, 1)
+
+
         self.verticalLayout.addLayout(self.gridLayout)
+
         MainWindow.setCentralWidget(self.centralwidget)
-        self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 409, 21))
-        self.menubar.setObjectName("menubar")
+        self.menubar = QMenuBar(MainWindow)
+        self.menubar.setObjectName(u"menubar")
+        self.menubar.setGeometry(QRect(0, 0, 409, 21))
         MainWindow.setMenuBar(self.menubar)
-        self.statusbar = QtWidgets.QStatusBar(MainWindow)
-        self.statusbar.setObjectName("statusbar")
+        self.statusbar = QStatusBar(MainWindow)
+        self.statusbar.setObjectName(u"statusbar")
         MainWindow.setStatusBar(self.statusbar)
 
         self.retranslateUi(MainWindow)
-        QtCore.QMetaObject.connectSlotsByName(MainWindow)
+
+        QMetaObject.connectSlotsByName(MainWindow)
+    # setupUi
 
     def retranslateUi(self, MainWindow):
-        MainWindow.setWindowTitle(QtCompat.translate("MainWindow", "MainWindow", None, -1))
-        self.updateAll.setText(QtCompat.translate("MainWindow", "Update All Reposers", None, -1))
-        self.updateSelected.setText(QtCompat.translate("MainWindow", "Update Selected Reposers", None, -1))
-        self.runAll.setText(QtCompat.translate("MainWindow", "Run All Adjusters", None, -1))
-        self.runSelected.setText(QtCompat.translate("MainWindow", "Run Selected Adjusters", None, -1))
-        self.goToBind.setText(QtCompat.translate("MainWindow", "Go To Bind Pose", None, -1))
-        self.addAdjustment.setText(QtCompat.translate("MainWindow", "Add Adjustment", None, -1))
-        self.label0.setText(QtCompat.translate("MainWindow", "TextLabel", None, -1))
-        self.label1.setText(QtCompat.translate("MainWindow", "TextLabel", None, -1))
-        self.label2.setText(QtCompat.translate("MainWindow", "TextLabel", None, -1))
+        MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"MainWindow", None))
+        self.updateAll.setText(QCoreApplication.translate("MainWindow", u"Update All Reposers", None))
+        self.updateSelected.setText(QCoreApplication.translate("MainWindow", u"Update Selected Reposers", None))
+        self.runAll.setText(QCoreApplication.translate("MainWindow", u"Run All Adjusters", None))
+        self.runSelected.setText(QCoreApplication.translate("MainWindow", u"Run Selected Adjusters", None))
+        self.goToBind.setText(QCoreApplication.translate("MainWindow", u"Go To Bind Pose", None))
+        self.addAdjustment.setText(QCoreApplication.translate("MainWindow", u"Add Adjustment", None))
+        self.removeAdjustment.setText(QCoreApplication.translate("MainWindow", u"Remove", None))
+        self.label0.setText(QCoreApplication.translate("MainWindow", u"TextLabel", None))
+        self.label1.setText(QCoreApplication.translate("MainWindow", u"TextLabel", None))
+        self.label2.setText(QCoreApplication.translate("MainWindow", u"TextLabel", None))
+    # retranslateUi
 

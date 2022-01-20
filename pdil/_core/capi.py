@@ -8,6 +8,8 @@ try:
 except NameError: # python 3 compatibility
     basestring = str
 
+__all__ = ['asMObject', 'asDagPath']
+
 
 def asMObject(node):
     '''

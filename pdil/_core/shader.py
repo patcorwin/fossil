@@ -12,6 +12,22 @@ except NameError:
     basestring = str
 
 
+__all__ = [
+    'namedColors',
+    'parseStr',
+    'rgbToHsv',
+    'hsvToRgb',
+    'createShader',
+    'listControlShaders',
+    'similar',
+    'findShaders',
+    'assign',
+    'getShaders',
+    'compare',
+    'consolidate',
+]
+
+
 namedColors = OrderedDict([
     ("pink",         (1,     0.5,  1)),     # noqa
     ("peach",        (1,     0.5,  0.5)),   # noqa

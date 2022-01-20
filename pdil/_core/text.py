@@ -3,6 +3,8 @@ import zlib
 
 from ..vendor.Qt import QtGui
 
+__all__ = ['writeInBox', 'asciiCompress', 'asciiDecompress', 'clipboard']
+
 
 def writeInBox(msg):
     '''

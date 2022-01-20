@@ -4,34 +4,6 @@ import contextlib
 from pymel.core import about
 from maya import cmds
 
-# Load in alt and path for convenience use in other modules
-from .._add import alt           # noqa
-from .._add import path          # noqa
-
-
-__all__ = [
-    'capi',
-    'constraints',
-    'dagObj',
-    'debug',
-    'factory',
-    'image',
-    'keyModifier',
-    'layer',
-    'math',
-    'names',
-    'pubsub',
-    'shader',
-    'shape',
-    'text',
-    'time',
-    'ui',
-    'weights',
-
-    'version',
-    'undoBlock',
-]
-
 from . import capi  # noqa
 from . import constraints  # noqa
 from . import dagObj  # noqa

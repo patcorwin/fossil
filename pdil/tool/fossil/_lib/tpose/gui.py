@@ -1,10 +1,11 @@
 from __future__ import absolute_import, division, print_function
 
-from collections import OrderedDict
+from collections import namedtuple, OrderedDict
 import inspect
+import json
 import os
 
-from pymel.core import Callback, listRelatives, PyNode
+from pymel.core import Callback, confirmDialog, listRelatives, scriptJob, select, selected
 
 import pdil
 from pdil.vendor import Qt
@@ -20,12 +21,19 @@ from .tpcore import updateReposers, getReposeRoots
 ReposerGUI = pdil.ui.getQtUIClass( os.path.dirname(os.path.dirname(os.path.dirname(__file__))) + '/ui/reposer_gui.ui', 'pdil.tool.fossil.ui.reposer_gui')
 
 
+Adjust = namedtuple('Adjust', 'order card data')
+
+
 class GUI(Qt.QtWidgets.QMainWindow):
     
     MAX_INPUTS = 3
     
     def __init__(self):
     
+        windowName = 'tpose_edit_adjustments'
+        pdil.ui.deleteByName(windowName)
+                
+
         self.settings = pdil.ui.Settings( 'Fossil Reposer GUI Settings',
             {
                 'headers': [100, 40, 80],
@@ -36,6 +44,13 @@ class GUI(Qt.QtWidgets.QMainWindow):
         pdil.ui.deleteByName(objectName)
         
         super(GUI, self).__init__(pdil.ui.mayaMainWindow())
+        
+        self.setAttribute(Qt.QtCore.Qt.WA_DeleteOnClose) # Ensure it deletes instead of hides.
+        
+        self.setObjectName(windowName)
+        scriptJob(p=windowName, e=('PostSceneRead', self.sceneChange))
+        scriptJob(p=windowName, e=('NewSceneOpened', self.sceneChange))
+        scriptJob(p=windowName, e=('SelectionChanged', self.selectionChanged))
         
         self.ui = ReposerGUI()
         self.ui.setupUi(self)
@@ -51,15 +66,15 @@ class GUI(Qt.QtWidgets.QMainWindow):
         
         self.listAdjustments()
         
-        self.cardNames = OrderedDict( sorted([(c.name(), c) for c in find.blueprintCards()]) )
         self.entry = {0: {}, 1: {}, 2: {}}
         
-        self.ui.cardChooser.addItems( self.cardNames.keys() )
         self.ui.cardChooser.currentTextChanged.connect(self.setOptions)
         self.ui.adjustmentChooser.addItems( [''] + [k for k in adjusters.adjustCommands.keys() if k[0] != '_']  )
         self.ui.adjustmentChooser.currentTextChanged.connect(self.setOptions)
         
         self.ui.addAdjustment.clicked.connect(self.addAdjustment)
+
+        self.ui.removeAdjustment.clicked.connect(self.removeAdjustment)
 
         self.setOptions()
         
@@ -74,8 +89,39 @@ class GUI(Qt.QtWidgets.QMainWindow):
             pdil.ui.setGeometry( self, self.settings['geometry'] )
 
 
+        self.ui.aligns.cellChanged.connect(self.argUpdate)
+
+    
+    def selectionChanged(self):
+        sel = selected()
+        if sel and sel[0].name() in self.cardNames:
+            self.ui.cardChooser.setCurrentText( sel[0].name() )
+    
+    
+    def argUpdate(self, row, col):
+        #print('Changed', row, col)
+        
+        if col == 3:
+            item = self.ui.aligns.item(row, col)
+            
+            try:
+                newJsonData = json.loads( item.text().replace("'", '"') )
+            except Exception:
+                print('Error parsing json, not updating')
+                return
+            
+            with self.commands[row].card.rigData as rigData:
+                for i, data in enumerate(rigData['tpose']):
+                    if data['order'] == self.commands[row].order:
+                        rigData['tpose'][i]['args'] = newJsonData
+                        break
+            
+            print('Successful json edit')
+
+
+
     def setOptions(self, *args):
-        card = self.cardNames[self.ui.cardChooser.currentText()]
+        card = self.cardNames.get( self.ui.cardChooser.currentText(), None )
         cmdName = self.ui.adjustmentChooser.currentText()
         
         for i in range(self.MAX_INPUTS):
@@ -111,10 +157,11 @@ class GUI(Qt.QtWidgets.QMainWindow):
                     
                 else:
                     if 'Joint' in arg:
-                        if i == 0:
-                            self.entry[i] = OrderedDict( sorted( [(j.name(), j) for j in card.joints] ))
-                        else:
+                        if arg in adjusters._anyJoint[cmdName]:
                             self.entry[i] = OrderedDict( sorted( [(j.name(), j) for card in find.blueprintCards() for j in card.joints if not j.isHelper] ))
+                        else:
+                            self.entry[i] = OrderedDict( sorted( [(j.name(), j) for j in card.joints] ))
+                            
                         entry.addItems( self.entry[i].keys() )
                     
                     else:
@@ -127,38 +174,67 @@ class GUI(Qt.QtWidgets.QMainWindow):
                 
     
     def listAdjustments(self):
+        self.ui.aligns.blockSignals(True)
+        
         self.ui.aligns.clearContents()
         
         cards = find.blueprintCards()
         
-        commands = []
+        self.commands = []
         unused = []
         for card in cards:
             with card.rigData as data:
                 if 'tpose' in data:
                     for alignCmd in data['tpose']:
-                        commands.append( [alignCmd['order'], card, alignCmd] )
+                        self.commands.append( Adjust(alignCmd['order'], card, alignCmd) )
                     
                 else:
                     unused.append( card )
         
-        self.ui.aligns.setRowCount( len(commands) )
+        self.ui.aligns.setRowCount( len(self.commands) )
         
-        commands.sort()
+        self.commands.sort()
         
-        for row, (order, card, data) in enumerate(commands):
-            self.ui.aligns.setItem(row, 0, Qt.QtWidgets.QTableWidgetItem(card.name()))
-            self.ui.aligns.setItem(row, 1, Qt.QtWidgets.QTableWidgetItem(str(order)))
-            self.ui.aligns.setItem(row, 2, Qt.QtWidgets.QTableWidgetItem(data['call']))
-            self.ui.aligns.setItem(row, 3, Qt.QtWidgets.QTableWidgetItem(str(data['args'])))
-                
+        for row, (order, card, data) in enumerate(self.commands):
+            self.ui.aligns.setItem(row, 0, self.TWItem(card.name()))
+            #self.ui.aligns.setItem(row, 1, self.TWItem(str(order), readOnly=False))
+            button = Qt.QtWidgets.QPushButton(str(order))
+            button.clicked.connect( Callback(self.moveItem, order) )
+            self.ui.aligns.setCellWidget(row, 1, button)
+            self.ui.aligns.setItem(row, 2, self.TWItem(data['call']))
+            self.ui.aligns.setItem(row, 3, self.TWItem(str(data['args']), readOnly=False))
+        
+        self.ui.aligns.blockSignals(False)
+        
+        
+        self.cardNames = OrderedDict( sorted([(c.name(), c) for c in find.blueprintCards()]) )
+        self.ui.cardChooser.addItems( self.cardNames.keys() )
         '''
     rigData['tpose'] = [{
         'order': 40,
         'call': 'fingerAlign',
         'args': ['self.joints[0]']
     }]  '''
+    
+    def moveItem(self, order):
+        
+        newOrder, ok = Qt.QtWidgets.QInputDialog().getInt(self,
+            'Current Index: {}'.format(order),
+            'New Index',
+            order)
+        
+        if ok and newOrder != order:
+            adjusters.reorder(order, newOrder)
+            self.listAdjustments()
 
+
+    @staticmethod
+    def TWItem(label, readOnly=True):
+        item = Qt.QtWidgets.QTableWidgetItem(label)
+        if readOnly:
+            item.setFlags( item.flags() ^ Qt.QtCore.Qt.ItemFlag.ItemIsEditable )
+            
+        return item
 
 
     @staticmethod
@@ -175,7 +251,7 @@ class GUI(Qt.QtWidgets.QMainWindow):
             count = len(find.blueprintCards()) * 2
         else:
             count = len(args[0]) * 2
-        
+        select(cl=True)
         with pdil.ui.progressWin(title='Building reposers', max=count) as prog:
             updateReposers(*args, progress=prog)
 
@@ -206,16 +282,34 @@ class GUI(Qt.QtWidgets.QMainWindow):
                 
                 objOrValue = self.entry[i][ valName ]
                 
-                if isinstance(objOrValue, PyNode):
-                    spec = ids.getIdSpec(objOrValue)
-                    args.append( spec )
-                else:
-                    args.append( objOrValue )
+                args.append( objOrValue )
         
         adjusters.addAdjuster(card, command, args)
         
         self.listAdjustments()
         
+
+    def removeAdjustment(self):
+        rowIndices = [modelIndex.row() for modelIndex in self.ui.aligns.selectedIndexes()]
+        
+        toDelete = []
+        
+        for i in rowIndices:
+            toDelete.append( self.commands[i].card.name() + ' ' + self.commands[i].data['call'] )
+        
+        if confirmDialog(m='Delete these %i adjusters?\n' % len(rowIndices ) + '\n'.join(toDelete), b=['Delete', 'Cancel'] ) == 'Delete':
+            for rowIndex in rowIndices:
+                with self.commands[rowIndex].card.rigData as rigData:
+                    print('Rig Data', rigData)
+                    for i, data in enumerate(rigData['tpose']):
+                        print('COMP', data['order'], self.commands[rowIndex].order)
+                        if data['order'] == self.commands[rowIndex].order:
+                            print('Found and deleting')
+                            del rigData['tpose'][i]
+                            break
+        
+            self.listAdjustments()
+
 
     def closeEvent(self, event):
         self.settings['geometry'] = pdil.ui.getGeometry(self)
@@ -224,7 +318,11 @@ class GUI(Qt.QtWidgets.QMainWindow):
         self.settings['headers'] = [header.sectionSize(0), header.sectionSize(1), header.sectionSize(2)]
         
         event.accept()
-        
+    
+    
+    def sceneChange(self):
+        self.listAdjustments()
+
         
 """
 class Gui(object):

@@ -16,39 +16,46 @@
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout">
     <item>
-     <widget class="QPushButton" name="updateAll">
-      <property name="text">
-       <string>Update All Reposers</string>
+     <layout class="QHBoxLayout" name="horizontalLayout_2">
+      <property name="topMargin">
+       <number>0</number>
       </property>
-     </widget>
+      <item>
+       <widget class="QPushButton" name="updateAll">
+        <property name="text">
+         <string>Update All Reposers</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="updateSelected">
+        <property name="text">
+         <string>Update Selected Reposers</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </item>
     <item>
-     <widget class="QPushButton" name="updateSelected">
-      <property name="text">
-       <string>Update Selected Reposers</string>
+     <layout class="QHBoxLayout" name="horizontalLayout_3">
+      <property name="topMargin">
+       <number>0</number>
       </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="Line" name="line">
-      <property name="orientation">
-       <enum>Qt::Horizontal</enum>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QPushButton" name="runAll">
-      <property name="text">
-       <string>Run All Adjusters</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QPushButton" name="runSelected">
-      <property name="text">
-       <string>Run Selected Adjusters</string>
-      </property>
-     </widget>
+      <item>
+       <widget class="QPushButton" name="runAll">
+        <property name="text">
+         <string>Run All Adjusters</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="runSelected">
+        <property name="text">
+         <string>Run Selected Adjusters</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </item>
     <item>
      <widget class="Line" name="line_2">
@@ -100,6 +107,13 @@
         <widget class="QPushButton" name="addAdjustment">
          <property name="text">
           <string>Add Adjustment</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="removeAdjustment">
+         <property name="text">
+          <string>Remove</string>
          </property>
         </widget>
        </item>

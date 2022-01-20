@@ -1,4 +1,14 @@
-from pymel.core import *
+from contextlib import contextmanager
+
+from pymel.core import currentTime, playbackOptions, timeControl, melGlobals
+
+__all__ = [
+    'selectedTime',
+    'rangeIsSelected',
+    'playbackRange',
+    'getTimeInput',
+    'preserveCurrentTime',
+]
 
 
 def selectedTime(dataType=float):
@@ -31,13 +41,12 @@ def getTimeInput(start, end):
         return playbackRange()
     
 
-class PreserveCurrentTime(object):
+@contextmanager
+def preserveCurrentTime():
+    ''' Context Manager to reset the current frame at the end
     '''
-    Context Manager to reset the current frame at the end
-    '''
-    
-    def __enter__(self):
-        self.current = currentTime(q=True)
-        
-    def __exit__(self, type, value, traceback):
-        currentTime(self.current)
+    current = currentTime(q=True)
+    try:
+        yield
+    except Exception:
+        currentTime(current)

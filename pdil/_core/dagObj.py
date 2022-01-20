@@ -7,6 +7,23 @@ try:
 except NameError:
     basestring = str
 
+__all__ = [
+    'Solo', 
+    'TempWorld', 
+    'TemporaryUnlock', 
+    'getPos', 
+    'getRot', 
+    'lock', 
+    'unlock', 
+    'distanceBetween', 
+    'measure', 
+    'matchPosByPivot', 
+    'moveTo', 
+    'matchTo', 
+    'align', 
+    'zero', 
+    'rezero', 
+]
 
 class Solo(object):
     '''

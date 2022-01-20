@@ -12,7 +12,7 @@ import math
 import operator
 import re
 
-from pymel.core import dt, move, rotate, xform
+from pymel.core import dt, move, PyNode, rotate, xform
 
 import pdil
 
@@ -21,121 +21,61 @@ from ..._core import ids
 from .tpcore import getRCard, getRJoint
 
 
-# -----------------------------------------------------------------------------
-# Alignment stuff
-
-'''
-pdil.tool.fossil.tpose.armAlign( PyNode('Shoulder_card') )
-pdil.tool.fossil.tpose.wristAlign( PyNode('Shoulder_card').joints[2] )
-
-pdil.tool.fossil.tpose.fingerAlign( PyNode('Index01_L_bpj') )
-pdil.tool.fossil.tpose.fingerAlign( PyNode('Middle02_L_bpj') )
-pdil.tool.fossil.tpose.fingerAlign( PyNode('Pinky02_L_bpj') )
-
-pdil.tool.fossil.tpose.footAlign( PyNode('Ball_L_bpj') )
-
-pdil.tool.fossil.tpose.pelvisAlign( PyNode('Pelvis_bpj'), PyNode('Ball_L_bpj'))
-
-pdil.tool.fossil.tpose.spineAlign( PyNode('Spine_card'), 20)
-
-
-with o.rigData as rigData:
-    rigData['tpose'] = [{
-        'order': 0,
-        'call': 'spineAlign',
-        'args': ['self', 20]
-    }]
-
-with o.rigData as rigData:
-    rigData['tpose'] = [{
-        'order': 10,
-        'call': 'armAlign',
-        'args': ['self']
-    },
-    {
-        'order': 20,
-        'call': 'wristAlign',
-        'args': ['self.joints[2]']
-    }]
-    
-with o.rigData as rigData:
-    rigData['tpose'] = [{
-        'order': 30,
-        'call': 'fingerAlign',
-        'args': ['self.joints[0]']
-    }]
-with o.rigData as rigData:
-    rigData['tpose'] = [{
-        'order': 40,
-        'call': 'fingerAlign',
-        'args': ['self.joints[0]']
-    }]
-with o.rigData as rigData:
-    rigData['tpose'] = [{
-        'order': 50,
-        'call': 'fingerAlign',
-        'args': ['self.joints[0]']
-    }]
-    
-with o.rigData as rigData:
-    rigData['id'] = 'leg'
-    rigData['tpose'] = [{
-        'order': 60,
-        'call': 'legAlign',
-        'args': ['self']
-    },
-    {
-        'order': 70,
-        'call': 'footAlign',
-        'args': ['self.joints[2]']
-    }]
-    
-
-with o.rigData as rigData:
-    rigData['tpose'] = [{
-        'order': 8,
-        'call': 'pelvisAlign',
-        'args': ['self', 'id:leg.joints[2]' ]
-    }]
-
-'''
-
 def optional_arg_decorator(fn):
-    # https://stackoverflow.com/questions/3888158/making-decorators-with-optional-arguments#comment65959042_24617244
-    def wrapped_decorator(*args):
+    ''' Convenience to make a decorator optionally with arguements.
+    
+    From https://stackoverflow.com/questions/3888158/making-decorators-with-optional-arguments#comment65959042_24617244
+    '''
+    
+    def wrapped_decorator(*args, name='', anyJoint=()):
         if len(args) == 1 and callable(args[0]):
             return fn(args[0])
 
         else:
             def real_decorator(decoratee):
-                return fn(decoratee, *args)
+                return fn(decoratee, *args, name=name, anyJoint=anyJoint)
 
             return real_decorator
 
     return wrapped_decorator
 
 
-
+# All the registered adjustement commands
 if 'adjustCommands' not in globals():
     adjustCommands = {}
 
+# If an adjustment command can take a joint from another card, that arg is listed here.
+# Ex: _anyJoint['pelvisAlign' = ['referenceJoint']
+if '_anyJoint' not in globals():
+    _anyJoint = {}
+
 
 @optional_arg_decorator
-def registerAdjuster(func, name=''):
+def registerAdjuster(func, name='', anyJoint=()):
+    ''' `name` can be used to specify a different name stored in the adjuster
+    `anyJoint` is a list of the args that can be any joint, not just those on the card
+    '''
+    global adjustCommands
+    global _anyJoint
+    
     name = name if name else func.__name__
     
     spec = inspect.getargspec(func)
     
-    assert 1 <= len(spec.args) <= 4, ('Align function {} must have 1-4 args, the first being that card'.format(func) )
+    assert 1 <= len(spec.args) <= 4, ('TPose adjust function {} must have 1-4 args, the first being that card'.format(func) )
     
     # &&& TODO, validate first arg has 'Card', and th
+    _anyJoint[name] = anyJoint[:]
+    
+    for argName in anyJoint:
+        assert argName in spec.args, 'TPose adjust function {} specifies an `anyJoint` {} that is not an arguement'.format(func, argName)
     
     adjustCommands[name] = func
     return func
 
 
 def getCardParent(rJoint):
-    ''' Returns the parent reposeCard, skipping the auto-created 'transform#'
+    ''' Returns the parent reposeCard, skipping the auto-created 'transform#' that Maya adds.
     
     When ancestors are scaled, they can create intermediate transforms that need
     to be ignored.
@@ -148,11 +88,15 @@ def getCardParent(rJoint):
 
 
 @registerAdjuster
-def armAlign(shoulderCard):
+def armAlign(shoulderCard, angle=2.0):
     ''' Rotates the lead joint to point down the +X axis, and the other joints
     to be almost straight, with a slight bend pointing behind, -Z.
 
+    angle: In degrees, how much it is bent from +X axis
+
     MUST have a parent joint to rotate properly
+    ASSUMES elbow already points backwards
+    ASSUMES 3 joint humaniod arm
     '''
     shoulderJoint = shoulderCard.joints[0]
     
@@ -162,12 +106,12 @@ def armAlign(shoulderCard):
     
     out = pdil.dagObj.getPos( getRJoint(shoulderCard.joints[1]) ) - pdil.dagObj.getPos( getRJoint(shoulderCard.joints[0]) )
     toRotate = math.degrees( out.angle( (1, 0, 0) ) )
-    rotate(shoulderRepose, [0, -toRotate + 2, 0 ], ws=True, r=True)
+    rotate(shoulderRepose, [0, -toRotate + angle, 0 ], ws=True, r=True) # &&& Assumption is that -toRotate will align with +X axis, then offest by `angle`
     
     elbowRepose = getRJoint(shoulderCard.joints[1])
     out = pdil.dagObj.getPos( getRJoint(shoulderCard.joints[2]) ) - pdil.dagObj.getPos( getRJoint(shoulderCard.joints[1]) )
     toRotate = math.degrees( out.angle( (1, 0, 0) ) )
-    rotate(elbowRepose, [0, toRotate - 2, 0 ], ws=True, r=True)
+    rotate(elbowRepose, [0, toRotate - angle, 0 ], ws=True, r=True)
 
 
 @registerAdjuster
@@ -192,12 +136,50 @@ def wristAlign(_card, wristJoint ):
     rotate(rotatingJoint, [ -math.degrees( math.atan( m[2] / m[1] ) )  ], ws=True, r=True)
 
     
+"""
 @registerAdjuster
-def legAlign(legCard):
+def legBasicAlign(legCard):
     '''
     Sets card vertical.
     '''
     xform( getCardParent(getRJoint(legCard.joints[0])), ws=True, ro=[0, 0, 0] )
+"""
+
+
+@registerAdjuster
+def legAlign(legCard):
+    ''' Maintains the z postion of the end joint while putting it into the YZ plane.
+    '''
+    
+    rCard = getCardParent(getRJoint(legCard.joints[0]))
+    start = getRJoint( legCard.joints[0] )
+    end = getRJoint( legCard.end() )
+    
+    ''' We need to preserve the z position of the end joint,
+    so use that z component, but the out vector length doesn't change.
+    '''
+    
+    out = pdil.dagObj.getPos(end) - pdil.dagObj.getPos(start)
+    
+    desiredAngleFromVertical = math.asin( out.z / out.length() )
+        
+    ''' Then zero the rotations, and do the same calculations to see how off it is.
+    '''
+    xform(rCard, ws=True, ro=[0, 0, 0])
+    
+    planeStartPos = pdil.dagObj.getPos( start )
+    planeEndPos = pdil.dagObj.getPos( end )
+
+    planeOut = planeEndPos  - planeStartPos
+    currentAngleFromVertical = math.asin( planeOut.z / planeOut.length() )
+    
+    #-
+    xRot = math.degrees(desiredAngleFromVertical - currentAngleFromVertical)
+    
+    xRot = math.copysign(xRot, planeOut.cross(out).x)
+
+    rotate(rCard, [xRot, 0, 0], ws=True, r=True)
+    
 
 
 @registerAdjuster
@@ -217,16 +199,18 @@ def footAlign(_card, ankleJoint ):
     orientState = ankleJoint.getOrientState()
     targetJoint = getRJoint( orientState.joint )
     targetCard = getCardParent(targetJoint)
-
+    
     aim = pdil.dagObj.getPos(targetJoint) - pdil.dagObj.getPos(rotatingJoint)
-
-    rotate(rotatingJoint, [0, -math.degrees( math.atan( aim.x / aim.z ) ), 0], ws=True, r=True )
-
-    rotate(rotatingJoint, [math.degrees(math.atan(aim.y / aim.z)), 0, 0], ws=True, r=True )
-
-
+    
+    # Aim the ankleJoint down +Z
+    rotate(rotatingJoint, [0, -math.degrees(math.atan2( aim.x, aim.z )), 0], ws=True, r=True )
+    
+    # Tilt the ankleJoint on X to aim flat along the X-Z plane
+    rotate(rotatingJoint, [math.degrees(math.atan2(aim.y, aim.z)), 0, 0], ws=True, r=True )
+    
+    # Use x-basis to roll around Z axis to be flat
     m = xform(targetCard, q=True, ws=True, m=True)
-    rotate(rotatingJoint, [0, 0, -math.degrees( math.atan( m[1] / m[0] ) )], ws=True, r=True)
+    rotate(rotatingJoint, [0, 0, -math.degrees( math.atan2( m[1], m[0] ) )], ws=True, r=True)
 
     
 @registerAdjuster
@@ -252,12 +236,12 @@ def fingerAlign(_card, baseJoint ):
         rotate(jointA, [0, 0, toRotate ], ws=True, r=True)
 
     
-@registerAdjuster
+@registerAdjuster(anyJoint=['referenceJoint'])
 def pelvisAlign( pelvisCard, referenceJoint ):
-    '''
-    Adjusts the height by how much the reference joint moves in the repose.
-    Commonly set to the toe, when the legs are straighted, this will raise so
-    the repose so it stays on top of the floor.
+    ''' Adjusts the height by how much the reference joint moves in the repose.
+    
+    Commonly on the pelvis, with toe as referenceJoint.  When the legs are straighted, this will raise
+    the repose to maintain floor contant.
     '''
     pelvisCardRepose = getRCard( pelvisCard )
     delta = pdil.dagObj.getPos( referenceJoint ) - pdil.dagObj.getPos( getRJoint(referenceJoint) )
@@ -266,8 +250,8 @@ def pelvisAlign( pelvisCard, referenceJoint ):
     
 @registerAdjuster
 def spineAlign( spineCard, rotation, threshold=6 ):
-    '''
-    Rotates the joints of the card cumulatively to `rotation`, which is spread out proportionally.
+    ''' Rotates the joints of the card cumulatively to `rotation`, which is spread out proportionally.
+    
     Joints less than `threshold` from the up axis are not considered.
     '''
     up = dt.Vector(0, 1, 0)
@@ -302,11 +286,58 @@ def spineAlign( spineCard, rotation, threshold=6 ):
 
 
 @registerAdjuster
-def worldRotate(card, rotation=[0, 0, 0]):
-    ''' Applies a world rotation to the repose card.
+def worldRotate(card, cardRotation=[0, 0, 0]):
+    ''' Applies a relative world rotation to the repose card.
     '''
     rCard = getCardParent(getRJoint(card.joints[0]))
-    rotate(rCard, rotation, ws=True, r=True, fo=True) # Not sure if `fo` is needed
+    rotate(rCard, cardRotation, ws=True, r=True, fo=True) # Not sure if `fo` is needed
+
+
+@registerAdjuster
+def xformRotation(card, cardRotation=None, jointRotations=[]):
+    ''' Applies an world xform rotation to the repose card and joints.
+    
+    Args:
+        cardRotation: [x, y, z] rotation for the card.
+        jointRotations: A list of [x, y, z] rotation or `None` indicating no alteration.
+    '''
+    if cardRotation:
+        rCard = getCardParent(getRJoint(card.joints[0]))
+        xform(rCard, ws=True, ro=cardRotation)
+
+    for bpj, rotation in zip( card.joints, jointRotations ):
+        if rotation:
+            xform( getRJoint(bpj), ws=True, ro=rotation)
+
+
+
+@registerAdjuster(anyJoint=['otherJoint'])
+def setPivot(card, otherJoint):
+    ''' Move the repose card's pivot to the give joint
+    '''
+    pivot = pdil.dagObj.getPos(getRJoint(otherJoint))
+    xform(getRCard(card), ws=True, piv=pivot )
+
+
+@registerAdjuster
+def keepRotation(card):
+    ''' Applies the world rotation of the blueprint card.
+    '''
+    rot = pdil.dagObj.getRot(card)
+    xform( getRCard(card), ws=True, ro=rot )
+
+
+@registerAdjuster
+def floorPlaneForward(card, baseJoint):
+    ''' Rotates in world Y axis to point directly forward.  'Forward' is determined by the baseJoint and it's child
+    '''
+    rCard = getRCard(card)
+    orientState = baseJoint.getOrientState()
+    targetRJoint = getRJoint( orientState.joint )
+    
+    aim = pdil.dagObj.getPos(targetRJoint) - pdil.dagObj.getPos(getRJoint(baseJoint))
+    print(baseJoint, targetRJoint)
+    rotate(rCard, [0, -math.degrees(math.atan2( aim.x, aim.z )), 0], ws=True, r=True )
 
 
 # It's cheesy to cache parents globally, but for now better than an overly complicated
@@ -315,7 +346,7 @@ if '_falseParentCache' not in globals():
     _falseParentCache = {}
 
 
-@registerAdjuster
+@registerAdjuster(anyJoint=['bpJoint'])
 def falseParentSetupAlign(card, bpJoint):
     ''' Temporarily parent the rCard under the rJoint so it inherits any modifications.
     '''
@@ -325,6 +356,10 @@ def falseParentSetupAlign(card, bpJoint):
 
     _falseParentCache[rCard] = rCard.getParent()
 
+    rCard.tx.unlock()
+    rCard.ty.unlock()
+    rCard.tz.unlock()
+    
     rCard.setParent(rJoint)
 
 
@@ -337,7 +372,7 @@ def _falseParentTeardown(card, _bpJoint):
     global _falseParentCache
     rCard = getRCard(card)
     
-    rCard.setParent(_falseParentCache[rCard])
+    rCard.setParent(_falseParentCache.pop(rCard))
 
 
 def runAdjusters(cards=None, progress=None):
@@ -433,18 +468,27 @@ def applyTposeAdjust(adjust):
 
         else:
             converted.append(arg)
-
-    print('CONVERTED', converted)
+    #print( 'Converted args', cmd, converted )
     cmd( *converted )
 
 
 def addAdjuster(card, command, args):
+    ''' `command` must be in `adjustCommands`, done via `registerAdjuster()` decorator.
+    `args` is a list, always starting with 'self' and the appropriate inputs for the function.
+    BPJoint will be converted to a json friendly format automatically.
+    '''
     order = 0
     for _card in find.blueprintCards():
-
         for adjuster in _card.rigData.get('tpose', []):
             order = max(order, adjuster['order'])
     order += 1
+    
+    for i, arg in enumerate(args):
+        if isinstance(arg, PyNode) and arg.__class__.__name__ == 'BPJoint':
+            if arg.card == card:
+                args[i] = 'self.joints[{}]'.format( card.joints.index(arg) )
+            else:
+                args[i] = ids.getIdSpec(arg)
     
     with card.rigData as data:
         adjusters = data.setdefault('tpose', [])
@@ -456,3 +500,38 @@ def addAdjuster(card, command, args):
                 ('order', order),
             ])
         )
+        
+        
+def reorder(currentIndex, newIndex):
+    
+    orders = [ adjuster['order']
+        for card in find.blueprintCards()
+        for adjuster in card.rigData.get('tpose', []) ]
+    
+    orders.sort()
+    
+    changeTo = {i: i for i in orders}
+    
+    changeTo[currentIndex] = newIndex
+    
+    # Only scoot if needed
+    if newIndex in changeTo:
+        # If moving later, scoot all the inbetween adjusters up one to make room
+        if currentIndex < newIndex:
+            for i in range(currentIndex + 1, newIndex):
+                if i in changeTo:
+                    changeTo[i] -= 1
+                
+        # Otherwise scoot everything inbtween later to make room up front
+        elif currentIndex > newIndex:
+            for i in range(newIndex, currentIndex):
+                if i in changeTo:
+                    changeTo[i] += 1
+    
+    # Finally, update
+    for card in find.blueprintCards():
+        for i, adjuster in enumerate(card.rigData.get('tpose', [])):
+            if changeTo[ adjuster['order'] ] != adjuster['order']:
+                
+                with card.rigData as rigData:
+                    rigData['tpose'][i]['order'] = changeTo[ adjuster['order'] ]

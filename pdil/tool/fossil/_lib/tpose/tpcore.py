@@ -344,6 +344,7 @@ def generateReposer(cards=None, placeholder=False, progress=None):
             jointMapping[reposeJoint] = jnt
 
             rJoints.append(reposeJoint)
+            
     
     # Set their parents
     for reposeJoint in rJoints:
@@ -352,6 +353,7 @@ def generateReposer(cards=None, placeholder=False, progress=None):
             reposeJoint.setParent( jointMapping[parent] )
     
     reposeContainer = getReposeContainer()
+    
     
     # Put under cards, card pivot to lead joint
     for rCard, card in zip(rCards, cards):
@@ -388,21 +390,22 @@ def generateReposer(cards=None, placeholder=False, progress=None):
             if not placeholder:
                 rCard.addAttr('reposeRoot', at='message')
                 rCard.setParent( reposeContainer )
-
+                
         addVector(rCard, 'origRot', rCard.r.get())
         addVector(rCard, 'origTrans', rCard.t.get())
         #start = getRJoint(card.start())
         start = jointMapping[card.start()]
         start.setParent( rCard )
-        pdil.dagObj.lockTrans( pdil.dagObj.lockScale( start ) )
+        pdil.dagObj.lock( start, 't s' )
 
         if rCard in unlock:
             for attr in unlock[rCard]:
                 rCard.attr(attr).unlock()
                 rCard.attr(attr).showInChannelBox(True)
-
+                
     for reposeJoint in rJoints:
         pdil.dagObj.lock(reposeJoint, 'ry rz')
+        pdil.dagObj.lock(reposeJoint, 't s') # I can't see why I wasn't locking t/s already.  Possible exception, `freeform`
         
         if reposeJoint in unlock:
             for attr in unlock[reposeJoint]:
@@ -711,7 +714,7 @@ def backportReposition(rCard):
     rGroup = group(em=True)
     pdil.dagObj.matchTo(rGroup, rCard)
 
-    card = pdil.factory._getSingleConnection( rCard, 'bpCard' )
+    card = pdil.factory.getSingleConnection( rCard, 'bpCard' )
     cardGroup = group(em=True)
     pdil.dagObj.matchTo(cardGroup, card)
 
@@ -727,13 +730,13 @@ def backportReposition(rCard):
     parentConstraint(cardProxy, card)
     pdil.dagObj.unlock(rCard)
     
-    pdil.factory._setSingleConnection(rGroup, 'fossil_backport', rCard)
-    pdil.factory._setSingleConnection(cardGroup, 'fossil_backport', rCard)
+    pdil.factory.setSingleConnection(rGroup, 'fossil_backport', rCard)
+    pdil.factory.setSingleConnection(cardGroup, 'fossil_backport', rCard)
 
 
 def backportRepositionTeardown(rCard):
     
-    card = pdil.factory._getSingleConnection( rCard, 'bpCard' )
+    card = pdil.factory.getSingleConnection( rCard, 'bpCard' )
     delete( card.listRelatives(type='parentConstraint') )
     
     for con in rCard.listConnections(s=False, d=True, p=True):

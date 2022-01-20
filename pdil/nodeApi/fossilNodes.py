@@ -443,29 +443,29 @@ class Card(nt.Transform):
         
     @property
     def buildIk(self):
-        return not pdil.factory._getStringAttr( self, 'metaControl' ).count( 'skipIk;' )
+        return not pdil.factory.getStringAttr( self, 'metaControl' ).count( 'skipIk;' )
         
     @buildIk.setter
     def buildIk(self, val):
         if val:
             if not self.buildIk:
-                pdil.factory._setStringAttr( self, 'metaControl', pdil.factory._getStringAttr( self, 'metaControl' ).replace('skipIk;', ''))
+                pdil.factory.setStringAttr( self, 'metaControl', pdil.factory.getStringAttr( self, 'metaControl' ).replace('skipIk;', ''))
         else:
             if self.buildIk:
-                pdil.factory._setStringAttr( self, 'metaControl', pdil.factory._getStringAttr( self, 'metaControl' ) + 'skipIk;')
+                pdil.factory.setStringAttr( self, 'metaControl', pdil.factory.getStringAttr( self, 'metaControl' ) + 'skipIk;')
 
     @property
     def buildFk(self):
-        return not pdil.factory._getStringAttr( self, 'metaControl' ).count( 'skipFk;' )
+        return not pdil.factory.getStringAttr( self, 'metaControl' ).count( 'skipFk;' )
         
     @buildFk.setter
     def buildFk(self, val):
         if val:
             if not self.buildFk:
-                pdil.factory._setStringAttr( self, 'metaControl', pdil.factory._getStringAttr( self, 'metaControl' ).replace('skipFk;', ''))
+                pdil.factory.setStringAttr( self, 'metaControl', pdil.factory.getStringAttr( self, 'metaControl' ).replace('skipFk;', ''))
         else:
             if self.buildFk:
-                pdil.factory._setStringAttr( self, 'metaControl', pdil.factory._getStringAttr( self, 'metaControl' ) + 'skipFk;')
+                pdil.factory.setStringAttr( self, 'metaControl', pdil.factory.getStringAttr( self, 'metaControl' ) + 'skipFk;')
                 
     def getGroupName(self, controlSpec):
         '''
@@ -509,7 +509,7 @@ class Card(nt.Transform):
             <str> = A string of comma separated pairs, ex "oldA newA, oldB newB, ..."
         '''
         if self.hasAttr( 'mirrorSubst' ):
-            val = pdil.factory._getStringAttr(self, 'mirrorSubst')
+            val = pdil.factory.getStringAttr(self, 'mirrorSubst')
             if val == 'DO_NOT_MIRROR':
                 return False
             else:
@@ -524,13 +524,13 @@ class Card(nt.Transform):
         '''
         if s is not None:
             if s is True:
-                pdil.factory._setStringAttr(self, 'mirrorSubst', '')
+                pdil.factory.setStringAttr(self, 'mirrorSubst', '')
             elif s is False:
-                pdil.factory._setStringAttr(self, 'mirrorSubst', 'DO_NOT_MIRROR')
+                pdil.factory.setStringAttr(self, 'mirrorSubst', 'DO_NOT_MIRROR')
             elif s == 'twin':
-                pdil.factory._setStringAttr(self, 'mirrorSubst', 'twin')
+                pdil.factory.setStringAttr(self, 'mirrorSubst', 'twin')
             else:
-                pdil.factory._setStringAttr(self, 'mirrorSubst', s)
+                pdil.factory.setStringAttr(self, 'mirrorSubst', s)
         else:
             if self.hasAttr( 'mirrorSubst' ):
                 self.mirrorSubst.delete()
@@ -845,7 +845,7 @@ class Card(nt.Transform):
             if mode != JointMode.bind:
                 j.msg >> bpJoint.realJoint
             else:
-                pdil.factory._setSingleConnection(bpJoint, 'bind', j)
+                pdil.factory.setSingleConnection(bpJoint, 'bind', j)
 
 
             if checkOffcenter:
@@ -974,9 +974,9 @@ class Card(nt.Transform):
                 
                 # Hard link of output joint to blueprint joint to avoid any ambiguity
                 if mode != JointMode.bind:
-                    pdil.factory._setSingleConnection(bpJoint, 'realJointMirror', mj)
+                    pdil.factory.setSingleConnection(bpJoint, 'realJointMirror', mj)
                 else:
-                    pdil.factory._setSingleConnection(bpJoint, 'bindMirror', mj)
+                    pdil.factory.setSingleConnection(bpJoint, 'bindMirror', mj)
             
                 # Figure out if parent is mirrored to and parent appropriately
                 if bpJoint.parent:
@@ -1421,7 +1421,7 @@ class Card(nt.Transform):
         for ctrl, side, type in self.getMainControls():
             shapeInfo = controllerShape.saveControlShapes(ctrl)
             shapeInfo = pdil.text.asciiCompress(shapeInfo)
-            pdil.factory._setStringAttr( self, 'outputShape' + side + type, shapeInfo)
+            pdil.factory.setStringAttr( self, 'outputShape' + side + type, shapeInfo)
                     
     def restoreShapes(self, objectSpace=True, targetKeys=None, targetSide=None, targetMotion=None):
         '''
@@ -1434,7 +1434,7 @@ class Card(nt.Transform):
             if targetMotion and targetMotion != type:
                 continue
             
-            shapeInfo = pdil.factory._getStringAttr( self, 'outputShape' + side + type)
+            shapeInfo = pdil.factory.getStringAttr( self, 'outputShape' + side + type)
             if shapeInfo:
                 shapeInfo = pdil.text.asciiDecompress(shapeInfo)
                 controllerShape.loadControlShapes( ctrl, shapeInfo.splitlines(), useObjectSpace=objectSpace, targetCtrlKeys=targetKeys)
@@ -1678,7 +1678,7 @@ def getReparentCommand(tempJoint):
         cmd = cmd.strip()
         
         if cmd.startswith('reparent'):
-            match = re.search('\{extraNode([0-9]*)\}', cmd)
+            match = re.search(r'\{extraNode([0-9]*)\}', cmd)
         
             if match:
                 index = int(match.group(1))
@@ -1728,7 +1728,7 @@ class BPJoint(nt.Joint):
         
     @property
     def bpParent(self):
-        return pdil.factory._getSingleConnection(self, 'parent')
+        return pdil.factory.getSingleConnection(self, 'parent')
     
     @bpParent.setter
     def bpParent(self, val):

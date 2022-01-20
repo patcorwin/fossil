@@ -66,12 +66,30 @@ try:
 except NameError:
     basestring = str
 
+__all__ = [
+    'getSingleConnection',
+    'setSingleConnection',
+    'getStringAttr',
+    'setStringAttr',
+    'setJsonAttr',
+    'getJsonAttr',
+    'messageAttr',
+    'FakeAttribute',
+    'DeprecatedAttr',
+    'StringAccess',
+    'SingleConnectionAccess',
+    'SingleStringConnectionAccess',
+    'Json',
+    'JsonAccess',
+    'IntAccess',
+    'FloatAccess',
+]
 
 # Attribute access utilities --------------------------------------------------
 # They all have to use .node() in case it's a sub attr, like sequence[0].data
 
 
-def _getSingleConnection(obj, attrName):
+def getSingleConnection(obj, attrName):
     '''
     If connected, return the single entry, otherwise none.
     '''
@@ -85,7 +103,7 @@ def _getSingleConnection(obj, attrName):
         return None
 
 
-def _setSingleConnection(obj, attrName, value):
+def setSingleConnection(obj, attrName, value):
     if value:
         if isinstance(value, basestring):
             PyNode(value).message >> messageAttr( obj, attrName )
@@ -126,13 +144,13 @@ def _setSingleStringConnection(obj, attrName, value):
             obj.attr(attrName).set('')
 
 
-def _getStringAttr(obj, attrName):
+def getStringAttr(obj, attrName):
     if obj.node().hasAttr(attrName):
         return obj.attr(attrName).get()
     return ''
 
 
-def _setStringAttr(obj, attrName, val):
+def setStringAttr(obj, attrName, val):
     if not obj.node().hasAttr(attrName):
         obj.addAttr( attrName, dt='string' )
     if val is not None:
@@ -144,7 +162,7 @@ def setJsonAttr(obj, attrName, val):
 
 
 def getJsonAttr(obj, attrName, ):
-    return json.loads( _getStringAttr(obj, attrName), object_pairs_hook=collections.OrderedDict)
+    return json.loads( getStringAttr(obj, attrName), object_pairs_hook=collections.OrderedDict)
 
 
 def _getIntAttr(obj, attrName):
@@ -231,7 +249,7 @@ class StringAccess(object):
         self.attr = attrname
     
     def __get__(self, instance, owner):
-        return _getStringAttr(instance, self.attr)
+        return getStringAttr(instance, self.attr)
     
     def __set__(self, instance, value):
         _setStringAttr(instance, self.attr, value)
@@ -247,10 +265,10 @@ class SingleConnectionAccess(object):
         self.attr = attrname
     
     def __get__(self, instance, owner):
-        return _getSingleConnection(instance, self.attr)
+        return getSingleConnection(instance, self.attr)
 
     def __set__(self, instance, value):
-        _setSingleConnection(instance, self.attr, value)
+        setSingleConnection(instance, self.attr, value)
             
             
 class SingleStringConnectionAccess(object):
@@ -293,7 +311,7 @@ class JsonAccess(object):
         self.defaults = defaults
     
     def __get__(self, instance, owner):
-        res = _getStringAttr(instance, self.attr)
+        res = getStringAttr(instance, self.attr)
         if not res:
             return self.defaults.copy()
         return Json(json.loads(res, object_pairs_hook=collections.OrderedDict), instance, self.attr )

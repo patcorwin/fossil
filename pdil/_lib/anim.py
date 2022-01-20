@@ -15,6 +15,19 @@ if '_loadAlterPlug' not in globals():
     _loadAlterPlug = None
 
 
+__all__ = [
+    'findKeyTimes',
+    'save',
+    'load',
+    'findSetDrivenKeys',
+    'applySetDrivenKeys',
+    'curveToData',
+    'dataToCurve',
+    'orientJoint',
+    'sdk'
+]
+
+
 class loadAlterPlug_caselessLookup(object):
     '''
     Helper to do a caseless simple name lookup on the existing controllers in the scene.

@@ -232,7 +232,9 @@ def makeCard(jointCount=5, jointNames={'repeat': 'DEFAULT'}, rigInfo=None, size=
         card.setTempNames()
         
         pivToStart(card)
-
+    
+    pdil.pubsub.publish('fossil card added')
+    
     return card
 
 

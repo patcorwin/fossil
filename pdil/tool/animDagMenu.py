@@ -6,7 +6,8 @@ import traceback
 
 from pymel.core import Callback, currentTime, menuItem, PyNode, selected, setParent
 
-from .. import _core as core
+#from .. import _core as core
+import pdil
 
 from .fossil import controllerShape
 from .fossil import kinematicSwitch
@@ -14,7 +15,7 @@ from .fossil import node
 from .fossil import space
 
 
-animToolSettings = core.ui.Settings( 'PDILAnimTool',
+animToolSettings = pdil.ui.Settings( 'PDILAnimTool',
     {
         'switchMode': 'current', # Options are current, range and all
         'selectControlsIncludesSwitches': False,
@@ -27,15 +28,15 @@ def switchSpaceGroup(objs, targetSpace):
     Switches a group of objects to a target space
     '''
     
-    with core.ui.NoUpdate(objs):
-        if core.time.rangeIsSelected():
-            switch = partial(space.switchRange, range=core.time.selectedTime())
+    with pdil.ui.NoUpdate(objs):
+        if pdil.time.rangeIsSelected():
+            switch = partial(space.switchRange, range=pdil.time.selectedTime())
             
         elif animToolSettings.switchMode == 'current':
             switch = partial(space.switchFrame)
             
         elif animToolSettings.switchMode == 'range':
-            switch = partial(space.switchRange, range=core.time.playbackRange())
+            switch = partial(space.switchRange, range=pdil.time.playbackRange())
         
         elif animToolSettings.switchMode == 'all':
             switch = partial(space.switchRange, range=(None, None) )
@@ -79,13 +80,13 @@ def animationSwitchMenu(objName):
             
             key = True
             
-            if core.time.rangeIsSelected():
-                s, e = core.time.selectedTime()
+            if pdil.time.rangeIsSelected():
+                s, e = pdil.time.selectedTime()
             elif animToolSettings.switchMode == 'current':
                 s, e = [currentTime(q=1)] * 2
                 key = False
             elif animToolSettings.switchMode == 'range':
-                s, e = core.time.playbackRange()
+                s, e = pdil.time.playbackRange()
             elif animToolSettings.switchMode == 'all':
                 s, e = None, None
             
@@ -101,7 +102,7 @@ def animationSwitchMenu(objName):
             obj_under_cursor_is_selected = sel[0] == obj
             
             if len(sel) <= 1 and (obj_under_cursor_is_selected if sel else True):
-                menuItem(l='Switch to ' + destType, c=core.alt.Callback(kinematicSwitch.multiSwitch, [obj], s, e, key=key))
+                menuItem(l='Switch to ' + destType, c=pdil.alt.Callback(kinematicSwitch.multiSwitch, [obj], s, e, key=key))
                 
             else:
                 sel = set(sel)
@@ -120,9 +121,9 @@ def animationSwitchMenu(objName):
                 currentLeads = [node.leadController(o) for o in sel if controllerShape.getSwitcherPlug(o)]
                 
                 if len(currentLeads) == 1:
-                    menuItem(l='Switch to ' + destType, c=core.alt.Callback(kinematicSwitch.multiSwitch, currentLeads, s, e, key=key))
+                    menuItem(l='Switch to ' + destType, c=pdil.alt.Callback(kinematicSwitch.multiSwitch, currentLeads, s, e, key=key))
                 elif len(currentLeads) > 1:
-                    menuItem(l='Switch mutliple', c=core.alt.Callback(kinematicSwitch.multiSwitch, currentLeads, s, e, key=key))
+                    menuItem(l='Switch mutliple', c=pdil.alt.Callback(kinematicSwitch.multiSwitch, currentLeads, s, e, key=key))
             
         #-------
         # Spaces

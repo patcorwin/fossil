@@ -6,6 +6,7 @@ import pdil
 
 from . import _core as core
 from ._lib2 import controllerShape
+from .enums import RigData
 
 
 @pdil.alt.name('Zero Controllers', 'Anim')
@@ -130,6 +131,7 @@ def selectBindableJoints():
     select(cl=True)
     for card in core.find.blueprintCards():
         try:
-            select(card.getOutputJoints(), add=True)
-        except:
+            if not card.rigData.get( RigData.accessory, False ):
+                select(card.getOutputJoints(), add=True)
+        except Exception:
             pass

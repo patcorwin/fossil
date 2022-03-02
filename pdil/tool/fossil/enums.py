@@ -5,6 +5,7 @@ class RigData:
     rigCmd = 'rigCmd'
     mirrorCode = 'mirrorCode'
     buildOrder = 'buildOrder'
+    accessory = 'accessory'
     
     
 class RigState:

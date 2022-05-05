@@ -99,7 +99,7 @@ def animationSwitchMenu(objName):
             Therefore it's a bunch of work to figure out if several things should be considered or not.
             '''
             sel = selected()
-            obj_under_cursor_is_selected = sel[0] == obj
+            obj_under_cursor_is_selected = (sel[0] == obj) if sel else False
             
             if len(sel) <= 1 and (obj_under_cursor_is_selected if sel else True):
                 menuItem(l='Switch to ' + destType, c=pdil.alt.Callback(kinematicSwitch.multiSwitch, [obj], s, e, key=key))

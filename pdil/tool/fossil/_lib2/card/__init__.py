@@ -6,9 +6,13 @@ from .makeCard import ( # noqa
     mirrorCard,
     duplicateCard,
     reconnectRealBones,
+    cardIk,
+    removeCardIk,
+    getConnectors,
+    getArrows,
+    customUp,
     
-    
-    bipedSetup, # I want to get rid of this so bad!
+    bipedSetup, # I want to get rid of this so bad
 )
 
 from .build import ( # noqa

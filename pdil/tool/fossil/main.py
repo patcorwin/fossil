@@ -19,9 +19,9 @@ from pymel.core import Callback, cmds, hide, scriptJob, select, selected, setPar
 import pdil
 from ... import nodeApi
 
-from . import card as fossil_card  # Hack to not deal with the fact that "card" is a var used all over, thusly shadowing this import
 from . import cardparams
 from ._lib2 import controllerShape
+from ._lib2 import card as fossil_card # Hack to not deal with the fact that "card" is a var used all over, thusly shadowing this import
 from ._core import config
 from ._core import find
 from ._core import skinning

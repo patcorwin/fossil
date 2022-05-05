@@ -11,10 +11,16 @@ import xml.etree.ElementTree as xml
 from maya import OpenMayaUI
 
 from pymel.core import confirmDialog as confirmDialog_orig
+from pymel.core import (
+    autoKeyframe, deleteUI, window, showWindow, optionVar, getPanel,
+    isolateSelect, modelEditor, selectionConnection, cmds, Callback,
+    checkBox, frameLayout, menuItem, progressWindow
+
+)
 
 # I think the * imports are for the compiling in loadUiType
-from ..vendor.Qt.QtGui import *
-from ..vendor.Qt.QtCore import *
+#from ..vendor.Qt.QtGui import *
+#from ..vendor.Qt.QtCore import *
 from ..vendor.Qt import QtWidgets
 
 # Load up the correct ui compiler
@@ -49,7 +55,7 @@ except ImportError:
     pass
 
 
-from pymel.core import *
+#from pymel.core import *
 #from pymel.core import optionVar, Callback, checkBox, frameLayout, menuItem
 
 __all__ = [
@@ -203,7 +209,7 @@ def getQtUIClass(uiFile, moduleName=None):
                 return cls
     
     
-    '''
+    r'''
 
     pyfile = open("[path to output python file]\output.py", 'w')
     compileUi("[path to input ui file]\input.ui", pyfile, False, 4, False)
@@ -503,6 +509,7 @@ def notify(*args, **kwargs):
 
 
 _disableNotifyCount = 0
+
 
 @contextlib.contextmanager
 def disableNotify():

@@ -26,7 +26,6 @@ from ..._core import find
 from .. import visNode
 
 from . import common
-from . import agnostic
 
 try:
     basestring
@@ -87,7 +86,7 @@ def addRootMotion(main=None):
     
     rootMotion.visibility.setKeyable(False)
     add( rootMotion, getMainGroup(), 'main_transOnly', mode=common.Mode.ALT_ROTATE, rotateTarget=common.getTrueWorld())
-    agnostic.addTrueWorld( rootMotion )
+    add( rootMotion, common.getTrueWorld() ) # Can't use .agnostic.addTrueWorld due to import cycles
     add( rootMotion, getMainGroup(), 'main' )
 #------------------------------------------------------------------------------
         

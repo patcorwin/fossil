@@ -58,7 +58,7 @@ _settings = pdil.ui.Settings( 'Skeleton Tool Settings',
 
 
 JOINT_SIDE_CODE_MAP = {
-    'left':  _settings['joint_left'],
+    'left': _settings['joint_left'],
     'right': _settings['joint_right'],
     '': '',
 }
@@ -67,6 +67,7 @@ CONTROL_SIDE_CODE_MAP = {
     'left': _settings['control_left'],
     'right': _settings['control_right'],
     '': '',
+    None: '',
 }
 
 #letterToWord = { letter: word for (letter, word) in sides.values() }

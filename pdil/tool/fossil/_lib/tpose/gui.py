@@ -16,7 +16,7 @@ from ..._core import ids
 from ..._core import find
 
 from . import adjusters
-from .tpcore import updateReposers, getReposeRoots
+from .tpcore import updateReposers, getReposeRoots, goToBindPose
 
 ReposerGUI = pdil.ui.getQtUIClass( os.path.dirname(os.path.dirname(os.path.dirname(__file__))) + '/ui/reposer_gui.ui', 'pdil.tool.fossil.ui.reposer_gui')
 
@@ -75,6 +75,8 @@ class GUI(Qt.QtWidgets.QMainWindow):
         self.ui.addAdjustment.clicked.connect(self.addAdjustment)
 
         self.ui.removeAdjustment.clicked.connect(self.removeAdjustment)
+        
+        self.ui.goToBind.clicked.connect(goToBindPose)
 
         self.setOptions()
         
@@ -90,7 +92,9 @@ class GUI(Qt.QtWidgets.QMainWindow):
 
 
         self.ui.aligns.cellChanged.connect(self.argUpdate)
-
+        
+        self.selectionChanged()
+        
     
     def selectionChanged(self):
         sel = selected()
@@ -143,10 +147,10 @@ class GUI(Qt.QtWidgets.QMainWindow):
             # First arge is auto filled in as the card, so get the rest buffered with None to clear the entry.
             args = spec.args[1:] + ([None] * self.MAX_INPUTS)
             
-            for i, arg in enumerate(args[:self.MAX_INPUTS]):
+            for inputIndex, arg in enumerate(args[:self.MAX_INPUTS]):
                 
-                label = getattr(self.ui, 'label%i' % i)
-                entry = getattr(self.ui, 'input%i' % i)
+                label = getattr(self.ui, 'label%i' % inputIndex)
+                entry = getattr(self.ui, 'input%i' % inputIndex)
                 entry.clear()
                 
                 if arg is None:
@@ -158,20 +162,20 @@ class GUI(Qt.QtWidgets.QMainWindow):
                 else:
                     if 'Joint' in arg:
                         if arg in adjusters._anyJoint[cmdName]:
-                            self.entry[i] = OrderedDict( sorted( [(j.name(), j) for card in find.blueprintCards() for j in card.joints if not j.isHelper] ))
+                            self.entry[inputIndex] = OrderedDict( sorted( [(j.name(), j) for card in find.blueprintCards() for j in card.joints if not j.isHelper] ))
                         else:
-                            self.entry[i] = OrderedDict( sorted( [(j.name(), j) for j in card.joints] ))
+                            self.entry[inputIndex] = OrderedDict( sorted( [(j.name(), j) for j in card.joints] ))
                             
                         entry.addItems( self.entry[i].keys() )
                     
                     else:
                         entry.addItems( [str(i) for i in range(1, 40)] )
-                        self.entry[i] = { str(i): i for i in range(1, 40) }
+                        self.entry[inputIndex] = { str(i): i for i in range(1, 40) }
                     
                     label.setText(arg)
                     label.setEnabled(True)
                     entry.setEnabled(True)
-                
+
     
     def listAdjustments(self):
         self.ui.aligns.blockSignals(True)
@@ -278,8 +282,7 @@ class GUI(Qt.QtWidgets.QMainWindow):
         
         for i in range(self.MAX_INPUTS):
             if getattr( self.ui, 'label%i' % i ).text():
-                valName = getattr(self.ui, 'input%i' % i).currentText()
-                
+                valName = str(getattr(self.ui, 'input%i' % i).currentText())
                 objOrValue = self.entry[i][ valName ]
                 
                 args.append( objOrValue )
@@ -300,11 +303,11 @@ class GUI(Qt.QtWidgets.QMainWindow):
         if confirmDialog(m='Delete these %i adjusters?\n' % len(rowIndices ) + '\n'.join(toDelete), b=['Delete', 'Cancel'] ) == 'Delete':
             for rowIndex in rowIndices:
                 with self.commands[rowIndex].card.rigData as rigData:
-                    print('Rig Data', rigData)
+                    #print('Rig Data', rigData)
                     for i, data in enumerate(rigData['tpose']):
-                        print('COMP', data['order'], self.commands[rowIndex].order)
+                        #print('COMP', data['order'], self.commands[rowIndex].order)
                         if data['order'] == self.commands[rowIndex].order:
-                            print('Found and deleting')
+                            #print('Found and deleting')
                             del rigData['tpose'][i]
                             break
         

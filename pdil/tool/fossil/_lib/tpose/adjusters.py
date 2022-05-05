@@ -21,28 +21,10 @@ from ..._core import ids
 from .tpcore import getRCard, getRJoint
 
 
-def optional_arg_decorator(fn):
-    ''' Convenience to make a decorator optionally with arguements.
-    
-    From https://stackoverflow.com/questions/3888158/making-decorators-with-optional-arguments#comment65959042_24617244
-    '''
-    
-    def wrapped_decorator(*args, name='', anyJoint=()):
-        if len(args) == 1 and callable(args[0]):
-            return fn(args[0])
-
-        else:
-            def real_decorator(decoratee):
-                return fn(decoratee, *args, name=name, anyJoint=anyJoint)
-
-            return real_decorator
-
-    return wrapped_decorator
-
-
 # All the registered adjustement commands
 if 'adjustCommands' not in globals():
     adjustCommands = {}
+
 
 # If an adjustment command can take a joint from another card, that arg is listed here.
 # Ex: _anyJoint['pelvisAlign' = ['referenceJoint']
@@ -50,7 +32,27 @@ if '_anyJoint' not in globals():
     _anyJoint = {}
 
 
-@optional_arg_decorator
+
+def optionalKwargs(in_decorator):
+    ''' Convenience to make a decorator optionally with arguements.
+    '''
+    
+    def wrapped_decorator(func=None, name='', anyJoint=()):
+        '''
+        Will get only the actual target decoratee as `func` when called with no args.
+        If in_decorator has kwargs, it returns the 'real' decorator.
+        '''        
+        if func:
+            return in_decorator(func)
+        else:
+            def decorator_with_args(func):
+                return in_decorator(func, name=name, anyJoint=anyJoint)
+            return decorator_with_args
+
+    return wrapped_decorator
+
+
+@optionalKwargs
 def registerAdjuster(func, name='', anyJoint=()):
     ''' `name` can be used to specify a different name stored in the adjuster
     `anyJoint` is a list of the args that can be any joint, not just those on the card

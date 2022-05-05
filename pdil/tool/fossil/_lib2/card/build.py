@@ -178,13 +178,28 @@ def buildRig(cards=None):
     
     # allJoints = ...
             
+    cardMissingJoints = []
     for card in cards:
         joints = card.getOutputJoints()
         if joints and card.rigData.get('rigCmd', '') != 'Group':  # Group doesn't build joints
             if len(cmds.ls(joints)) != len(joints): # &&& This is a bad check, a reference mesh joints can mess it up.
-                # &&& Ideall this prompts to build joints
-                pdil.ui.notify(m='{} does not have joints built.'.format(card) )
-                raise Exception('Joints not built')
+                cardMissingJoints.append(card)
+                
+    # &&& Ideally this prompts to build joints
+    if cardMissingJoints:
+        print('Cards that do not have built joints:')
+        print('\n'.join(str(c) for c in cardMissingJoints))
+        if len(cardMissingJoints) == 1:
+            pdil.ui.notify(m='{} does not have joints built.'.format(cardMissingJoints[0]) )
+        elif len(cardMissingJoints) < 10:
+            pdil.ui.notify(m='{} cards do not have joints built:\n{}'.format(
+                len(cardMissingJoints), '\n'.join(str(c) for c in cardMissingJoints)
+            ) )
+        else:
+            pdil.ui.notify(m='{} cards do not have joints built.\nSee script editor for full list'.format(
+                len(cardMissingJoints), '\n'.join(str(c) for c in cardMissingJoints)
+            ) )
+        raise Exception('Joints not built')
     
     a = pdil.debug.Timer('Overall build')
             

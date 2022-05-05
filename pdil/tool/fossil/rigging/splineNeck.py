@@ -6,7 +6,7 @@ from pymel.core import duplicate, dt, joint, group, hide, ikHandle, move, orient
 
 import pdil
 
-from ..cardRigging import MetaControl, ParamInfo
+from ..cardRigging import MetaControl, Param, ParamInfo
 from .._lib2 import controllerShape
 from .. import node
 from .._lib import space
@@ -269,10 +269,10 @@ class SplineNeck(MetaControl):
     ''' Spline controller with a center control to provide arcing. '''
     ik_ = 'pdil.tool.fossil.rigging.splineNeck.buildSplineNeck'
     ikInput = OrderedDict( [
-        ('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, '')),
-        ('matchEndOrient', ParamInfo( 'DEP-Match Orient', 'Ik Control will match the orientation of the joint last joint', ParamInfo.BOOL, default=False)),
-        ('endOrient', ParamInfo('Control Orient', 'How to orient the last control', ParamInfo.ENUM, default=util.EndOrient.JOINT, enum=util.EndOrient.asChoices())),
-        ('curve', ParamInfo( 'Curve', 'A nurbs curve to use for spline', ParamInfo.NODE_0 ) ),
+        ('name', ParamInfo('', 'Name', 'Name')),
+        ('matchEndOrient', Param(False, 'DEP-Match Orient', 'Ik Control will match the orientation of the joint last joint')),
+        ('endOrient', Param(util.EndOrient.JOINT, 'Control Orient', 'How to orient the last control')),
+        ('curve', Param('NODE_0', 'Curve', 'A nurbs curve to use for spline')),
     ] )
 
     fkArgs = {'translatable': True}

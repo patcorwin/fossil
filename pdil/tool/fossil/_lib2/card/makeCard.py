@@ -776,7 +776,6 @@ def hindleg(startJoint=None, dist=0.20):
     
     moveCard.left( leg, pdil.meters(dist) )
     
-    #leg.start().postCommand = 'mirror;'
     leg.mirror = ''
     return leg
 
@@ -882,7 +881,7 @@ def addTwistCard(jnt):
     names = jnt.card.nameList(usePrefix=False)
     name = names[ jnt.cardCon.index() ]
     # Strip off the suffix if one exists
-    if util.isMirrored( jnt ):
+    if jnt.card.isCardMirrored(): # &&& Should I get the suffix off of this?
         mirrorCode = jnt.card.rigData.get('mirrorCode', '') # &&& Can I always get the mirror code and always set it?
         suffix = config.jointSideSuffix( mirrorCode )
         name = name[: -len(suffix) ]

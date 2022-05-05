@@ -5,6 +5,11 @@ from functools import partial
 import itertools
 from textwrap import dedent
 
+try:
+    basestring
+except NameError:
+    basestring = str
+
 from ...vendor.Qt import QtWidgets
 from ...vendor.Qt.QtCore import Qt
 
@@ -130,8 +135,11 @@ class CardParams(QtWidgets.QTableWidget):
             self.setItem( row, 1, QtWidgets.QTableWidgetItem(str( card.rigData.get('ikParams', {}).get(param.kwargName, param.default))) )
             
         elif param.type == param.ENUM:
+            
             dropdown = QtWidgets.QComboBox()
-            dropdown.addItems(param.enum.keys())
+            #dropdown.addItems( param.enum.keys() )
+            dropdown.addItems( [enum.value.replace('_', ' ') for enum in param.enum ] )
+            
             #dropdown.currentIndexChanged.connect( partial(self.enumChange, param) )
             #for key, val in param.enum.items():
             #    dropdown.addItem( key ).triggered.connect( partial(self.changeEnum, param.kwargName, val) )
@@ -139,8 +147,15 @@ class CardParams(QtWidgets.QTableWidget):
             self.setCellWidget(row, 1, dropdown)
             
             try:
-                enumVal = list(param.enum.values()).index( card.rigData.get('ikParams', {}).get(param.kwargName, param.default) )
-                dropdown.setCurrentIndex(enumVal)
+                #enumVal = list(param.enum.values()).index( card.rigData.get('ikParams', {}).get(param.kwargName, param.default) )
+                currentEnumValue = card.rigData.get('ikParams', {}).get(param.kwargName, param.default)
+                
+                if isinstance(currentEnumValue, basestring):
+                    currentEnumValue = param.enum( currentEnumValue )
+                    
+                enumIndex = list(param.enum).index(currentEnumValue)
+                
+                dropdown.setCurrentIndex(enumIndex)
                 dropdown.currentIndexChanged.connect( partial(self.enumChange, param=param) )
             except Exception as ex:
                 print( '! error with', param.kwargName, param.default, card, row )
@@ -162,8 +177,8 @@ class CardParams(QtWidgets.QTableWidget):
     
     def enumChange(self, index, param):
         rigData = self.card.rigData
-        key, val = list(param.enum.items())[index]
-        rigData.setdefault('ikParams', {})[param.kwargName] = val
+        val = list(param.enum)[index]
+        rigData.setdefault('ikParams', {})[param.kwargName] = val.value
         
         self.card.rigData = rigData
     
@@ -218,26 +233,6 @@ class CardParams(QtWidgets.QTableWidget):
                 else:
                     self.setInputField(card, row, param[0])
                 
-                '''
-                menu = optionMenu(h=20, cc=alt.Callback(self.changeInputType, paramLayout, param, kwargName))
-                for p in param:
-                    menuItem( l=p.name )
-                
-                # Figure out which kind of input the existing data is if the card has the setting
-                if kwargName in cardSettings:
-                    type = cardRigging.ParamInfo.determineDataType(cardSettings[kwargName])
-                
-                    for p in param:
-                        if p.type == type:
-                            menu.setValue(p.name)
-                            p.buildUI(card)
-                            break
-                    else:
-                        p.buildUI(card)
-                    
-                else:
-                    param[0].buildUI(card)
-                '''
             # Param only takes one data type
             else:
                 self.setItem(row, 0, Label(param.name))

@@ -10,6 +10,11 @@ import maya.OpenMaya
 from pymel.core import aimConstraint, addAttr, arclen, cluster, createNode, delete, duplicate, dt, group, hide, ikHandle, \
     orientConstraint, parentConstraint, pointConstraint, PyNode, scaleConstraint, selected, upAxis, warning, xform, MayaAttributeError
 
+try:
+    from enum import Enum
+except ImportError:
+    from pdil.vendor.enum import Enum
+
 import pdil
 
 from .. import log
@@ -23,20 +28,11 @@ from .._lib import visNode
 ConstraintResults = collections.namedtuple( 'ConstraintResults', 'point orient' )
 
 
-class EndOrient:
+class EndOrient(Enum):
     TRUE_ZERO = 'True_Zero'             # Matches world but has true zero to return to bind
     JOINT = 'Joint'                     # Match the orient of the last joint (VERIFY this just mean it matches the joint, no true zero)
     TRUE_ZERO_FOOT = 'True_Zero_Foot'   # Same as TRUE_ZERO but only in xz plane
     WORLD = 'World'
-    
-    @classmethod
-    def asChoices(cls):
-        choices = collections.OrderedDict()
-        choices[cls.TRUE_ZERO.replace('_', ' ')] = cls.TRUE_ZERO
-        choices[cls.JOINT.replace('_', ' ')] = cls.JOINT
-        choices[cls.TRUE_ZERO_FOOT.replace('_', ' ')] = cls.TRUE_ZERO_FOOT
-        choices[cls.WORLD] = cls.WORLD
-        return choices
 
 
 def adds(*attributes):

@@ -21,7 +21,7 @@ from pymel.core import createNode, delete, dt, expression, group, hide, ikHandle
 
 import pdil
 
-from ..cardRigging import MetaControl, ParamInfo
+from ..cardRigging import MetaControl, Param
 from .._lib2 import controllerShape
 from .. import node
 from .._lib import space
@@ -272,9 +272,9 @@ class DogFrontLeg(MetaControl):
     fkArgs = {'translatable': True}
 
     ikInput = OrderedDict( [
-        ('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, 'Leg')),
-        ('pvLen', ParamInfo('PV Length', 'How far the pole vector should be from the chain', ParamInfo.FLOAT, default=0) ),
-        ('endOrientType', ParamInfo('Control Orient', 'How to orient the last control', ParamInfo.ENUM, default=util.EndOrient.TRUE_ZERO_FOOT, enum=util.EndOrient.asChoices())),
+        ('name', Param('Leg', 'Name', 'Name')),
+        ('pvLen', Param(0.0, 'PV Length', 'How far the pole vector should be from the chain') ),
+        ('endOrientType', Param(util.EndOrient.TRUE_ZERO_FOOT, 'Control Orient', 'How to orient the last control')),
     ] )
     
 

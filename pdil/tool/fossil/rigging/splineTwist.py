@@ -5,13 +5,18 @@ import math
 
 from pymel.core import curve, cluster, delete, dt, duplicate, expression, group, hide, ikHandle, insertKnotCurve, joint, move, orientConstraint, parent, parentConstraint, pointConstraint, xform
 
+try:
+    from enum import Enum
+except ImportError:
+    from pdil.vendor.enum import Enum
+
 import pdil
 
 from .._lib2 import controllerShape
 from .. import node
 from .._lib import space
 
-from ..cardRigging import MetaControl, ParamInfo
+from ..cardRigging import MetaControl, ParamInfo, Param
 
 from . import _util as util
 
@@ -22,7 +27,7 @@ class OrientMode:
     AS_FIRST_JOINT = 'as_first_joint'
 
 
-class TwistStyle:
+class TwistStyle(Enum):
     '''
     Used by splineIk.  Advanced uses advanced twist while the others determin
     which rotation axis drives the twist attribute.
@@ -38,13 +43,13 @@ class TwistStyle:
     @classmethod
     def asChoices(cls):
         choices = OrderedDict()
-        choices[cls.ADVANCED]   = cls.ADVANCED
-        choices[cls.X]          = cls.X
-        choices[cls.NEG_X]      = cls.NEG_X
-        choices[cls.Y]          = cls.Y
-        choices[cls.NEG_Y]      = cls.NEG_Y
-        choices[cls.Z]          = cls.Z
-        choices[cls.NEG_Z]      = cls.NEG_Z
+        choices[cls.ADVANCED.value]   = cls.ADVANCED
+        choices[cls.X.value]          = cls.X
+        choices[cls.NEG_X.value]      = cls.NEG_X
+        choices[cls.Y.value]          = cls.Y
+        choices[cls.NEG_Y.value]      = cls.NEG_Y
+        choices[cls.Z.value]          = cls.Z
+        choices[cls.NEG_Z.value]      = cls.NEG_Z
         return choices
 
 
@@ -458,28 +463,20 @@ class SplineTwist(MetaControl):
     ik_ = 'pdil.tool.fossil.rigging.splineTwist.buildSplineTwist'
     ikInput = OrderedDict( [
         ('controlCountOrCrv', [
-            ParamInfo( 'CV count', 'How many cvs to use in auto generated curve', ParamInfo.INT, default=4, min=4 ),
-            ParamInfo( 'Curve', 'A nurbs curve to use for spline', ParamInfo.NODE_0 ),
+            Param(4, 'CV count', 'How many cvs to use in auto generated curve', min=4 ),
+            Param('NODE_0', 'Curve', 'A nurbs curve to use for spline'),
         ] ),
-        ('simplifyCurve',
-            ParamInfo( 'Simplify Curve', 'If True, the curve cvs will space out evenly, possibly altering the postions', ParamInfo.BOOL, default=True) ),
-        ('twistInfDist',
-            ParamInfo( 'Twist influence', 'How many joints on one side are influenced by the twisting, zero means it is done automatically.', ParamInfo.INT, default=0, min=0) ),
-        ('tipBend',
-            ParamInfo( 'Tip Bend', 'The tip control should influence the ease out bend', ParamInfo.BOOL, default=True) ),
-        ('sourceBend',
-            ParamInfo( 'Source Bend', 'The source control should influence the ease in bend', ParamInfo.BOOL, default=True) ),
-        ('matchOrient',
-            ParamInfo( 'Match Orient', "First and last controller are set to TrueZero'd", ParamInfo.BOOL, default=True) ),
-        ('useLeadOrient',
-            ParamInfo( 'Lead Orient', 'The controls have the same orientation as the first joint', ParamInfo.BOOL, default=False) ),
-        ('allowOffset',
-            ParamInfo( 'Allow Offset', 'If you Simplyify Curve, the joints will slightly shift unless you Allow Offset or the joints are straight', ParamInfo.BOOL, default=False) ),
+        ('simplifyCurve', Param(True, 'Simplify Curve', 'If True, the curve cvs will adjust to space out evenly') ),
+        ('twistInfDist', Param(0, 'Twist influence', '# of joints influenced by twisting, zero = automatically determined.', min=0) ),
+        ('tipBend', Param(True, 'Tip Bend', 'The tip control should influence the ease out bend') ),
+        ('sourceBend', Param(True, 'Source Bend', 'The source control should influence the ease in bend') ),
+        ('matchOrient', Param(True, 'Match Orient', "First and last controller are set to TrueZero'd") ),
+        ('useLeadOrient', Param(False, 'Lead Orient', 'The controls have the same orientation as the first joint') ),
+        ('allowOffset', Param(True, 'Allow Offset', 'If you Simplyify Curve, the joints will slightly shift unless you Allow Offset or the joints are straight') ),
         ('twistStyle',
-            ParamInfo( 'Twist Style', '0 = advanced, 1=x, 2=-x 3=y ...', ParamInfo.ENUM, enum=TwistStyle.asChoices(), default=TwistStyle.ADVANCED ) ),
+            ParamInfo( 'Twist Style', '0 = advanced, 1=x, 2=-x 3=y ...', ParamInfo.ENUM, default=TwistStyle.ADVANCED ) ),
         
-        ('name',
-            ParamInfo( 'Name', 'Name', ParamInfo.STR, '')),
+        ('name', Param('', 'Name', 'Name')),
     ] )
     
     fkArgs = {'translatable': True}

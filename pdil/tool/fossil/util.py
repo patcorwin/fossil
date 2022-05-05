@@ -61,22 +61,26 @@ def parse( names ):
     return head, repeat, tail
 
 
-def isMirrored(jnt):
+def old_isMirrored(jnt):
     '''
     If any parent joint or card is mirrored, it is returned else False.
-    
-    ..  todo::
-        Completely deprecate mirroring on joints and only check cards.
     '''
     
-    if jnt.postCommand.count('mirror'):
-        return jnt
-    elif jnt.cardCon.node().mirror not in [None, False]:
+    if jnt.cardCon.node().mirror not in (None, False):
         return jnt.cardCon.node()
     elif jnt.parent:
+        # Walk up joints (just in case it's freeform)
         return isMirrored(jnt.parent)
     else:
         return False
+
+
+def isMirrored(jnt):
+    '''
+    If any parent joint or card is mirrored, it is returned else False.
+    '''
+    
+    return jnt.cardCon.node().isCardMirrored()
 
     
 def isAsymmetric(jnt):

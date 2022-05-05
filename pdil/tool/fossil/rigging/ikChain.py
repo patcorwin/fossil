@@ -5,7 +5,7 @@ from pymel.core import delete, duplicate, dt, group, hide, ikHandle, orientConst
 
 import pdil
 
-from ..cardRigging import MetaControl, ParamInfo
+from ..cardRigging import MetaControl, Param
 
 from .. import node
 from .. import rig
@@ -94,14 +94,16 @@ def buildIkChain(start, end, pvLen=None, stretchDefault=1, endOrientType=util.En
     # Orient the main ik control
     if endOrientType == util.EndOrient.TRUE_ZERO:
         util.trueZeroSetup(end, ctrl)
+        
     elif endOrientType == util.EndOrient.TRUE_ZERO_FOOT:
         util.trueZeroFloorPlane(end, ctrl)
+        
     elif endOrientType == util.EndOrient.JOINT:
         pdil.dagObj.matchTo(ctrl, end)
         
-        ctrl.rx.set( util.shortestAxis(ctrl.rx.get()) )
-        ctrl.ry.set( util.shortestAxis(ctrl.ry.get()) )
-        ctrl.rz.set( util.shortestAxis(ctrl.rz.get()) )
+        #ctrl.rx.set( util.shortestAxis(ctrl.rx.get()) )
+        #ctrl.ry.set( util.shortestAxis(ctrl.ry.get()) )
+        #ctrl.rz.set( util.shortestAxis(ctrl.rz.get()) )
         
         pdil.dagObj.zero(ctrl)
     elif endOrientType == util.EndOrient.WORLD:
@@ -335,11 +337,11 @@ class IkChain(MetaControl):
     ik_ = __name__ + '.' + buildIkChain.__name__
     
     ikInput = OrderedDict( [
-        ('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, '')),
-        ('pvLen', ParamInfo('PV Length', 'How far the pole vector should be from the chain', ParamInfo.FLOAT, default=0) ),
-        ('stretchDefault', ParamInfo('Stretch Default', 'Default value for stretch (set when you `zero`)', ParamInfo.FLOAT, default=1, min=0, max=1)),
-        ('endOrientType', ParamInfo('Control Orient', 'How to orient the last control', ParamInfo.ENUM, enum=util.EndOrient.asChoices(), default=util.EndOrient.TRUE_ZERO)),
-        ('makeBendable', ParamInfo('Make Bendy', 'Adds fine detail controls to adjust each joint individually', ParamInfo.BOOL, default=False) ),
+        ('name',            Param('', 'Name', 'Name')),
+        ('pvLen',           Param(0.0, 'PV Length', 'How far the pole vector should be from the chain') ),
+        ('stretchDefault',  Param(1.0, 'Stretch Default', 'Default value for stretch (set when you `zero`)', min=0.0, max=1.0)),
+        ('endOrientType',   Param(util.EndOrient.TRUE_ZERO, 'Control Orient', 'How to orient the last control')),
+        ('makeBendable',    Param(False, 'Make Bendy', 'Adds fine detail controls to adjust each joint individually') ),
     ] )
     
     ikArgs = {}

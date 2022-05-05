@@ -8,13 +8,12 @@ from __future__ import print_function, absolute_import
 
 import collections
 from functools import partial
-#import inspect
 import re
 import sys
 
 from collections import OrderedDict
 
-from pymel.core import textField, optionMenu, warning, checkBox, intField, floatField, selected
+from pymel.core import warning
 
 import pdil
 
@@ -22,7 +21,6 @@ from ._lib2 import controllerShape
 from . import log
 from . import rig
 from ._core import config
-from . import util
 
 from pdil.vendor import six
 
@@ -30,6 +28,12 @@ try:
     basestring
 except NameError:
     basestring = str
+
+
+try:
+    from enum import Enum
+except ImportError:
+    from pdil.vendor.enum import Enum
 
 
 class ParamInfo(object):
@@ -60,34 +64,49 @@ class ParamInfo(object):
 
     numericTypes = (INT, FLOAT, BOOL)
 
-    def __init__(self, name, desc, type, default=None, min=None, max=None, enum=None):
+    #def __init__(self, name, desc, default, min=None, max=None, enum=None):
+    def __init__(self, name, desc, type=None, default=None, min=None, max=None, enum=None):
+        
         self.name = name
         self.desc = desc
 
-        self.type = type
-            
-        if default is not None:
+        if type is None:
+            self.type = self.determineDataType(default)
             self.default = default
-        elif type == self.INT:
-            self.default = 0
-        elif type == self.FLOAT:
-            self.default = 0.0
-        elif type == self.STR:
-            self.default = ''
-        elif type == self.BOOL:
-            self.default = False
-        elif type == self.ENUM:
-            # Is this fair to default to the first enum?  Should I assert instead
-            raise Exception( 'ParamInfo "{}", "{}" is an enum but specifies no default'.format(name, desc) )
-            #self.default = enum.values()[0]
         else:
-            # &&& I think this is because curves need a default?
-            self.default = None
+            # PENDING DELETION
+            self.type = type
+            #"""
+            if default is not None:
+                self.default = default
+            elif type == self.INT:
+                self.default = 0
+            elif type == self.FLOAT:
+                self.default = 0.0
+            elif type == self.STR:
+                self.default = ''
+            elif type == self.BOOL:
+                self.default = False
+            elif type == self.ENUM:
+                # Is this fair to default to the first enum?  Should I assert instead
+                raise Exception( 'ParamInfo "{}", "{}" is an enum but specifies no default'.format(name, desc) )
+                #self.default = enum.values()[0]
+            else:
+                # &&& I think this is because curves need a default?
+                self.default = None
+            #"""
+        
+        self.value = default
+        
+        if self.type == self.ENUM:
+            self.enum = default.__class__ # OrderedDict([ (v.value.replace('_', ' '), v.value) for v in default.__class__.__members__.values() ])
+            self.value = default.value
+        else:
+            self.enum = None
         
         self.min = min
         self.max = max
-        self.value = default
-        self.enum = enum
+        
         self.kwargName = '' # Will get filled in when registered via `MetaControl`.
         
     def validate( self, value ):
@@ -105,50 +124,10 @@ class ParamInfo(object):
         return 'ParamInfo( {0}={1} )'.format(self.name, self.value)
     
     def update(self, inputStr):
+        #print('ParamInfo update called ---------------------------------------------')
         settings = self.toDict( inputStr )
         settings[self.name] = self.value
         return self.toStr( settings )
-
-    def getUIFieldKwargs(self, card):
-        kwargs = {}
-        
-        if self.type in [self.INT, self.FLOAT]:
-            if self.default is not None:
-                kwargs['value'] = self.default
-            if self.min is not None:
-                kwargs['min'] = self.min
-            if self.max is not None:
-                kwargs['max'] = self.max
-                
-        elif self.type == self.BOOL:
-            if self.default:
-                kwargs['value'] = self.default
-                
-        elif self.type == self.STR:
-            if self.default:
-                kwargs['text'] = str(self.default)
-        
-        elif self.type == self.ENUM:
-            # Use the specified default, else default to the first item in the list.
-            if self.default:
-                kwargs['text'] = self.default
-            else:
-                kwargs['text'] = self.enum.values()[0]
-                
-        cardSettings = self.toDict(card.rigParams)
-        # Figure out if this option (possibly with multiple choices) is non-default.
-        if self.kwargName in cardSettings:
-            type = self.determineDataType(cardSettings[self.kwargName])
-            
-            if type in self.numericTypes:
-                kwargs['value'] = cardSettings[self.kwargName]
-            elif type == self.NODE_0:
-                if card.extraNode[0]:
-                    kwargs['text'] = card.extraNode[0].name()
-            else:
-                kwargs['text'] = cardSettings[self.kwargName]
-                
-        return kwargs
     
     # &&& I think toDict and toStr are for the options specific to rigging component.
     @classmethod
@@ -156,6 +135,7 @@ class ParamInfo(object):
         '''
         Given a string of options, returns it as a dict.  Reverse of `toStr`
         '''
+        #print('ParamInfo toDict called ---------------------------------------------')
         
         def toProperDataType(_val):
             '''
@@ -170,10 +150,10 @@ class ParamInfo(object):
                 return _val[1:-1]
             
             #if _val.isdigit():
-            if re.match( '-?\d+$', _val ):
+            if re.match( r'-?\d+$', _val ):
                 return int(_val)
             
-            if re.match( '-?(\d{0,}\.\d+$)|(\d+\.\d{0,}$)', _val ):
+            if re.match( r'-?(\d{0,}\.\d+$)|(\d+\.\d{0,}$)', _val ):
                 return float(_val)
             
             if _val == 'False':
@@ -208,94 +188,34 @@ class ParamInfo(object):
     
     @classmethod
     def determineDataType(cls, value):
-        if isinstance( value, int ):
-            type = cls.INT
+        
+        if isinstance( value, bool ): # Must test prior to int since bool is a subclass
+            dataType = cls.BOOL
+        
+        elif isinstance( value, int ):
+            dataType = cls.INT
+            
         elif isinstance( value, float ):
-            type = cls.FLOAT
+            dataType = cls.FLOAT
+        
+        elif isinstance( value, Enum ):
+            dataType = cls.ENUM
+        
         elif value.startswith( 'NODE_0'):
-            type = cls.NODE_0
+            dataType = cls.NODE_0
+            
         else:
-            type = cls.STR
-        return type
-
-    def buildUI(self, card):
-        
-        uiFieldKwargs = self.getUIFieldKwargs(card)
-        
-        if self.type == self.BOOL:
-            field = checkBox(l='', **uiFieldKwargs )  # noqa e741
-            checkBox( field, e=True, cc=pdil.alt.Callback(self.setParam, field) )
+            dataType = cls.STR
             
-        elif self.type == self.INT:
-            field = intField(**uiFieldKwargs)
-            intField( field, e=True, cc=pdil.alt.Callback(self.setParam, field) )
-            
-        elif self.type == self.FLOAT:
-            field = floatField(**uiFieldKwargs)
-            floatField( field, e=True, cc=pdil.alt.Callback(self.setParam, field) )
-        
-        elif self.type == self.ENUM:
-            field = optionMenu(l='')  # noqa e741
-            optionMenu(field, e=True, cc=pdil.alt.Callback(self.setParam, field))
-            
-            for i, choice in enumerate(self.enum, 1):
-                menuItem(l=choice)  # noqa e741
-                if self.enum[choice] == uiFieldKwargs['text']:
-                    optionMenu(field, e=True, sl=i)
-        
-        elif self.type == self.STR:
-            # &&& Possibly super gross, if the field is "name", use the first joint...
-            if 'text' not in uiFieldKwargs and self.kwargName == 'name':
-                uiFieldKwargs['text'] = pdil.shortName(card.joints[0])
-                #default = card.n
-                #getDefaultIkName(card) # &&& MAKE THIS so I can use the same logic when building the card.
-            
-            field = textField( **uiFieldKwargs )
-            textField( field, e=True, cc=pdil.alt.Callback(self.setParam, field) )
-            setattr(field, 'getValue', field.getText)  # Hack to allow ducktyping.
-
-        elif self.type == self.NODE_0:
-            
-            def setExtraNode(extraNode):
-                card.extraNode[0] = extraNode
-
-                temp = ParamInfo.toDict( card.rigParams )
-                temp[self.kwargName] = 'NODE_0'
-                card.rigParams = ParamInfo.toStr(temp)
-
-                return True
-                
-            def clearExtraNode(extraNode):
-                card.extraNode[0] = None
-                temp = ParamInfo.toDict( card.rigParams )
-                del temp[self.kwargName]
-                card.rigParams = ParamInfo.toStr(temp)
-
-                return True
-            
-            util.GetNextSelected(
-                setExtraNode,
-                clearExtraNode,
-                l='',  # noqa e741
-                tx=pdil.shortName(card.extraNode[0]) if card.extraNode[0] else '',
-                cw=[(1, 1), (2, 100), (3, 20)])
+        return dataType
     
-    def setParam(self, field):
-        card = [ o for o in selected() if o.__class__.__name__ == 'Card' ][0]  # Change this to use
-        #card = ui.common.selectedCards()[0]  # As a callback, guaranteed to exist
-        v = field.getValue()
-
-        # Convert enums to proper name
-        if self.type == self.ENUM:
-            v = self.enum[v]
-
-        if self.validate(v):
-            temp = self.toDict( card.rigParams )
-            temp[self.kwargName] = v
-            card.rigParams = self.toStr(temp)
     
-
-def colorParity(side, controlSpec={}):
+class Param(ParamInfo):
+    def __init__(self, default, name, desc, min=None, max=None):
+        ParamInfo.__init__(self, name, desc, type=None, default=default, min=min, max=max)
+    
+# &&& Must rename this, maybe `modifySideData`?
+def colorParity(side, controlSpec={}, conditionalflipAlign=True):
     '''
     Give a dict (used for control spec), subsitute certain colors depending
     on the side.  Also does alignment.
@@ -331,7 +251,7 @@ def colorParity(side, controlSpec={}):
                     parts[0] = newColor
                     value = ' '.join(parts)
                 
-            if optionName == 'align':
+            if optionName == 'align' and conditionalflipAlign:
                 if side == 'R':
                     if value.startswith('n'):
                         value = value[1:]
@@ -467,6 +387,7 @@ class MetaControl(six.with_metaclass(RegisterdMetaControl)):
         return wrapperfunc
         '''
     
+    #@classmethod
     def _readKwargs(cls, card, isMirroredSide, sideAlteration=lambda **kwargs: kwargs, kinematicType='ik'):
         ikControlSpec = cls.controlOverrides(card, kinematicType)
 
@@ -477,6 +398,7 @@ class MetaControl(six.with_metaclass(RegisterdMetaControl)):
         
         # Load up the defaults from .ikInput
         validNames = set()
+        enums = {}
         for argName, paramInfo in getattr(cls, kinematicType + 'Input').items():
             if isinstance( paramInfo, list ):
                 paramInfo = paramInfo[0]
@@ -484,24 +406,37 @@ class MetaControl(six.with_metaclass(RegisterdMetaControl)):
                 kwargs[argName] = paramInfo.default
                 
             validNames.add(argName)
-        #print(validNames, 'Valid names')
+            
+            if paramInfo.type == paramInfo.ENUM:
+                enums[argName] = paramInfo.enum
+        
         userOverrides = card.rigData.get('ikParams', {}) # ParamInfo.toDict( card.rigParams )
-        #print(userOverrides)
+        
         # Not sure if decoding nodes is best done here or passed through in ParamInfo.toDict
         for key, val in userOverrides.items():
-            #print('VALID', key, key in validNames)
-            if key in validNames:  # Only copy over valid inputs, incase shenanigans happen
+            if key in validNames:  # Only copy over valid inputs, in case there are leftovers from a prev rig type
                 if val == 'NODE_0':
                     kwargs[key] = card.extraNode[0]
+                    
+                elif key in enums: # Enums need to be converted from string value to actual enum type
+                    kwargs[key] = enums[key](val)
+                    
                 else:
                     kwargs[key] = val
 
         return kwargs
     
-    readKwargs = classmethod( _readKwargs )
-    readIkKwargs = classmethod( partial(_readKwargs, kinematicType='ik') )
+    readKwargs = classmethod( _readKwargs ) # I think I did this goofiness for a reason
     
-    readFkKwargs = classmethod( partial(_readKwargs, kinematicType='fk') )
+    #readIkKwargs = classmethod( partial(_readKwargs, kinematicType='ik') )
+    @classmethod
+    def readIkKwargs(cls, card, isMirroredSide, sideAlteration=lambda **kwargs: kwargs):
+        return cls.readKwargs(card, isMirroredSide, sideAlteration, kinematicType='ik')
+    
+    #readFkKwargs = classmethod( partial(_readKwargs, kinematicType='fk') )
+    @classmethod
+    def readFkKwargs(cls, card, isMirroredSide, sideAlteration=lambda **kwargs: kwargs):
+        return cls.readKwargs(card, isMirroredSide, sideAlteration, kinematicType='fk')
 
     @classmethod
     def validate(cls, card):

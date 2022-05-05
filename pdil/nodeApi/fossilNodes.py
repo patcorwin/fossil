@@ -6,6 +6,7 @@ from __future__ import print_function, absolute_import
 import collections
 import itertools
 import logging
+import math
 import re
 import traceback
 
@@ -944,13 +945,65 @@ class Card(nt.Transform):
                 
                 
                 if self.mirror == 'twin':
-                    pass
+                    """
+                    forward = dt.Vector(0, 0, 1)
+                    backward = dt.Vector(0, 0, -1)
+                    
+                    x = dt.Vector( m[0:3] )
+                    y = dt.Vector( m[0 + 4:3 + 4] )
+                    z = dt.Vector( m[0 + 8:3 + 8] )
+                    
+                    shortAngle = forward.angle(x)
+                    shortAxis = 'x'
+                    direction = forward
+                    
+                    for d in [forward, backward]:
+                        for axis in [x, y, z]:
+                            angle = d.angle(axis)
+                            if angle < shortAngle:
+                                shortAngle = angle
+                                shortAxis = axis
+                                direction = d
+                    
+                    yPlaneProjection = dt.Vector( shortAxis.x, 0, shortAxis.z )
+                    quat = yPlaneProjection.rotateTo(direction)
+                    
+                    x0 = x.rotateBy(quat).rotateBy(quat)
+                    y0 = y.rotateBy(quat).rotateBy(quat)
+                    z0 = z.rotateBy(quat).rotateBy(quat)
+                    
+                    m[0:3] = list(x0)
+                    m[0 + 4:3 + 4] = list(y0)
+                    m[0 + 8:3 + 8] = list(z0)
                     
                     # Find which base is facing forward and up
                     # Find how off rotated it is from forward
                     # Rotate the matrix in the other direction
+                    """
                     
+                    m[1] *= -1
+                    m[2] *= -1
+                
+                    m[1 + 4] *= -1
+                    m[2 + 4] *= -1
+                    
+                    m[1 + 8] *= -1
+                    m[2 + 8] *= -1
+                    
+                    x = dt.Vector( m[0:3] )
+                    y = dt.Vector( m[0 + 4:3 + 4] )
+                    z = dt.Vector( m[0 + 8:3 + 8] )
+                    
+                    #lateral = dt.Vector(m[4:7])
+                    lateral = dt.Vector(m[0:3])
+                    lateral.normalize()
+                    quat = dt.Quaternion( math.pi, lateral )
+                    
+                    m[0:3] = list( x.rotateBy(quat) )
+                    m[0 + 4:3 + 4] = list( y.rotateBy(quat) )
+                    m[0 + 8:3 + 8] = list( z.rotateBy(quat) )
                 else:
+                    # Flip y,z on each axis
                     m[1] *= -1
                     m[2] *= -1
                 
@@ -960,7 +1013,7 @@ class Card(nt.Transform):
                     m[1 + 8] *= -1
                     m[2 + 8] *= -1
                 
-                m[12] *= -1
+                m[12] *= -1 # Flip X
                 
                 jo = pdil.math.eulerFromMatrix(dt.Matrix(m), degrees=True)
                 pos = j.getTranslation(space='world')

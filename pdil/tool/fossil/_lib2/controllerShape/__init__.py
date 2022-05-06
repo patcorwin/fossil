@@ -642,7 +642,7 @@ def copyShape(source, dest, mirror=False):
     
     # Reapply the shared shape if it exists to ensure it is at the end
     if visShape:
-        pdil.sharedShape.use(dest, visShape)
+        pdil.sharedShape.use(dest, visNode.get())
     addDisplayAttr(dest)
     
     if mirror:

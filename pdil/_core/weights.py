@@ -12,9 +12,10 @@ import traceback
 
 from maya.api.OpenMayaAnim import MFnSkinCluster
 
-from pymel.core import cmds, dt, duplicate, mel, listConnections, skinCluster, select, selected, PyNode, warning, listRelatives, polyUnite, delete, objExists, skinPercent
+from pymel.core import cmds, dt, duplicate, mel, listConnections, listRelatives, skinCluster, select, selected, PyNode, warning, polyUnite, delete, objExists, skinPercent
 
 from . import capi
+from .. _add import shortName
 
 __all__ = [
     'get',
@@ -191,7 +192,7 @@ def get(mesh):
         
         try:
             # If `i` isn't in jointApiIndices, that value is skipped.  Not sure why these garbage values are just left behind...
-            weights[vertIdx] = [ (jointApiIndices[idx], v) for idx, v in zip( activeJointIndices, values ) if idx in jointApiIndices]
+            weights[vertIdx] = [ [jointApiIndices[idx], v] for idx, v in zip( activeJointIndices, values ) if idx in jointApiIndices]
         except Exception:
             raise
             '''
@@ -326,42 +327,43 @@ def substGen(weightData, renames={}, explicitSubst={}):
     return subst
 
 
-def processWeightData(weight_data, subst={}, remove=[], replace=OrderedDict()):
+def processWeightData(weight_data, remove=[], replace=OrderedDict()):
+    ''' Replace and rebalance joints, then remove.
+    
+    replace = {<joint to remove>: <joint to replace it>}
+    '''
     requiredJoints = weight_data['joints'].keys()
     
     weights = weight_data['weights']
     
-    toFix = [j for j in requiredJoints if not objExists(j)]
-    missing = []
+    jointNames = weight_data['jointNames']
 
-    for j in toFix[:]:
-        if j in subst:
-            # Update the joint entry
-            parent = weight_data['joints'][j]
-            weight_data['joints'][ subst[j] ] = parent
-            del weight_data['joints'][j]
-        else:
-            missing.append(j)
-            #requiredJoints.remove(j)
-            #requiredJoints.append( subst[j] )
-    
-    # Replace joints one at a time in case we're shuffling, ex, moving j02 weights to j03 and j01 weight to j02
+    # Replace the old joint with the new joint
     for oldJoint, newJoint in replace.items():
+
+        oldIndex = jointNames.index(oldJoint)
+        newIndex = jointNames.index(newJoint) if newJoint in jointNames else None
+
         # If needed, add the new joint to the list of required joints
-        if newJoint not in requiredJoints:
-            weight_data['joints'][newJoint] = [None] # Dummy value so the parent info update sections runs
-        
+        if newIndex not in requiredJoints:
+            newIndex = len(weight_data['jointNames'])
+            if objExists(newJoint):
+                parent = listRelatives(newJoint, p=True)
+                if parent and shortName(parent) in jointNames:
+                    weight_data['joints'][newIndex] = [jointNames.index(shortName(parent))] + cmds.xform(newJoint, q=True, ws=True, t=True)
+            
+            if newIndex not in weight_data['joints']:
+                weight_data['joints'][newIndex] = [None, 0, 0, 0] # Dummy value so the parent info update sections runs
+
+            weight_data['jointNames'].append(newJoint)
+
         for data in weights:
             for i, (jnt, val) in enumerate(data):
-                if jnt == oldJoint:
-                    data[i][0] = newJoint
+                if jnt == oldIndex:
+                    data[i][0] = newIndex
     
     # Update all the weights to reflect new joints
     for data in weights:
-        for i, (jnt, val) in enumerate(data):
-            if jnt in subst:
-                data[i][0] = subst[jnt]
-        
         # If a subst removal resulted in multiple weights, combine them
         if len({jnt for jnt, val in data}) != len(data):
             
@@ -370,12 +372,41 @@ def processWeightData(weight_data, subst={}, remove=[], replace=OrderedDict()):
                 cleaned.setdefault(jnt, 0)
                 cleaned[jnt] += val
             data[:] = [ [jnt, val] for jnt, val in cleaned.items() ]
-        
-    # Update the parents
-    for jnt, parentInfo in weight_data['joints'].items():
-        if parentInfo[0] in subst:
-            weight_data['joints'][jnt][0] = subst[parentInfo[0]]
     
+    # Compile {old joint index: joint index to fallback to}
+    parentFallback = {}
+    indicesToRemove = {jointNames.index(name) for name in remove} | {jointNames.index(name) for name in replace}
+
+    for i in range(len(jointNames)):
+        if i not in indicesToRemove:
+            validFallbackIndex = i
+            break
+
+    for index in indicesToRemove:
+        parentIndex = weight_data['joints'][index][0]
+        while parentIndex in indicesToRemove and parentIndex is not None:
+            parentIndex = weight_data['joints'][parentIndex][0]
+
+        if parentIndex is not None:
+            parentFallback[index] = parentIndex
+        else:
+            parentFallback[index] = validFallbackIndex
+
+    # Finally the joints can be removed
+    for name in remove:
+        index = jointNames.index(name)
+        for data in weights:
+            newData = [[jnt, val] for jnt, val in data if jnt != index]
+
+            # Removed entirely, fallback to a parent
+            if len(newData) == 0:
+                data[:] = [[ parentFallback[index], 1.0]]
+
+            # Recalc since a joint was removed
+            elif len(newData) < len(data):
+                total = sum([val for jnt, val in newData])
+                data[:] = [ [jnt, val / total] for jnt, val in newData ]
+
     
 def _adjustForNamespace(jointNames):
     alts = cmds.ls( [name.rsplit(':', 1)[-1] for name in jointNames], r=True)

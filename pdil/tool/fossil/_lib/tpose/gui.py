@@ -163,10 +163,8 @@ class GUI(Qt.QtWidgets.QMainWindow):
                     if 'Joint' in arg:
                         if arg in adjusters._anyJoint[cmdName]:
                             self.entry[inputIndex] = OrderedDict( sorted( [(j.name(), j) for card in find.blueprintCards() for j in card.joints if not j.isHelper] ))
-                            print('Any joint populate', self.entry[inputIndex])
                         else:
                             self.entry[inputIndex] = OrderedDict( sorted( [(j.name(), j) for j in card.joints] ))
-                            print('Local Joint populate', self.entry[inputIndex])
                             
                         entry.addItems( list(self.entry[inputIndex].keys()) )
 

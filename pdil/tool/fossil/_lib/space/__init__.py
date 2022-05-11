@@ -11,6 +11,8 @@ from .common import ( # noqa
     SPACE_TYPE_NAME,
     Mode,
     getTrueWorld,
+    switchRange,
+    switchFrame,
 )
 
 from .agnostic import ( # noqa
@@ -32,11 +34,5 @@ from .rebuild import serializeSpaces, deserializeSpaces, attemptDelayedSpaces # 
 
 '''
 *rivetSpace
-
 *getMainGroup
-
-I think these are generic:
-
-switchRange
-switchFrame
 '''

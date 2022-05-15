@@ -516,7 +516,7 @@ class matchReposer(object):
             if not reposeCard:
                 continue
                 
-            self.prevRot[card] = card.r.get()
+            self.prevRot[card] = self.getRotations(card)
             rot = xform(reposeCard, q=True, ws=True, ro=True)
             
             # Need to unlock/disconnect rotation, then redo it later (to handle twists aiming at next joint)
@@ -556,10 +556,33 @@ class matchReposer(object):
             plug.lock()
             
         for card, rot in self.prevRot.items():
-            try:
-                card.r.set(rot)
-            except:
-                print('UNABLE TO RETURN ROTATE', card)
+            self.restoreRotations(card, rot)
+
+
+    @staticmethod
+    def getRotations(obj):
+        ''' Returns dict of {'rx': <rotation val>} for settable rotations.
+        '''
+        restoreInfo = {}
+        
+        # Early out if everything is locked
+        if obj.r.listConnections(s=True, d=False, p=False) or obj.r.isLocked():
+            return restoreInfo
+        
+        for axis in 'xyz':
+            plug = obj.attr( 'r' + axis )
+            if not (plug.isLocked() or plug.listConnections(s=True, d=False, p=False)):
+                restoreInfo['r' + axis] = plug.get()
+        
+        return restoreInfo
+    
+    
+    @staticmethod
+    def restoreRotations(obj, restoreInfo):
+        ''' Applies rotation dict from `.getRotations`
+        '''
+        for attr, val in restoreInfo.items():
+            obj.attr(attr).set(val)
 
 
 class goToBindPose(object):

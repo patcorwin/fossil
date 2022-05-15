@@ -269,10 +269,10 @@ class SplineNeck(MetaControl):
     ''' Spline controller with a center control to provide arcing. '''
     ik_ = 'pdil.tool.fossil.rigging.splineNeck.buildSplineNeck'
     ikInput = OrderedDict( [
-        ('name', ParamInfo('', 'Name', 'Name')),
+        ('name', Param('', 'Name', 'Name')),
         ('matchEndOrient', Param(False, 'DEP-Match Orient', 'Ik Control will match the orientation of the joint last joint')),
         ('endOrient', Param(util.EndOrient.JOINT, 'Control Orient', 'How to orient the last control')),
-        ('curve', Param('NODE_0', 'Curve', 'A nurbs curve to use for spline')),
+        ('curve', ParamInfo('NODE_0', 'Curve', 'A nurbs curve to use for spline')),
     ] )
 
     fkArgs = {'translatable': True}

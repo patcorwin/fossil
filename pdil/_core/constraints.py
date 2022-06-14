@@ -25,7 +25,7 @@ from __future__ import print_function, absolute_import
 import copy
 
 
-from pymel.core import aimConstraint, parentConstraint, pointConstraint, orientConstraint
+from pymel.core import aimConstraint, parentConstraint, pointConstraint, orientConstraint, scaleConstraint
 from pymel.core import PyNode, dt
 import maya.cmds as cmds
 
@@ -37,6 +37,8 @@ __all__ = [
     'pointDeserialize',
     'orientSerialize',
     'orientDeserialize',
+    'scaleSerialize',
+    'scaleDeserialize',
     'parentSerialize',
     'parentDeserialize',
     'fullSerialize',
@@ -53,6 +55,7 @@ AIMCONSTRAINT_FLAGS = ['aim', 'u', 'wut', 'wu', 'wuo', 'o']
 POINTCONSTRAINT_FLAGS = []
 PARENTCONSTRAINT_FLAGS = []
 ORIENTCONSTRAINT_FLAGS = []
+SCALECONSTRAINT_FLAGS = []
 
 
 affectsRotation = {
@@ -80,9 +83,16 @@ def makeJsonSerializable(val, nodeConv=str):
 
 
 def _constraintSerialize(constType, obj, nodeConv=str, includeOffset=False):
-    '''
-    Given a str for the constraint type, ex `pointConstraint` and a PyNode, returns
+    ''' Given a str for the constraint type, ex `pointConstraint` and a PyNode, returns
     a json-valid dict that can be used to reconstruct the contstraint.
+    
+    Args:
+        constType: str = 'pointConstraint' or one of the other constraints
+        obj: PyNode = The object to inspect
+        nodeConv: <function> = Targets (and other objects) get run through this
+            to make it serializable
+        includeOffset: bool = Force using the offset instead of `maintainOffset`
+    
     '''
     cmds_constraint = getattr(cmds, constType)
     pymel_constraint = globals()[constType]
@@ -112,6 +122,13 @@ def _constraintSerialize(constType, obj, nodeConv=str, includeOffset=False):
         if skipTranslate:
             skipFlag = affectsTranslation[constType]
             data[skipFlag] = skipTranslate
+    
+    if constType == 'scaleConstraint':
+        skipScale = [axis for axis in 'xyz' if not cmds.listConnections( const + '.constraintScale' + axis.upper() )]
+        if skipScale:
+            # Currently there is only one scale affector so just set it directly
+            skipFlag = 'skip'
+            data[skipFlag] = skipScale
     
     if includeOffset:
         if constType == 'parentConstraint':
@@ -208,6 +225,20 @@ def orientDeserialize(obj, data, nodeDeconv=lambda n: n, includeOffset=False):
         applyOffset(const, data)
     
     
+def scaleSerialize(obj, nodeConv=str, includeOffset=False):
+    return _constraintSerialize('scaleConstraint', obj, nodeConv=nodeConv, includeOffset=includeOffset)[0]
+    
+    
+def scaleDeserialize(obj, data, nodeDeconv=lambda n: n, includeOffset=False):
+    kwargs = copy.deepcopy(data)
+    targets, reformattedKwargs = _constraintDeserialize(kwargs, nodeDeconv)
+    if 'mo' in reformattedKwargs:
+        del reformattedKwargs['mo']
+    const = scaleConstraint(targets, obj, mo=True, **reformattedKwargs)
+    if includeOffset:
+        applyOffset(const, data)
+    
+    
 def parentSerialize(obj, nodeConv=str, includeOffset=False):
     return _constraintSerialize('parentConstraint', obj, nodeConv=nodeConv, includeOffset=includeOffset)[0]
     
@@ -238,7 +269,7 @@ def fullSerialize(obj, nodeConv=str, includeOffset=False):
     Try serializing all constraint, returning a dictionary of which ones apply.
     '''
     constraints = {}
-    for func in [ aimSerialize, pointSerialize, orientSerialize, parentSerialize ]:
+    for func in [ aimSerialize, pointSerialize, orientSerialize, parentSerialize, scaleSerialize ]:
         result = func(obj, nodeConv, includeOffset)
         if result:
             constraints[func.__name__.replace('Serialize', '')] = result

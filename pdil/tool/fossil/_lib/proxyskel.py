@@ -94,7 +94,8 @@ def pointer(parent, child):
         if not child.cardCon.node().v.isConnectedTo(child.v):
             child.cardCon.node().v >> child.v
 
-        child.v >> child.proxy.v
+        if not child.v.isConnectedTo(child.proxy.v):
+            child.v >> child.proxy.v
 
         _clearLink( child.proxy )
         _recordLink( child.proxy, linkStart )
@@ -181,9 +182,33 @@ def relink(src, dup):
         
         
 def rebuildConnectorProxy():
+    ''' Fully rebuild the proxy from scratch.
+    '''
     delete( getProxyGroup() )
 
     for card in find.blueprintCards():
         for jnt in card.joints:
             for child in jnt.proxyChildren:
                 pointer(jnt, child)
+                
+                
+def postDeleteCleanup():
+    ''' Remove orphaned proxies, for use after a card was deleted.
+    '''
+    
+    toDelete = [jnt for jnt in getProxyGroup().listRelatives(type='joint') if isOrphaned(jnt)]
+    if toDelete:
+        delete(toDelete)
+        
+        
+def isOrphaned(jnt):
+    ''' Returns True if the joint, or it's child has no constraints, indicated an orphaned proxy or link.
+    '''
+    if not pointConstraint(jnt, q=True):
+        return True
+    
+    for child in listRelatives(jnt, type='joint'):
+        if not pointConstraint(child, q=True):
+            return True
+    
+    return False

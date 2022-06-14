@@ -149,7 +149,7 @@ def deserializeSpaces(control, data, pruneExtra=True):
     if pruneExtra:
         validNames = [si['name'] for si in data['spaces']]
         for name in set(names).difference(validNames):
-            agnostic.remove(control. name)
+            agnostic.remove(control, name)
 
         if set( common.getNames(control) ) == set(validNames):
             agnostic.reorder(control, validNames)

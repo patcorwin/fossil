@@ -2,7 +2,7 @@ import collections
 from itertools import chain
 import json
 
-from pymel.core import cmds, keyframe, selected, currentTime, PyNode, setAttr, hasAttr, setKeyframe, copyKey, pasteKey, warning, delete, exportSelected, playbackOptions, createNode, listAttr, select, objExists, cutKey, setDrivenKeyframe, keyTangent, dt
+from pymel.core import cmds, keyframe, selected, currentTime, PyNode, setAttr, hasAttr, setKeyframe, copyKey, pasteKey, warning, delete, exportSelected, playbackOptions, createNode, listAttr, select, objExists, cutKey, setDrivenKeyframe, keyTangent, dt, nt
 
 #from ..add import findFromIds, getIds, simpleName
 from .._add import simpleName
@@ -347,56 +347,85 @@ def load(filename, insertTime=None, alterPlug=None, bufferKeys=True, targetPool=
     return SavedCurveInfo( insertTime, insertTime + length, length )
 
 
-def findSetDrivenKeys(control):
-    '''
-    Return a list of strings specially formatted with setDrivenKey data.
-    
-    ex: AAA.tx drives control.length, so the return would be:
-    [
-        [ 'length', PyNode('AAA'), 'tx', '<string of curve data>' ]
-    ]
-    
-    return = [
-        ('control attr name', <Input pynode>, 'input attr name' , 'str representing curve'),
-        ...
-    ]
-    '''
-    sdkCurves = control.listConnections(s=True, d=False, type=['animCurveUA', 'animCurveUT', 'animCurveUU', 'animCurveUL'])
-    
-    curveText = []
+SKD_CURVE_TYPES = ['animCurveUA', 'animCurveUT', 'animCurveUU', 'animCurveUL']
 
+
+def findSetDrivenKeys(obj):
+    ''' Returns dict of set driven key info.
+    
+    {
+        <driven attr>: [ [input_node, input_attr, dict_of_curve] ... ],
+    }
+    
+    '''
+    driven = {}
+    
+    sdkCurves = obj.listConnections(s=True, d=False, type=SKD_CURVE_TYPES)
     for sdkCurve in sdkCurves:
-        input = sdkCurve.input.listConnections(p=1, scn=True)[0]
+        inputPlug = sdkCurve.input.listConnections(p=1, scn=True)[0]
         dest = sdkCurve.output.listConnections(p=1, scn=True)[0].attrName()
         
-        #curveText.append( (dest, getIds(input.node()), input.attrName(), curveToData(sdkCurve) ) )
-        curveText.append( [dest, input.node(), input.attrName(), curveToData(sdkCurve)] )
-    
-    return curveText
+        #curveInfos.append( [dest, input.node(), input.attrName(), curveToData(sdkCurve)] )
+        driven[dest] = [[inputPlug.node(), inputPlug.attrName(), curveToData(sdkCurve)]]
 
 
-def applySetDrivenKeys(ctrl, infos):
-    '''
-    Create the setDrivenKeys on the ctrl with the specially formatted string
-    list from `findSetDrivenKeys`.
+    blendWeighted = obj.listConnections(s=True, d=False, type='blendWeighted')
+    for bw in blendWeighted:
+        dest = bw.output.listConnections(p=1, scn=True)[0].attrName()
+        
+        driven[dest] = []
+        
+        for blendInput in bw.i:
+            sdkCurve = blendInput.listConnections(s=True, d=False, type=SKD_CURVE_TYPES)[0]
+            inputPlug = sdkCurve.input.listConnections(p=1, scn=True)[0]
+            
+            driven[dest].append( [inputPlug.node(), inputPlug.attrName(), curveToData(sdkCurve)] )
+    
+    return driven
+
+
+def applySetDrivenKeys(obj, driven):
+    ''' Creates setDriven keys created from `findSetDrivenKeys`.
     '''
     
-    for info in infos:
-        drivenAttr, driveNode, driveAttr, data = info
+    for destAttr, infos in driven.items():
         
-        #node = findFromIds(driveNode)
-        cutKey(ctrl.attr(drivenAttr), cl=True)
+        # Clear any existing sdk
+        cutKey(obj.attr(destAttr), cl=True)
+        blendWeighted = obj.attr(destAttr).listConnections(type='blendWeighted')
+        if blendWeighted:
+            delete(blendWeighted)
+
+        # Make the first sdk
+        driveNode, driveAttr, curveData = infos[0]
+
+        setDrivenKeyframe( obj,
+            at=[destAttr],
+            v=-.14, # dummy value
+            currentDriver=driveNode.attr(driveAttr),
+            driverValue=[curveData['keys'][0]['time']]
+        )
         
-        #keyData = [KeyData(*d) for d in data]
-        
-        if isinstance(data, list):
-            setDrivenKeyframe( ctrl, at=[drivenAttr], v=-.14,
-                currentDriver=driveNode.attr(driveAttr), driverValue=[data[0]['time']] )
-        else:
-            setDrivenKeyframe( ctrl, at=[drivenAttr], v=-.14,
-                currentDriver=driveNode.attr(driveAttr), driverValue=[data['keys'][0]['time']] )
+        dataToCurve(curveData, obj.attr(destAttr) )
+            
+        if len(infos) > 1:
+            
+            leadSdkNode = obj.attr(destAttr).listConnections(s=True, d=False)[0]
+            
+            blend = createNode('blendWeighted')
+            blend.output >> obj.attr(destAttr)
+            leadSdkNode.output >> blend.i[0]
+            
+            # Create the remaining sdks
+            for i, info in enumerate(infos[1:], 1):
+                driveNode, driveAttr, curveData = info
                 
-        dataToCurve(data, ctrl.attr(drivenAttr) )
+                sdkNode = createNode(leadSdkNode.type())
+                dataToCurve(curveData, sdkNode)
+                
+                sdkNode.output >> blend.i[i]
+                
+                driveNode.attr(driveAttr) >> sdkNode.input
         
 
 class KeyData(object):
@@ -424,6 +453,9 @@ class KeyData(object):
 
 
 def curveToData(animCurve):
+    ''' Returns {'keys': [<KeyData>], 'preInfinity': <bool>, 'postInfinity': <bool>}
+    '''
+    
     keys = keyframe(animCurve, q=True, tc=True, fc=True, vc=True)  # fc and tc are mutually ex
     
     tangents = keyTangent(animCurve, q=True, ia=True, oa=True, iw=True, ow=True, itt=True, ott=True)
@@ -436,7 +468,9 @@ def curveToData(animCurve):
     return {'keys': keyData, 'preInfinity': animCurve.preInfinity.get(), 'postInfinity': animCurve.postInfinity.get()}
 
 
-def dataToCurve(allData, plug):
+def dataToCurve(allData, plugOrNode):
+    ''' Applies `allData` from curveToData() to a plug, obj.tx or an animCurve node (possile for set driven key).
+    '''
     
     if isinstance(allData, dict):
         data = allData['keys']
@@ -444,15 +478,15 @@ def dataToCurve(allData, plug):
         data = allData
         allData = None
     
-    cutKey(plug, t=(data[0]['time'], data[-1]['time']), cl=True, iub=True)
+    cutKey(plugOrNode, t=(data[0]['time'], data[-1]['time']), cl=True, iub=True)
     for key in data:
-        setKeyframe(plug, f=key['time'], t=key['time'], v=key['val'])
+        setKeyframe(plugOrNode, f=key['time'], t=key['time'], v=key['val'])
     
     for key in data:
-        keyTangent(plug, f=(key['time'],), t=key['time'], ia=key['inAngle'], oa=key['outAngle'], iw=key['inWeight'], ow=key['outWeight'], itt=key['inType'], ott=key['outType'])
+        keyTangent(plugOrNode, f=(key['time'],), t=key['time'], ia=key['inAngle'], oa=key['outAngle'], iw=key['inWeight'], ow=key['outWeight'], itt=key['inType'], ott=key['outType'])
     
     if allData:
-        node = plug.listConnections(s=True)[0]
+        node = plugOrNode if isinstance(plugOrNode, nt.AnimCurve) else plugOrNode.listConnections(s=True)[0]
         node.preInfinity.set( allData['preInfinity'] )
         node.postInfinity.set( allData['postInfinity'] )
         

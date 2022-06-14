@@ -13,10 +13,15 @@ __all__ = [ 'Event', 'clear', 'subscribe', 'unsubscribe', 'publish' ]
 
 
 def getCallableAsStr(callable):
+    ''' Given a function or class, returns the string name to make unregistering after unloading work.
+    
+    One issue is that `partial` can only show up once.  After 10+ years, partial
+    hasn't even been used so proxy functions can be used instead if truly needed.
     '''
-    Given a function or class, returns the string name to make unregistering after unloading work.
-    '''
-    return callable.__module__ + '.' + callable.__name__
+    if isinstance(callable, functools.partial):
+        return 'partial::' + callable.func.__module__ + '.' + callable.func.__name__
+    else:
+        return callable.__module__ + '.' + callable.__name__
     
 
 class Event:

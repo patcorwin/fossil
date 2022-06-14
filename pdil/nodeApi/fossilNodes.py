@@ -14,7 +14,7 @@ from maya.api import OpenMaya
 
 import pymel.api
 from pymel.core import cmds, objExists, PyNode, ls, nt, listRelatives, joint, hasAttr, removeMultiInstance, \
-    xform, delete, warning, dt, connectAttr, pointConstraint, getAttr
+    xform, delete, warning, dt, connectAttr, pointConstraint, getAttr, scaleConstraint, orientConstraint
 
 import pdil
 
@@ -82,6 +82,14 @@ def findSDK(ctrl):
         return {}
 
 
+def restoreCustomAttr(*args, **kwargs):
+    ''' Restore attr wrapper to also try to reapply previously failed set driven keys.
+    '''
+    
+    controllerShape.restoreAttr(*args, **kwargs)
+    misc.retrySDK()
+
+
 def applySDK(ctrl, info):
     misc.applySDK(ctrl, info['main'])
     misc.applySDK(pdil.dagObj.align(ctrl), info['align'])
@@ -92,6 +100,18 @@ def getLinks(ctrl):
     for attr in ctrl.listAttr(k=True) + [ctrl.t, ctrl.r, ctrl.s]:
         cons = attr.listConnections(s=True, d=False, p=True, type='transform')
         if cons:
+            links.append( [cons[0].name(), attr.attrName()] )
+    
+    return links
+
+
+def getLinksScaleOnly(ctrl):
+    ''' Returns [ (targetPlug, 'sx') .. ] for each connected channel. Excludes scaleConstraints.
+    '''
+    links = []
+    for attr in [ctrl.s, ctrl.sx, ctrl.sy, ctrl.sz]:
+        cons = attr.listConnections(s=True, d=False, p=True, type='transform')
+        if cons and not cons[0].node().type() == 'scaleConstraint':
             links.append( [cons[0].name(), attr.attrName()] )
     
     return links
@@ -1491,7 +1511,54 @@ class Card(nt.Transform):
             if shapeInfo:
                 shapeInfo = pdil.text.asciiDecompress(shapeInfo)
                 controllerShape.loadControlShapes( ctrl, shapeInfo.splitlines(), useObjectSpace=objectSpace, targetCtrlKeys=targetKeys)
+    
+    
+    def saveJointData(self):
+        ''' Saves set driven keys, scaleConstriant and connections.
+        '''
         
+        for bpj in self.joints:
+            for mirrorKey, jnt in [('real', bpj.real), ('realMirror', bpj.realMirror)]:
+                if jnt:
+
+                    scaleConst = scaleConstraint(jnt, q=True)
+                    orientConst = orientConstraint(jnt, q=True)
+                    
+                    scaleTarget = scaleConstraint(scaleConst, q=True, tl=True) if scaleConst else None
+                    orientTarget = orientConstraint(orientConst, q=True, tl=True) if orientConst else None
+
+                    with bpj.info as info:
+                        info['rigState.{}.sdk'.format(mirrorKey)] = misc.findSDK(jnt)  # Technically this will pick up sdk on any attr
+                        info['rigState.{}.connections'.format(mirrorKey)] = getLinksScaleOnly(jnt)
+                    
+                        # The intent is that if the orient target is the same, then scale was setup in fossil so don't save it
+                        if scaleTarget and scaleTarget != orientTarget:
+                            scales = pdil.constraints.scaleSerialize(jnt, nodeConv=ids.getIdSpec)
+                        else:
+                            scales = None
+                            
+                        info['rigState.{}.scaleConstraint'.format(mirrorKey)] = scales
+                        
+    
+    def restoreJointData(self):
+        for bpj in self.joints:
+            for mirrorKey, jnt in [('real', bpj.real), ('realMirror', bpj.realMirror)]:
+                info = bpj.info
+                if jnt:
+                    
+                    sdk = info.get('rigState.{}.sdk'.format(mirrorKey), None)
+                    if sdk:
+                        misc.applySDK(jnt, sdk)
+                    
+                    scaleConstInfo = info.get('rigState.{}.scaleConstraint'.format(mirrorKey), None)
+                    if scaleConstInfo:
+                        pdil.constraints.scaleDeserialize(jnt, scaleConstInfo, nodeDeconv=ids.readIdSpec)
+    
+                    conInfo = info.get('rigState.{}.connections'.format(mirrorKey), None)
+                    if conInfo:
+                        setLinks(jnt, conInfo)
+    
+    
     def _saveData(self, function):
         '''
         Runs `function` on each control made by the card, returning a dict like:
@@ -1575,25 +1642,26 @@ class Card(nt.Transform):
         delete(self.getRealJoints())
 
     thingsToSave = [
+        ('customAttrs', controllerShape.identifyCustomAttrs, restoreCustomAttr),
         ('visGroup',    visNode.getVisLevel,               visNode.connect),
         ('connections', getLinks,                           setLinks),
         ('setDriven',   findSDK,                            applySDK),
-        ('customAttrs', controllerShape.identifyCustomAttrs, controllerShape.restoreAttr),
         ('spaces',      space.serializeSpaces,              space.deserializeSpaces),
         ('constraints', findConstraints,                    applyConstraints),
         ('lockedAttrs', findLockedAttrs,                    lockAttrs),
     ]
     
     toSave = collections.OrderedDict( [
+        ('customAttrs', (controllerShape.identifyCustomAttrs, restoreCustomAttr)), # Do this first!
         ('visGroup',    (visNode.getVisLevel,               visNode.connect)),
         ('connections', (getLinks,                          setLinks)),
         ('setDriven',   (findSDK,                           applySDK)),
-        ('customAttrs', (controllerShape.identifyCustomAttrs, controllerShape.restoreAttr)),
         ('spaces',      (space.serializeSpaces,             space.deserializeSpaces)),
         ('constraints', (findConstraints,                   applyConstraints)),
         ('lockedAttrs', (findLockedAttrs,                   lockAttrs)),
     ] )
     
+
     def saveState(self):
         allData = self.rigState
         
@@ -1613,6 +1681,8 @@ class Card(nt.Transform):
         rigClass = self.rigCommandClass
         if rigClass:
             rigClass.saveState(self)
+        
+        self.saveJointData()
         
         self.saveShapes()
 
@@ -1644,6 +1714,8 @@ class Card(nt.Transform):
                 rigClass.restoreState(self)
             except Exception:
                 issues.append( 'Issues restoring shapes' )
+        
+        self.restoreJointData()
         
         self.restoreShapes(objectSpace=shapesInObjectSpace)
         
@@ -1879,7 +1951,7 @@ class BPJoint(nt.Joint):
         if target == '-world-':
             joint_build_log.debug('world')
             return self.Orient.Result( self.Orient.WORLD, None )
-        elif target == '-parent-':
+        elif target == '-as parent-':
             joint_build_log.debug('-parent- set explicitly')
             return self.Orient.Result( self.Orient.AS_PARENT, None )
         elif target:
@@ -1994,6 +2066,7 @@ class BPJoint(nt.Joint):
                     self.card.parentCardLink = None
                     
                 proxyskel.unpoint(self)
+                pdil.pubsub.publish('fossil card reparented')
                 return
             
             if self.card != parent.card:
@@ -2022,8 +2095,9 @@ class BPJoint(nt.Joint):
                 self.parent = None
                 proxyskel.unpoint(self.parent)
             
-        # point them
+        # Link to new parent
         proxyskel.pointer(parent, self)
+        pdil.pubsub.publish('fossil card reparented')
 
 
 def findSimilarOutput(side, otherCard, fallbackDirection):
@@ -2225,7 +2299,7 @@ class RigController(nt.Transform):
     @property
     def card(self):
         # Return the card that created this control
-        card = self.message.listConnections(type=Card)
+        card = [c for c in self.message.listConnections() if isinstance(c, Card)]
         return card[0] if card else None
 
     def getOppositeSide(self):

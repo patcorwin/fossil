@@ -37,7 +37,7 @@ def checkAll(ask=True):
         if ask:
             res = confirmDialog(
                 t='Updates required',
-                m='Updates needed, run now?\n\n' + '\n'.join([u.__name__ for u in toUpdate]),
+                m='This rig needs updating, run now?\n\n' + '\n'.join([u.__name__ for u in toUpdate]),
                 b=['Yes', 'No'],
             )
             if res == 'No':
@@ -634,3 +634,169 @@ def readCardPath(cpath):
             
 
 # findSDK and applySDK updated to idSpec
+
+
+class SDKListToDict(Updater):
+    ''' SDK used to be an array but is now a dict and supports multiple drivers with blend weighted
+    
+    
+    `findSetDrivenKeys` used to return a list like this:
+    [
+        [ <driven attr>, input_node, input_attr, dict_of_curve_data]
+        [ 'length', PyNode('AAA'), 'tx', '<string of curve data>' ]
+    ]
+    
+    Now it's a dict like this:
+    {
+        <driven attr>: [ [input_node, input_attr, dict_of_curve] ... ],
+    }
+    
+    '''
+    
+    needsFix = {}
+    
+    
+    @classmethod
+    def emptyStorage(cls):
+        cls.needsFix = {}
+    
+    
+    @classmethod
+    def check(cls):
+        
+        cls.needsFix = set()
+        
+        for card in find.blueprintCards():
+            for outputName, drivenInfo in card.rigState.get(RigState.setDriven, {}).items():
+                for ctrlKey, driven in drivenInfo.items():
+                    if not isinstance(driven, dict):
+                        cls.needsFix.setdefault( card, [] ).append(outputName, ctrlKey)
+
+        return bool(cls.needsFix)
+    
+    
+    @staticmethod
+    def cardNeedsFix(card):
+        for outputName, drivenInfo in card.rigState.get(RigState.setDriven, {}).items():
+            for ctrlKey, driven in drivenInfo.items():
+                if not isinstance(driven, dict):
+                    return True
+        
+        return False
+    
+    
+    @classmethod
+    def fix(cls):
+        for card, paths in cls.needsFix.items():
+            with card.rigState as state:
+                for outputName, ctrlKey in paths:
+                    state[outputName][ctrlKey] = cls.convertToDict( state[outputName][ctrlKey] )
+        
+        cls.emptyStorage()
+                
+
+    @staticmethod
+    def convertToDict(cls, listData):
+        return { driven_attr: [input_node, input_attr, dict_of_curve_data]
+        for driven_attr, input_node, input_attr, dict_of_curve_data in listData }
+
+
+"""
+def pdil.anim.applySetDrivenKeys_old(ctrl, infos):
+    '''
+    Create the setDrivenKeys on the ctrl with the specially formatted string
+    list from `findSetDrivenKeys`.
+    '''
+    
+    for info in infos:
+        drivenAttr, driveNode, driveAttr, data = info
+        
+        cutKey(ctrl.attr(drivenAttr), cl=True)
+        
+        #keyData = [KeyData(*d) for d in data]
+        
+        if isinstance(data, list):
+            setDrivenKeyframe( ctrl, at=[drivenAttr], v=-.14,
+                currentDriver=driveNode.attr(driveAttr), driverValue=[data[0]['time']] )
+        else:
+            setDrivenKeyframe( ctrl, at=[drivenAttr], v=-.14,
+                currentDriver=driveNode.attr(driveAttr), driverValue=[data['keys'][0]['time']] )
+                
+        dataToCurve(data, ctrl.attr(drivenAttr) )
+
+
+
+def pdil.anim.findSetDrivenKeys_old(obj):
+    '''
+    Return a list of strings specially formatted with setDrivenKey data.
+    
+    ex: AAA.tx drives obj.length, so the return would be:
+    [
+        [ 'length', PyNode('AAA'), 'tx', '<string of curve data>' ]
+    ]
+    
+    return = [
+        ('obj attr name', <Input pynode>, 'input attr name' , 'str representing curve'),
+        ...
+    ]
+    '''
+    sdkCurves = obj.listConnections(s=True, d=False, type=SKD_CURVE_TYPES)
+    
+    curveInfos = []
+
+    for sdkCurve in sdkCurves:
+        input = sdkCurve.input.listConnections(p=1, scn=True)[0]
+        dest = sdkCurve.output.listConnections(p=1, scn=True)[0].attrName()
+        
+        curveInfos.append( [dest, input.node(), input.attrName(), curveToData(sdkCurve)] )
+    
+    return curveInfos
+
+
+def fossil.misc.applySDK_old(obj, info):
+    ''' Wrapper for pdil.anim.applySetDrivenKeys(), coverting the driver spec into a node.
+    '''
+    #processed = [ [destAttr, ids.readIdSpec(driverSpec), driveAttr, curve]
+    #    for destAttr, driverSpec, driveAttr, curve in info]
+    global _SDK_QUEUE
+    
+    for destAttr, driverSpec, driveAttr, curve in info:
+        try:
+            driver = ids.readIdSpec(driverSpec)
+        except Exception:
+            driver = None
+        
+        if not driver:
+            _SDK_QUEUE.append( [obj, destAttr, driverSpec, driveAttr, curve] )
+            continue
+        
+        if not driver.hasAttr(driveAttr):
+            _SDK_QUEUE.append( [obj, destAttr, driverSpec, driveAttr, curve] )
+            continue
+    
+        pdil.anim.applySetDrivenKeys(obj, [[destAttr, driver, driveAttr, curve]])
+    
+
+def fossil.misc.retrySDK_old():
+    global _SDK_QUEUE
+    failed = _SDK_QUEUE # Run through failed, and still failing simply get requeued
+    _SDK_QUEUE = []
+    
+    for obj, destAttr, driverSpec, driveAttr, curve in failed:
+        applySDK(obj, [[destAttr, driverSpec, driveAttr, curve]])
+    
+    
+def fossil.misc.findSDK_old(obj):
+    ''' Wrapper for pdil.anim.findSetDrivenKeys(), converting the driver node into a fossil idSpec.
+    '''
+    
+    driven = pdil.anim.findSetDrivenKeys(obj)
+    
+    for infos in driven.values():
+        for info in infos:
+            info[0] = ids.getIdSpec(info[0])
+    
+    return driven
+        
+
+"""

@@ -256,6 +256,7 @@ class JointLister(QtWidgets.QTableWidget):
             menu = QtWidgets.QMenu()
             menu.addAction('-clear-').triggered.connect( partial(self.setOrientTarget, row, bpJoint, None) )
             menu.addAction('-world-').triggered.connect( partial(self.setOrientTarget, row, bpJoint, '-world-') )
+            menu.addAction('-as parent-').triggered.connect( partial(self.setOrientTarget, row, bpJoint, '-as parent-') )
             menu.addAction('-as card-').triggered.connect( partial(self.setOrientTarget, row, bpJoint, '-as card-') )
             menu.addAction('-as proxy-').triggered.connect( partial(self.setOrientTarget, row, bpJoint, '-as proxy-') )
             #menu.addAction('-custom-') ?????? &&& ???
@@ -313,6 +314,11 @@ class JointLister(QtWidgets.QTableWidget):
             bpJoint.orientTarget = None
             self.clearCustomOrient(bpJoint)
             self.item(row, self.JOINT_LISTER_ORIENT).setText('')
+
+        elif newTarget == '-as parent-':
+            bpJoint.orientTarget = '-as parent-'
+            self.clearCustomOrient(bpJoint)
+            self.item(row, self.JOINT_LISTER_ORIENT).setText('-as parent-')
         
         elif newTarget == '-as card-':
             bpJoint.orientTarget = None

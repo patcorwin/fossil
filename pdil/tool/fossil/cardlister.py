@@ -1,8 +1,9 @@
 from __future__ import print_function
 
 import contextlib
+from functools import partial
 
-from pymel.core import select
+from pymel.core import select, scriptJob
 
 from ...vendor.Qt import QtWidgets, QtCore
 from ...vendor.Qt.QtCore import Qt, Signal
@@ -10,6 +11,7 @@ from ...vendor.Qt.QtCore import Qt, Signal
 import pdil
 
 from ._core import find
+from ._lib import proxyskel
 
 from . import cardRigging
 from . import util
@@ -257,6 +259,15 @@ def cardHierarchy():
 """
 
 
+def cardDeleteTriggerSetup(card):
+    scriptJob( ad=(card.visibility, cardDeleted), kws=True, ro=True, p='Rig_Tool' )
+
+
+def cardDeleted():
+    proxyskel.postDeleteCleanup()
+    pdil.pubsub.publish( 'fossil card deleted' )
+
+
 class CardLister(QtWidgets.QTreeWidget):
 
     cardListerColumnWidths = [220, 30, 120, 160, 100, 100, 75, 40]
@@ -342,7 +353,13 @@ class CardLister(QtWidgets.QTreeWidget):
         yield
         
         self.uiActive = self._uiStateStack.pop()
-        
+    
+    
+    def newCardAdded(self, newCard):
+        cardDeleteTriggerSetup(newCard)
+        self.cardListerRefresh(True)
+    
+    
     def cardListerRefresh(self, force=False):
         
         if self.allCards == find.blueprintCards() and not force:

@@ -36,6 +36,8 @@ from .ui import _visGroup
 from .ui import spacesTab
 from .ui import startingTab
 
+from . import cardlister
+
 
 log = logging.getLogger(__name__)
 
@@ -84,6 +86,29 @@ def complexJson(s):
                 output.append( '    %s,' % json.dumps(d) )
             output[-1] = output[-1][:-1]  # strip off trailing comma
             output.append('  ],')
+        output[-1] = output[-1][:-1]  # strip off trailing comma
+        output.append('},')
+    output[-1] = output[-1][:-1]  # strip off trailing comma
+    output.append('}')
+                
+    return '\n'.join(output)
+
+
+def spacesJson(s):
+    if not s:
+        return '{\n}'
+    output = ['{']
+
+    for side, info in s.items():
+        output.append( '"%s": {' % (side) )
+        
+        for component, data in info.items():
+            output.append( '  "%s": [' % (component) )
+            for d in data['spaces']:
+                output.append( '    %s,' % json.dumps(d) )
+            output[-1] = output[-1][:-1]  # strip off trailing comma
+            output.append('  ],')
+            
         output[-1] = output[-1][:-1]  # strip off trailing comma
         output.append('},')
     output[-1] = output[-1][:-1]  # strip off trailing comma
@@ -184,6 +209,8 @@ class RigTool(Qt.QtWidgets.QMainWindow):
 
         self.setObjectName(objectName)
         self.setWindowTitle('Fossil')
+        self.setAttribute(Qt.QtCore.Qt.WA_DeleteOnClose)  # So card deletetion script jobs clear out
+        self.setWindowFlags(Qt.QtCore.Qt.Tool)  # Possibly prevents maya from covering up fossil on non-windows
         
         # Menu callbacks
         self.ui.actionReconnect_Real_Joints.triggered.connect( Callback(fossil_card.reconnectRealBones) )
@@ -212,7 +239,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         self.ui.buildBonesBtn.clicked.connect(Callback(fossil_card.buildBones))
         self.ui.deleteBonesBtn.clicked.connect( Callback(fossil_card.deleteBones) )
         self.ui.buildRigBtn.clicked.connect( fossil_card.buildRig )
-        self.ui.deleteRigBtn.clicked.connect( partial(util.runOnEach, operator.methodcaller('removeRig'), 'Delting Rig') )
+        self.ui.deleteRigBtn.clicked.connect( partial(util.runOnEach, operator.methodcaller('removeRig'), 'Deleting Rig') )
         self.ui.saveModsBtn.clicked.connect( partial(util.runOnEach, operator.methodcaller('saveState'), 'Saving State') )
         self.ui.restoreModsBtn.clicked.connect( partial(util.runOnEach, operator.methodcaller('restoreState'), 'Restoring State') )
         
@@ -290,6 +317,9 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         
         self.ui.cardLister.cardListerRefresh(force=True)
         self.ui.cardLister.updateHighlight()
+        for card in find.blueprintCards():
+            cardlister.cardDeleteTriggerSetup(card)
+        
         
         self.ui.jointLister.setup(self.scaleFactor)
         
@@ -299,6 +329,9 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         self.ui.rigStateContainer.setVisible( self.settings['showRigStateDebug'] )
 
         pdil.pubsub.subscribe('fossil rig type changed', self.forceCardParams)
+        pdil.pubsub.subscribe('fossil card added', self.ui.cardLister.newCardAdded)
+        pdil.pubsub.subscribe('fossil card deleted', self.ui.cardLister.cardListerRefresh)
+        pdil.pubsub.subscribe('fossil card reparented', partial(self.ui.cardLister.cardListerRefresh, force=True))
 
         # Controller Edit
         self.shapeEditor = controllerEdit.ShapeEditor(self)
@@ -416,6 +449,13 @@ class RigTool(Qt.QtWidgets.QMainWindow):
     def closeEvent(self, event):
         #print('------  - - -  i am closing')
         pdil.pubsub.unsubscribe(pdil.pubsub.Event.MAYA_DAG_OBJECT_CREATED, self.ui.cardLister.newObjMade)
+        
+        
+        pdil.pubsub.unsubscribe('fossil rig type changed', self.forceCardParams)
+        pdil.pubsub.unsubscribe('fossil card added', self.ui.cardLister.newCardAdded)
+        pdil.pubsub.unsubscribe('fossil card deleted', self.ui.cardLister.cardListerRefresh)
+        pdil.pubsub.unsubscribe('fossil card reparented', partial(self.ui.cardLister.cardListerRefresh, force=True))
+        
         try:
             if self.updateId is not None:
                 jid = self.updateId
@@ -448,7 +488,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
         'connections': complexJson,
         'setDriven': complexJson,
         'customAttrs': complexJson,
-        'spaces': complexJson,
+        'spaces': spacesJson,
         'constraints': complexJson,
         'lockedAttrs': simpleJson,
     }
@@ -518,7 +558,7 @@ class RigTool(Qt.QtWidgets.QMainWindow):
                 for the pelvis but whatever.
         '''
         try:
-            radius = 1
+            # radius = 1
             targetParent = util.selectedJoints()[0] if util.selectedJoints() else None
             if not targetParent and selected():
                 # Quick hack for if the annotation is selected instead of the
@@ -547,28 +587,29 @@ class RigTool(Qt.QtWidgets.QMainWindow):
                 raise Exception( 'You must specify at least one joint!' )
 
             namedCount = len(head) + len(tail) + (1 if repeat else 0)
-            print( namedCount )
+            
             if count < namedCount:
                 raise Exception( 'Not enough joints exist to take all of the given names' )
             if count > namedCount and not repeat:
                 raise Exception( 'No name was specified as repeating and too many joints were given.' )
             
             #card = skeletonTool.pdil.Card( jointCount=count, name=name, rigInfo=None, size=(4, 6) )
-            newCard = fossil_card.makeCard(jointCount=count, jointNames=name, rigInfo=None, size=(4, 6) )
+            newCard = fossil_card.makeCard(jointCount=count, jointNames=name, rigInfo=None, size=(4, 6), parent=targetParent )
             
             if targetParent:
                 fossil_card.moveTo( newCard, targetParent )
-                
+                # Clear out 7/2022 if no issues have come up
                 #skeletonTool.proxyskel.pointer( targetParent, newCard.start() )
-                newCard.start().setBPParent(targetParent)
-                radius = targetParent.radius.get()
-            else:
-                proxyskel.makeProxy(newCard.start())
-                newCard.start().proxy.setParent( proxyskel.getProxyGroup() )
+#                newCard.start().setBPParent(targetParent)
+#                radius = targetParent.radius.get()
+#            else:
+#                proxyskel.makeProxy(newCard.start())
+#                newCard.start().proxy.setParent( proxyskel.getProxyGroup() )
             
-            for j in newCard.joints:
-                j.radius.set(radius)
-                j.proxy.radius.set(radius)
+            
+#            for j in newCard.joints:
+#                j.radius.set(radius)
+#                j.proxy.radius.set(radius)
             
             select( newCard )
         except Exception as ex:

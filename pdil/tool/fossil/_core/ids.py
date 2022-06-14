@@ -262,6 +262,39 @@ class JointSpec(IdSpec):
             return bpj.real
 
 
+class RigNodeSpec(IdSpec):
+    specType = 'fossil_rignode'
+    version = (1, 0)
+    
+    @classmethod
+    def getSpec(self, obj):
+        spec = self.baseSpec(obj)
+        
+        if obj.hasAttr('fossilNodeData'):
+            
+            leadCtrl = obj.fossilNodeLink.listConnections()[0]
+            
+            spec['idtype'] = self.specType
+            spec['lead'] = getIdSpec(leadCtrl)
+            spec['node_name'] = pdil.factory.getJsonAttr(obj, 'fossilNodeData')['name']
+            
+            return spec
+            
+        return None
+        
+    @classmethod
+    def readSpec(self, spec):
+        if spec['idtype'] == self.specType:
+            lead = readIdSpec( spec['lead'] )
+            
+            for plug in lead.message.listConnections(d=True, s=False, p=True):
+                if plug.attrName() == 'fossilNodeLink':
+                    if pdil.factory.getJsonAttr(plug.node(), 'fossilNodeData').get('name', None) == spec['node_name']:
+                        return plug.node()
+        
+        return None
+
+
 class UnknownSpec(IdSpec):
     ''' Does nothing so readIdSpec falls back to long and short names.
     '''

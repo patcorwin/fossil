@@ -157,6 +157,10 @@ def buildSplineNeck(start, end, name='', matchEndOrient=False, endOrient=util.En
     startSpace.setParent(container)
     
     endCtrl = controllerShape.build( name + '_End', controlSpec['main'], controllerShape.ControlType.SPLINE )
+    util.registerRigNode(endCtrl, pointSpace, 'midPoint')
+    util.registerRigNode(endCtrl, childSpace, 'midChild')
+    util.registerRigNode(endCtrl, pntRotSpace, 'midPointRot')
+    util.registerRigNode(endCtrl, aimer, 'mid_aim')
     pdil.dagObj.lock(endCtrl, 's')
     
     #pdil.dagObj.moveTo( endCtrl, end )

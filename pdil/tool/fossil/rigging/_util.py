@@ -1132,3 +1132,17 @@ def addControlsToCurve(name, crv=None,
         controls.append(shape)
 
     return controls
+
+
+def registerRigNode(leadControl, node, name):
+    ''' Connects `node` to `leadControl`, tagged as `name` so interals (like spaces) can easily be restored.
+    
+    Some controls make custom setups for spaces and this ensurce they get saved
+    a restorable way.  This also can be used to expose internal calculations to
+    easily restore (ex, automation based on stretched distance).
+    '''
+    
+    node.addAttr('fossilNodeLink', at='message')
+    pdil.factory.setJsonAttr(node, 'fossilNodeData', {'name': name})
+    
+    leadControl.message >> node.fossilNodeLink

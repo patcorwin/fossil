@@ -161,11 +161,13 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
     aimer = util.midAimer(base, chestCtrl, midCtrl)
     aimer.setParent(container)
     hide(aimer)
+    util.registerRigNode(chestCtrl, aimer, 'midAimer')
     
     space.add(midCtrl, aimer, spaceName='default')
     userDriven = space.addUserDriven(midCtrl, 'extreme')  # Best name I got, extreme poses!
     parentConstraint( base, chestCtrl, userDriven, mo=True, skipRotate=('x', 'y', 'z'))
     orientConstraint( base, chestCtrl, userDriven, mo=True)
+    util.registerRigNode(chestCtrl, userDriven, 'extreme')
 
     """
     # -- Shoulders --

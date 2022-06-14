@@ -56,6 +56,7 @@ ex:
 '''
 
 import collections
+import contextlib
 import json
 
 from pymel.core import hasAttr
@@ -67,6 +68,7 @@ except NameError:
     basestring = str
 
 __all__ = [
+    'editAsJson',
     'getSingleConnection',
     'setSingleConnection',
     'getStringAttr',
@@ -84,6 +86,14 @@ __all__ = [
     'IntAccess',
     'FloatAccess',
 ]
+
+
+@contextlib.contextmanager
+def editAsJson(plug):
+    data = json.loads(plug.get(), object_pairs_hook=collections.OrderedDict)
+    yield data
+    plug.set( json.dumps(data) )
+    
 
 # Attribute access utilities --------------------------------------------------
 # They all have to use .node() in case it's a sub attr, like sequence[0].data
@@ -297,7 +307,8 @@ class Json(collections.OrderedDict):
         return self
     
     def __exit__(self, type, value, traceback):
-        self._node.attr(self._attr).set( json.dumps(self) )
+        setStringAttr(self._node, self._attr, json.dumps(self))
+        #self._node.attr(self._attr).set( json.dumps(self) )
 
        
 class JsonAccess(object):
@@ -313,7 +324,7 @@ class JsonAccess(object):
     def __get__(self, instance, owner):
         res = getStringAttr(instance, self.attr)
         if not res:
-            return self.defaults.copy()
+            return Json(self.defaults.copy(), instance, self.attr)
         return Json(json.loads(res, object_pairs_hook=collections.OrderedDict), instance, self.attr )
             
     def __set__(self, instance, value):

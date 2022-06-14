@@ -116,8 +116,7 @@ def makeArrow():
 
 
 def pivTo(card, x, y):
-    '''
-    Move the pivot to the point in the same, x,y coords
+    ''' Move the pivot to the point in the same, x,y coords
     '''
     width, height = card.size
     wMod = width / 2.0
@@ -129,19 +128,18 @@ def pivTo(card, x, y):
 
 
 def pivToStart(card):
-    '''
-    Move the pivot to the start joint.
+    ''' Move the pivot to the start joint.
     '''
     
     piv = xform(card.start(), q=True, ws=True, piv=True)
     xform( card, ws=True, piv=piv[:3])
 
 
-def makeCard(jointCount=5, jointNames={'repeat': 'DEFAULT'}, rigInfo=None, size=(4, 6), suffix=''):
+def makeCard(jointCount=5, jointNames={'repeat': 'DEFAULT'}, rigInfo=None, size=(4, 6), suffix='', parent=None):
     '''
-    ..  todo:: Do not use defaults.
-    
-    &&& names is really joints names, make it so.
+    ..  todo:: Do not use defaults.  &&& Not sure what I meant by this, maybe pull all defaults to require names?
+    rigInfo is unused, can it be pulled?  Suffix might also need pulling after
+    the `one correct way` to assign sides is figured out.
     '''
     if isinstance(jointNames, basestring):
         head, repeat, tail = util.parse(jointNames)
@@ -177,13 +175,6 @@ def makeCard(jointCount=5, jointNames={'repeat': 'DEFAULT'}, rigInfo=None, size=
     addOutputControlsAttrs(card)
     addJointArrayAttr(card)
     
-    
-    #card.addAttr( 'skeletonInfo', at='bool' )
-    #card.addAttr( 'buildOrder', at='long' )
-    #card.addAttr( 'nameInfo', dt='string' )
-    #card.addAttr( 'suffix', dt='string' )
-    
-
     # Reassign it so it gets the proper interface now that it has the attrs
     card = PyNode(card)
     
@@ -194,13 +185,6 @@ def makeCard(jointCount=5, jointNames={'repeat': 'DEFAULT'}, rigInfo=None, size=
     }
     
     card.rigData = rigData
-    
-    #card.buildOrder.set( 10 )
-    #card.suffix.set( suffix )
-    #card.nameInfo.set( jointNames ) # &&& I hate how I handle the names, want to put in rigInfo (I think that's the json attr...)
-    
-    #card.rigParams = ''
-    
     
     arrow = makeArrow()
     arrow.setParent( card )
@@ -233,7 +217,16 @@ def makeCard(jointCount=5, jointNames={'repeat': 'DEFAULT'}, rigInfo=None, size=
         
         pivToStart(card)
     
-    pdil.pubsub.publish('fossil card added')
+    if parent:
+        card.joints[0].setBPParent(parent)
+        
+        # Set to matching joint radius as convenience
+        radius = parent.radius.get()
+        for j in card.joints:
+            j.radius.set(radius)
+            j.proxy.radius.set(radius)
+    
+    pdil.pubsub.publish('fossil card added', card)
     
     return card
 

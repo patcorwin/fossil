@@ -277,9 +277,9 @@ def buildIkChain(start, end, pvLen=None, stretchDefault=1, endOrientType=util.En
     '''
     
     if True: # &&& LOCKABLE
-        endToMidDist, g1 = pdil.dagObj.measure(ctrl, pvCtrl, 'end_to_mid')
-        startToMidDist, g2 = pdil.dagObj.measure(socketOffset, pvCtrl, 'start_to_mid')
-        parent(endToMidDist, g1, startToMidDist, g2, container)
+        endToMidDist, distNode1, g1 = pdil.dagObj.measure(ctrl, pvCtrl, 'end_to_mid')
+        startToMidDist, distNode2, g2 = pdil.dagObj.measure(socketOffset, pvCtrl, 'start_to_mid')
+        parent(distNode1, g1, distNode2, g2, container)
         
         #ctrl.addAttr( 'lockPV', at='double', min=0.0, dv=0.0, max=1.0, k=True )
         
@@ -292,9 +292,9 @@ def buildIkChain(start, end, pvLen=None, stretchDefault=1, endOrientType=util.En
             axis = util.identifyAxis(jnt)
             lockSwitch = jnt.attr('t' + axis).listConnections(s=True, d=False)[0]
             if jnt.attr('t' + axis).get() < 0:
-                pdil.math.multiply( dist.distance, -1) >> lockSwitch.input[1]
+                pdil.math.multiply( dist, -1) >> lockSwitch.input[1]
             else:
-                dist.distance >> lockSwitch.input[1]
+                dist >> lockSwitch.input[1]
             
             util.drive(ctrl, 'lockPV', lockSwitch.attributesBlender, 0, 1)
             

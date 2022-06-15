@@ -514,11 +514,10 @@ def makeStretchyNonSpline(controller, ik, stretchDefault=1):
 
     '''
     start, chain, jointAxis, switcher = _makeStretchyPrep( controller, ik, stretchDefault )
-
-    dist, grp = pdil.dagObj.measure(start, ik)
+    
+    length, distNode, grp = pdil.dagObj.measure(start, ik)
     grp.setParent( controller )
-    dist.setParent( ik.getParent() )
-    length = dist.distance
+    distNode.setParent( ik.getParent() )
     
     lengthMax = chainLength(chain)
     # Regular IK only stretches
@@ -526,12 +525,12 @@ def makeStretchyNonSpline(controller, ik, stretchDefault=1):
     ratio = pdil.math.divide( length, lengthMax )  # lengthMax is a stub, replaced later
     # multiplier is either 1 or a number greater than one needed for the chain to reach the end.
     multiplier = pdil.math.condition( ratio, '>', 1.0, true=ratio, false=1 )
-
+    
     controller.addAttr( 'length', at='double', min=-10.0, dv=0.0, max=10.0, k=True )
-
+    
     '''
     lengthMod is the below formula:
-
+    
     if controller.length >= 0:
         controller.length/10.0 + 1.0   # 1.0 to 2.0 double the length of the limb
     else:
@@ -550,7 +549,7 @@ def makeStretchyNonSpline(controller, ik, stretchDefault=1):
     multiplier >> switcher.input[1]
     
     nodes = {'overallLength': lengthMod, 'distToController': length}
-
+    
     for i, j in enumerate(chain[1:], 1):
         saveRestLength(j, jointAxis)
         #util.recordFloat(j, 'restLength', j.attr('t' + jointAxis).get() )
@@ -566,21 +565,21 @@ def makeStretchyNonSpline(controller, ik, stretchDefault=1):
         lockSwitcher = createNode('blendTwoAttr', n='lockSwitcher')
         
         computedLength = pdil.math.multiply( normalizedMod, j.restLength)
-
+        
         pdil.math.multiply(
             jointLenMultiplier,
             computedLength
         ) >> lockSwitcher.input[0] # >> j.attr('t' + jointAxis)
     
         lockSwitcher.output >> j.attr('t' + jointAxis)
-
+        
         nodes['computedLength%i' % i] = computedLength
     
     computedTotalUnscaled = createNode('plusMinusAverage')
     computedTotalUnscaled.operation.set( 1 )
     for i in range( len(chain) - 1 ):
         nodes['computedLength%i' % (i + 1)] >> computedTotalUnscaled.input1D[i]
-
+        
     computedTotalScaled = pdil.math.multiply(computedTotalUnscaled.output1D, lengthMod)
     
     if computedTotalScaled.get() < 0: # Handle -x side
@@ -588,9 +587,9 @@ def makeStretchyNonSpline(controller, ik, stretchDefault=1):
     
     # Replaces lengthMax with computed length (segLen# * length)
     computedTotalScaled >> ratio.node().input2X
-
+    
     nodes['computedTotalScaled'] = computedTotalScaled
-
+    
     return controller.attr('stretch'), jointLenMultiplier, nodes
 
 

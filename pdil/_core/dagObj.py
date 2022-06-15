@@ -1,4 +1,4 @@
-from pymel.core import parent, xform, dt, selected, move, spaceLocator, pointConstraint, distanceDimension, group, hide, PyNode
+from pymel.core import currentUnit, createNode, parent, xform, dt, selected, move, spaceLocator, pointConstraint, distanceDimension, group, hide, PyNode
 
 from .._add import alt, simpleName
 
@@ -8,22 +8,23 @@ except NameError:
     basestring = str
 
 __all__ = [
-    'Solo', 
-    'TempWorld', 
-    'TemporaryUnlock', 
-    'getPos', 
-    'getRot', 
-    'lock', 
-    'unlock', 
-    'distanceBetween', 
-    'measure', 
-    'matchPosByPivot', 
-    'moveTo', 
-    'matchTo', 
-    'align', 
-    'zero', 
-    'rezero', 
+    'Solo',
+    'TempWorld',
+    'TemporaryUnlock',
+    'getPos',
+    'getRot',
+    'lock',
+    'unlock',
+    'distanceBetween',
+    'measure',
+    'matchPosByPivot',
+    'moveTo',
+    'matchTo',
+    'align',
+    'zero',
+    'rezero',
 ]
+
 
 class Solo(object):
     '''
@@ -191,9 +192,20 @@ def distanceBetween(a, b):
     return dist.length()
 
 
+cmTo = {
+    'in': 1 / 2.54,
+    'ft': 1 / 30.48,
+    'yd': 1 / 91.44,
+    'mi': 1 / (30.48 * 5280),
+    
+    'mm': 10.0,
+    'm': 0.01,
+    'km': 0.00001,
+}
+
+
 def measure( start, end, name='measureLocs'):
-    '''
-    Given 2 objects, makes and point constrains locators to them and measures.
+    ''' Returns (distance plug, distanceNode, locator group).
     '''
     
     a = spaceLocator()
@@ -203,6 +215,18 @@ def measure( start, end, name='measureLocs'):
     pointConstraint( end, b )
     
     dist = distanceDimension( a, b )
+    
+    units = currentUnit(q=True)
+    if units != 'cm':
+        mult = createNode('multiplyDivide')
+        mult.operation.set( 1 )
+        mult.rename('convertCmTo%s' % units)
+        dist.distance >> mult.input1X
+        mult.input2X.set(cmTo[units])
+        
+        distPlug = mult.outputX
+    else:
+        distPlug = dist.distance
         
     hide( a, b, dist)
 
@@ -211,7 +235,7 @@ def measure( start, end, name='measureLocs'):
     a.setParent(grp)
     b.setParent(grp)
         
-    return dist.getParent(), grp
+    return distPlug, dist.getParent(), grp
 
                     
 def matchPosByPivot(dest, src):

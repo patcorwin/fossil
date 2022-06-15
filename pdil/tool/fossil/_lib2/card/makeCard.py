@@ -891,10 +891,10 @@ def addTwistCard(jnt):
     aimConstraint( jnt, card, aim=[0, -1, 0], u=[1, 0, 0], wut='objectrotation', wuo=jnt.cardCon.node(), wu=[0, 0, 1] )
     pointConstraint( jnt.parent, card )
     
-    dist, grp = pdil.dagObj.measure( jnt, jnt.parent )
+    dist, distNode, grp = pdil.dagObj.measure( jnt, jnt.parent )
     grp.setParent( card )
-    dist.setParent( card )
-    dist.distance >> card.sy
+    distNode.setParent( card )
+    dist >> card.sy
     
     # The twist needs to stay on axis.
     card.start().tz.lock()

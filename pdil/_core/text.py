@@ -5,6 +5,11 @@ from ..vendor.Qt import QtGui
 
 __all__ = ['writeInBox', 'asciiCompress', 'asciiDecompress', 'clipboard']
 
+try:
+    base64_decodebytes = base64.decodebytes
+except AttributeError:
+    base64_decodebytes = base64.decodestring # decodestring is a deprecated alias in 3.1
+
 
 def writeInBox(msg):
     '''
@@ -31,8 +36,11 @@ def asciiCompress(data, level=9):
         code = zlib.compress(data, level)
     except TypeError: # python 3 compatibility, most sources will probably be strings
         code = zlib.compress(data.encode(), level)
-        
-    code = base64.encodestring(code)
+    
+    try:
+        code = base64.encodestring(code)
+    except:
+        code = base64.encodebytes(code)
     return code
 
 
@@ -42,9 +50,9 @@ def asciiDecompress(code):
     From http://code.activestate.com/recipes/355486-compress-data-to-printable-ascii-data/
     '''
     try:
-        code = base64.decodestring(code)
+        code = base64_decodebytes(code)
     except TypeError: # python 3 compatibility, most sources will probably be strings
-        code = base64.decodestring(code.encode())
+        code = base64_decodebytes(code.encode())
         
     data = zlib.decompress(code)
     return data

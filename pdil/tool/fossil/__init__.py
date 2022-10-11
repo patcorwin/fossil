@@ -1,8 +1,10 @@
 # fossileNodes defines pymel factories that fossil needs, so make sure it is loaded.
 from ...nodeApi import fossilNodes  # noqa
 
+from ._core import config # noqa
 from ._core import find # noqa
 from ._core import ids # noqa
+from ._lib import boneGroups # noqa
 from ._lib.ids2 import * # noqa Adds nothing to namespace but registers additional IdSpecs
 from ._lib import proxyskel # noqa Probably not actually needed here
 from ._lib import space # noqa

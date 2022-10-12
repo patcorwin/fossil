@@ -380,6 +380,10 @@ def parse(s, objs=None):
 
 
 def process(node, objs):
+    '''
+    Can take function `clamp(val, min, max)`
+    '''
+    
     if isinstance(node, ast.BinOp):
         return binop[ type(node.op) ](
             process(node.left, objs),
@@ -410,6 +414,10 @@ def process(node, objs):
                 process(node.args[2], objs)
             )
         
-
     elif isinstance(node, ast.Tuple):
         return [n.n for n in node.elts]
+    
+    elif isinstance(node, ast.UnaryOp):
+        if isinstance(node.op, ast.USub):
+            if isinstance(node.operand, ast.Num):
+                return -node.operand.n

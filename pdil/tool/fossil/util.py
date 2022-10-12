@@ -410,24 +410,33 @@ def runOnEach(func, message=''):
     
     with pdil.ui.progressWin(title=message, max=len(sel) ) as prog:
         
-        errors = {}
+        errors = core.exceptions.FossilMultiError()
+
+        #errors = {}
         for i, card in enumerate(sel):
             try:
                 func( card )
+
+            except core.exceptions.FossilMultiError as multiError:
+                errors.errors += multiError.errors
+
             except Exception:
                 #print( traceback.format_exc() )
-                errors[card] = traceback.format_exc()
+                #errors[card] = traceback.format_exc()
+                errors.append('Issue on card %s' % card.shortName(), traceback.format_exc())
             prog.update()
         
     if not errors:
+        print('No Errors')
         print( message + ' Completed' )
     else:
-        for card, text in errors.items():
+        for card, text in errors.errors:
             print(card, '-' * 80)
             print( text )
         
-        warning( 'An error occured on {}, see above for the errors'.format(len(errors)) )
-        
+        warning( 'Error count={}, see above for the errors'.format(len(errors.errors)) )
+        confirmDialog(m='Error count={}, see script editor.'.format(len(errors.errors)) )
+
 
 def makeFakeBone():
     ''' Used by polySkeleton '''

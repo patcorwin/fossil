@@ -25,6 +25,7 @@ from ..tool.fossil import node
 from ..tool.fossil import log
 from ..tool.fossil._core import ids
 from ..tool.fossil._core import config
+from ..tool.fossil._core import exceptions
 from ..tool.fossil._lib import misc
 from ..tool.fossil._lib import proxyskel
 from ..tool.fossil._lib import visNode
@@ -1697,7 +1698,8 @@ class Card(nt.Transform):
 
         allData = self.rigState
         
-        issues = []
+        errors = exceptions.FossilMultiError()
+        #issues = []
 
         for niceName, (harvestFunc, restoreFunc) in self.toSave.items():
             if niceName in allData and allData[niceName]:
@@ -1705,7 +1707,8 @@ class Card(nt.Transform):
                     self._restoreData(restoreFunc, allData[niceName])
                 except Exception:
                     print(traceback.format_exc())
-                    issues.append( 'Issues restoring ' + niceName )
+                    #issues.append( 'Issues restoring ' + niceName )
+                    errors.append( 'Issues restoring ' + niceName + ' on ' + self.shortName(), traceback.format_exc())
                 
         rigClass = self.rigCommandClass
         
@@ -1713,13 +1716,17 @@ class Card(nt.Transform):
             try:
                 rigClass.restoreState(self)
             except Exception:
-                issues.append( 'Issues restoring shapes' )
+                #issues.append( 'Issues restoring shapes' )
+                errors.append( 'Issues restoring shapes on ' + self.shortName(), traceback.format_exc())
         
         self.restoreJointData()
         
         self.restoreShapes(objectSpace=shapesInObjectSpace)
         
-        return issues
+        #return issues
+        if errors:
+            raise errors
+
 
     # -----------------
 

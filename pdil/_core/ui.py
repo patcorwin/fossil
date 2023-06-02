@@ -486,16 +486,13 @@ def progressWin(title='', max=100, status=''):
     progressWindow(endProgress=True)
 
 
-NOTIFY_ENABLED = True
-
-
 def notify(*args, **kwargs):
-    ''' Wrapper for confirmDialog that returns nothing and is easily disabled for testing '''
-    #global NOTIFY_ENABLED
+    ''' Wrapper for confirmDialog that is easily disabled for testing '''
+
     global _disableNotifyCount
     
     if _disableNotifyCount < 1:
-        confirmDialog_orig(*args, **kwargs)
+        return confirmDialog_orig(*args, **kwargs)
     else:
         
         if 'm' in kwargs:
@@ -513,16 +510,12 @@ _disableNotifyCount = 0
 
 @contextlib.contextmanager
 def disableNotify():
-    #global NOTIFY_ENABLED
+
     global _disableNotifyCount
-    
-    #prev = NOTIFY_ENABLED
-    #NOTIFY_ENABLED = False
-    
+        
     _disableNotifyCount += 1
     
     try:
         yield
     finally:
         _disableNotifyCount -= 1
-        #NOTIFY_ENABLED = prev

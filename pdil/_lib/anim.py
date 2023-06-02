@@ -369,15 +369,22 @@ def findSetDrivenKeys(obj):
         driven[dest] = [[inputPlug.node(), inputPlug.attrName(), curveToData(sdkCurve)]]
 
 
-    blendWeighted = obj.listConnections(s=True, d=False, type='blendWeighted')
+    blendWeighted = obj.listConnections(s=True, d=False, type='blendWeighted', scn=True)  # Without scn, rotate conversion nodes get passed over
     for bw in blendWeighted:
         dest = bw.output.listConnections(p=1, scn=True)[0].attrName()
         
         driven[dest] = []
         
         for blendInput in bw.i:
-            sdkCurve = blendInput.listConnections(s=True, d=False, type=SKD_CURVE_TYPES)[0]
-            inputPlug = sdkCurve.input.listConnections(p=1, scn=True)[0]
+            temp = blendInput.listConnections(s=True, d=False, type=SKD_CURVE_TYPES, scn=True)
+            if not temp:
+                continue
+            sdkCurve = temp[0]
+
+            temp = sdkCurve.input.listConnections(p=1, scn=True)
+            if not temp:
+                continue
+            inputPlug = temp[0]
             
             driven[dest].append( [inputPlug.node(), inputPlug.attrName(), curveToData(sdkCurve)] )
     

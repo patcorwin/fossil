@@ -12,6 +12,8 @@ import traceback
 
 from maya.api import OpenMaya
 
+from maya.cmds import attributeQuery as cmds_attributeQuery
+
 import pymel.api
 from pymel.core import cmds, objExists, PyNode, ls, nt, listRelatives, joint, hasAttr, removeMultiInstance, \
     xform, delete, warning, dt, connectAttr, pointConstraint, getAttr, scaleConstraint, orientConstraint
@@ -521,7 +523,16 @@ class Card(nt.Transform):
             return False
         else:
             return self
-        
+    
+    def setIkParamNode(self, kwargName, node):
+        self.extraNode[0] = node
+        with self.rigData as rigData:
+            ikParams = rigData.get('ikParams', {})
+            if not node:
+                del ikParams[kwargName]
+            else:
+                ikParams[kwargName] = 'NODE_0'
+
     @property
     def mirror(self):
         '''
@@ -1589,8 +1600,7 @@ class Card(nt.Transform):
                 if obtainedData:
                     data[key] = obtainedData
         
-            if data:
-                allData[ "%s %s" % (side, type) ] = data
+            allData[ "%s %s" % (side, type) ] = data
         
         return allData
         
@@ -1668,14 +1678,13 @@ class Card(nt.Transform):
         
         for niceName, (harvestFunc, restoreFunc) in self.toSave.items():
             data = self._saveData(harvestFunc)
-            
-            # I think this is a good idea.  Helping the corner case if you accidentally go fk
-            # to preserve ik data instead of clobbering it.
-            
+
             if niceName not in allData:
                 allData[niceName] = data
             else:
-                allData[niceName].update( data )
+                # Overwrite per kinematic to prevent wiping data but not letting values linger on accident.
+                for side_kinematic, value in data.items():
+                    allData[niceName][side_kinematic] = value
                 
         self.rigState = allData
         
@@ -1873,7 +1882,8 @@ class BPJoint(nt.Joint):
         
     @property
     def isHelper(self):
-        return self.hasAttr('helper')
+        # return self.hasAttr('helper')
+        return cmds_attributeQuery('helper', node=self.name(), exists=True)
         
     @isHelper.setter
     def isHelper(self, val):

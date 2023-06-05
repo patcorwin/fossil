@@ -1,6 +1,7 @@
 {
     "utc_build_time": "2022-05-15 17:00:47.477132",
     "icon_paths": ["icons"],
+    "pip": ["pymel"],
     "shelf_items": [
         {
             "command": "import pdil.tool.fossil.main\npdil.alt.call('Rig Tool')()",

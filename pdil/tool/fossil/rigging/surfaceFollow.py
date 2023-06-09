@@ -7,7 +7,7 @@ from pymel.core import dt, geometryConstraint, normalConstraint, pointConstraint
 
 import pdil
 
-from ..cardRigging import MetaControl, ParamInfo, OutputControls, colorParity
+from ..cardRigging import MetaControl, Param, OutputControls, colorParity
 
 from .. import log
 from .._lib import space
@@ -112,11 +112,11 @@ class SurfaceFollow(MetaControl):
 
     ik_ = 'pdil.tool.fossil.rigging.surfaceFollow.buildSurfaceFollow'
     ikInput = OrderedDict( [
-        ('surface', ParamInfo('Mesh', 'The surface to follow', ParamInfo.NODE_0)),
-        #('rangeMin', ParamInfo( 'Min Range', 'Lower bounds of the keyable attr.', ParamInfo.FLOAT, -5.0)),
-        #('rangeMax', ParamInfo( 'Max Range', 'Upper bounds of the keyable attr.', ParamInfo.FLOAT, 5.0)),
-        #('scaleMin', ParamInfo( 'Shrink Value', 'When the attr is at the lower bounds, scale it to this amount.', ParamInfo.FLOAT, .5)),
-        #('scaleMax', ParamInfo( 'Expand Value', 'When the attr is at the upper bounds, scale it to this amount.', ParamInfo.FLOAT, 2)),
+        ('surface', Param('NODE_0', 'Mesh', 'The surface to follow')),
+        #('rangeMin', Param(-5.0, 'Min Range', 'Lower bounds of the keyable attr.')),
+        #('rangeMax', Param(5.0, 'Max Range', 'Upper bounds of the keyable attr.')),
+        #('scaleMin', Param(.5, 'Shrink Value', 'When the attr is at the lower bounds, scale it to this amount.')),
+        #('scaleMax', Param(.2, 'Expand Value', 'When the attr is at the upper bounds, scale it to this amount.')),
     ] )
     
     #orientAsParent=True, min=0.5, max=1.5

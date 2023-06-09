@@ -13,9 +13,10 @@ except NameError:
 from ...vendor.Qt import QtWidgets
 from ...vendor.Qt.QtCore import Qt
 
-from pymel.core import cmds
+from pymel.core import cmds, PyNode
 
 import pdil
+
 from . import cardRigging
 
 
@@ -33,12 +34,15 @@ class Cell(QtWidgets.QTableWidgetItem):
 
 class Label(QtWidgets.QTableWidgetItem):
     
-    def __init__(self, label='', checked=None):
+    def __init__(self, label='', checked=None, toolTip=''):
         QtWidgets.QTableWidgetItem.__init__(self, label)
         self.setFlags( Qt.ItemIsEnabled ) # | Qt.ItemIsSelectable )
 
         #if checked is not None:
         #    self.setCheckState(Qt.Checked if checked else Qt.Unchecked)
+
+        if toolTip:
+            self.setToolTip(toolTip)
 
 
 class NOT_FOUND:
@@ -76,45 +80,43 @@ class CardParams(QtWidgets.QTableWidget):
         self._disabled = self._prevState.pop()
     
     def dataChange(self, row, col):
-        '''
-        Callback for when data changes.
+        ''' Callback
         '''
         if self._disabled or not self.params:
             return
         
-        rigData = self.card.rigData
-        params = rigData.setdefault('ikParams', {})
+        #rigData = self.card.rigData
+        #params = rigData.setdefault('ikParams', {})
         
         #newVal = self.item(row, col).text()
-        param = self.params[row]
-        if param.type == cardRigging.ParamInfo.BOOL:
-            params[param.kwargName] = bool(self.item(row, col).checkState() == Qt.Checked)
-        
-        elif param.type == cardRigging.ParamInfo.INT:
-            try:
-                params[param.kwargName] = int( self.item(row, col).text() )
-            except Exception:
-                with self.disableChangeCallback():
-                    self.item(row, col).setText( params.get(param.kwargName, param.default))
+        with self.card.rigData as rigData:
+            params = rigData.setdefault('ikParams', {})
+            param = self.params[row]
+            print('PTYPE', param.type)
+            if param.type == cardRigging.Param.BOOL:
+                params[param.kwargName] = bool(self.item(row, col).checkState() == Qt.Checked)
             
-        elif param.type == cardRigging.ParamInfo.FLOAT:
-            try:
-                params[param.kwargName] = float( self.item(row, col).text() )
-            except Exception:
-                with self.disableChangeCallback():
-                    self.item(row, col).setText( params.get(param.kwargName, param.default))
-            
-        elif param.type == cardRigging.ParamInfo.ENUM:
-            params[param.kwargName] = param.enum.values[self.cellWidget(row, col).currentIndex()]
-            
-        elif param.type == cardRigging.ParamInfo.STR:
-            params[param.kwargName] = self.item(row, col).text()
-            
-        elif param.type == cardRigging.ParamInfo.NODE_0:
-            self.card.extraNode[0] = self.paramSceneOptions[param][self.cellWidget(row, col).currentIndex()].message
-            params[param.kwargName] = 'NODE_0'
-        
-        self.card.rigData = rigData
+            elif param.type == cardRigging.Param.INT:
+                try:
+                    params[param.kwargName] = int( self.item(row, col).text() )
+                except Exception:
+                    with self.disableChangeCallback():
+                        self.item(row, col).setText( params.get(param.kwargName, param.default))
+                
+            elif param.type == cardRigging.Param.FLOAT:
+                try:
+                    params[param.kwargName] = float( self.item(row, col).text() )
+                except Exception:
+                    with self.disableChangeCallback():
+                        self.item(row, col).setText( params.get(param.kwargName, param.default))
+                
+            elif param.type == cardRigging.Param.ENUM:
+                params[param.kwargName] = param.enum.values[self.cellWidget(row, col).currentIndex()]
+                
+            elif param.type == cardRigging.Param.STR:
+                params[param.kwargName] = self.item(row, col).text()
+
+        #self.card.rigData = rigData
     
     def setInputField(self, card, row, param):
         '''
@@ -122,29 +124,33 @@ class CardParams(QtWidgets.QTableWidget):
         '''
         self.params.append(param)
         
+        inputWidgetItem = None
+
         if param.type == param.BOOL:
-            checkBox = QtWidgets.QTableWidgetItem()
+            inputWidgetItem = QtWidgets.QTableWidgetItem()
             state = Qt.Checked if card.rigData.get('ikParams', {}).get(param.kwargName, param.default) else Qt.Unchecked
-            checkBox.setCheckState( state )
-            self.setItem( row, 1, checkBox )
+            inputWidgetItem.setCheckState( state )
+            self.setItem( row, 1, inputWidgetItem )
             
         elif param.type == param.INT:
-            self.setItem( row, 1, QtWidgets.QTableWidgetItem(str(card.rigData.get('ikParams', {}).get(param.kwargName, param.default))) )
+            inputWidgetItem = QtWidgets.QTableWidgetItem(str(card.rigData.get('ikParams', {}).get(param.kwargName, param.default)))
+            self.setItem( row, 1, inputWidgetItem )
             
         elif param.type == param.FLOAT:
-            self.setItem( row, 1, QtWidgets.QTableWidgetItem(str( card.rigData.get('ikParams', {}).get(param.kwargName, param.default))) )
+            inputWidgetItem = QtWidgets.QTableWidgetItem(str( card.rigData.get('ikParams', {}).get(param.kwargName, param.default)))
+            self.setItem( row, 1, inputWidgetItem )
             
         elif param.type == param.ENUM:
             
-            dropdown = QtWidgets.QComboBox()
-            #dropdown.addItems( param.enum.keys() )
-            dropdown.addItems( [enum.value.replace('_', ' ') for enum in param.enum ] )
+            inputWidgetItem = QtWidgets.QComboBox()
+            #inputWidgetItem.addItems( param.enum.keys() )
+            inputWidgetItem.addItems( [enum.value.replace('_', ' ') for enum in param.enum ] )
             
-            #dropdown.currentIndexChanged.connect( partial(self.enumChange, param) )
+            #inputWidgetItem.currentIndexChanged.connect( partial(self.enumChange, param) )
             #for key, val in param.enum.items():
-            #    dropdown.addItem( key ).triggered.connect( partial(self.changeEnum, param.kwargName, val) )
+            #    inputWidgetItem.addItem( key ).triggered.connect( partial(self.changeEnum, param.kwargName, val) )
             
-            self.setCellWidget(row, 1, dropdown)
+            self.setCellWidget(row, 1, inputWidgetItem)
             
             try:
                 #enumVal = list(param.enum.values()).index( card.rigData.get('ikParams', {}).get(param.kwargName, param.default) )
@@ -155,40 +161,65 @@ class CardParams(QtWidgets.QTableWidget):
                     
                 enumIndex = list(param.enum).index(currentEnumValue)
                 
-                dropdown.setCurrentIndex(enumIndex)
-                dropdown.currentIndexChanged.connect( partial(self.enumChange, param=param) )
+                inputWidgetItem.setCurrentIndex(enumIndex)
+                inputWidgetItem.currentIndexChanged.connect( partial(self.enumChange, param=param) )
             except Exception as ex:
                 print( '! error with', param.kwargName, param.default, card, row )
                 print(ex)
             
         elif param.type == param.STR:
             val = card.rigData.get('ikParams', {}).get(param.kwargName, param.default)
-            self.setItem( row, 1, QtWidgets.QTableWidgetItem(val) )
+            inputWidgetItem = QtWidgets.QTableWidgetItem(val)
+            self.setItem( row, 1, inputWidgetItem )
             
         elif param.type in (param.CURVE, param.NODE_0):  # Just accept curves, they are all I connect to
-            dropdown = QtWidgets.QComboBox()
+            inputWidgetItem = QtWidgets.QComboBox()
             # Get all the curve transforms under the skeletonBlueprint
             curves = cmds.listRelatives( cmds.listRelatives('skeletonBlueprint', type='nurbsCurve', f=True, ad=True), p=True, f=True)
             self.paramSceneOptions[param] = curves
-            if curves:  # &&& This can sometimes be empty, which causes the gui to choke on the error (in 2019, but not 2016)
-                dropdown.addItems( curves )  # ERROR?
+
+            if self.card.extraNode[0]:
+                try:
+                    index = 1 + curves.index(self.card.extraNode[0].fullPath())
+                except ValueError:
+                    curves.append(str(self.card.extraNode[0]))
+                    index = len(curves)
+            else:
+                index = 0
             
-            self.setCellWidget(row, 1, dropdown)
-    
+            # &&& Need to provide None to clear the option too
+            if curves:  # &&& This can sometimes be empty, which causes the gui to choke on the error (in 2019, but not 2016)
+                inputWidgetItem.addItems( ['None'] + curves )  # ERROR?
+            inputWidgetItem.setCurrentIndex(index)
+            
+            self.setCellWidget(row, 1, inputWidgetItem)
+
+            inputWidgetItem.currentIndexChanged.connect( partial(self.nodeChange, param=param) )
+
+        if inputWidgetItem:  # This should always have a value but best to be safe
+            inputWidgetItem.setToolTip(param.desc)
+
+
     def enumChange(self, index, param):
-        rigData = self.card.rigData
-        val = list(param.enum)[index]
-        rigData.setdefault('ikParams', {})[param.kwargName] = val.value
-        
-        self.card.rigData = rigData
+        with self.card.rigData as rigData:
+            val = list(param.enum)[index]
+            rigData.setdefault('ikParams', {})[param.kwargName] = val.value
     
+
+    def nodeChange(self, index, param):
+        if index == 0:
+            self.card.setIkParamNode(param.kwargName, None)
+        else:
+            self.card.setIkParamNode(param.kwargName, PyNode(self.paramSceneOptions[param][index - 1]))
+
+
     def addParams(self, card):
         self.card = card
         self.clearContents()
         self.params = []
         self.paramSceneOptions = {}
         
-        #cardSettings = cardRigging.ParamInfo.toDict( card.rigParams )
+        #cardSettings = cardRigging.Param.toDict( card.rigParams )
         #cardSettings = card.rigData.get('ikParams', {})
         
         metaControl = cardRigging.registeredControls[card.rigData['rigCmd']]
@@ -220,7 +251,7 @@ class CardParams(QtWidgets.QTableWidget):
                 
                 value = card.rigData.get('ikKwargs', {}).get(kwargName, NOT_FOUND)
                 if value is not NOT_FOUND:
-                    type = cardRigging.ParamInfo.determineDataType(value)
+                    type = cardRigging.Param.determineDataType(value) # &&& Why is this being determined here, init already did it.
                 
                     for i, p in enumerate(param):
                         if p.type == type:
@@ -235,7 +266,7 @@ class CardParams(QtWidgets.QTableWidget):
                 
             # Param only takes one data type
             else:
-                self.setItem(row, 0, Label(param.name))
+                self.setItem(row, 0, Label(param.name, toolTip=param.desc))
                 
                 self.setInputField(card, row, param)
         

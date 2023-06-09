@@ -16,7 +16,7 @@ from .._lib2 import controllerShape
 from .. import node
 from .._lib import space
 
-from ..cardRigging import MetaControl, ParamInfo, Param
+from ..cardRigging import MetaControl, Param
 
 from . import _util as util
 
@@ -473,9 +473,7 @@ class SplineTwist(MetaControl):
         ('matchOrient', Param(True, 'Match Orient', "First and last controller are set to TrueZero'd") ),
         ('useLeadOrient', Param(False, 'Lead Orient', 'The controls have the same orientation as the first joint') ),
         ('allowOffset', Param(True, 'Allow Offset', 'If you Simplyify Curve, the joints will slightly shift unless you Allow Offset or the joints are straight') ),
-        ('twistStyle',
-            ParamInfo( 'Twist Style', '0 = advanced, 1=x, 2=-x 3=y ...', ParamInfo.ENUM, default=TwistStyle.ADVANCED ) ),
-        
+        ('twistStyle', Param( TwistStyle.ADVANCED, 'Twist Style', '...' ) ),
         ('name', Param('', 'Name', 'Name')),
     ] )
     

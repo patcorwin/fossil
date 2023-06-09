@@ -8,6 +8,7 @@ from __future__ import print_function, absolute_import
 
 import collections
 from functools import partial
+import logging
 import re
 import sys
 
@@ -34,6 +35,9 @@ try:
     from enum import Enum
 except ImportError:
     from pdil.vendor.enum import Enum
+
+
+logBuildRig = logging.getLogger('fossil.buildRig')
 
 
 class ParamInfo(object):
@@ -64,10 +68,17 @@ class ParamInfo(object):
 
     numericTypes = (INT, FLOAT, BOOL)
 
+    @property
+    def path(self):
+        return self.parent_path + [self.kwargName]
+    
+
     #def __init__(self, name, desc, default, min=None, max=None, enum=None):
     def __init__(self, name, desc, type=None, default=None, min=None, max=None, enum=None):
-        
-        self.name = name
+        self.kwargName = '' # Will get filled in when registered via `MetaControl`.
+        self.parent_path = [] # RegisterMetaControl fills this in if needed
+
+        self.name = name # Change this to display name
         self.desc = desc
 
         if type is None:
@@ -75,8 +86,9 @@ class ParamInfo(object):
             self.default = default
         else:
             # PENDING DELETION
+            """
             self.type = type
-            #"""
+            
             if default is not None:
                 self.default = default
             elif type == self.INT:
@@ -91,12 +103,15 @@ class ParamInfo(object):
                 # Is this fair to default to the first enum?  Should I assert instead
                 raise Exception( 'ParamInfo "{}", "{}" is an enum but specifies no default'.format(name, desc) )
                 #self.default = enum.values()[0]
+            elif isinstance(default, Enum):
+                self.type = self.ENUM
+
             else:
                 # &&& I think this is because curves need a default?
                 self.default = None
-            #"""
+            """
         
-        self.value = default
+        self.value = default  # &&& Do I really to store self.default AND self.value?
         
         if self.type == self.ENUM:
             self.enum = default.__class__ # OrderedDict([ (v.value.replace('_', ' '), v.value) for v in default.__class__.__members__.values() ])
@@ -106,8 +121,6 @@ class ParamInfo(object):
         
         self.min = min
         self.max = max
-        
-        self.kwargName = '' # Will get filled in when registered via `MetaControl`.
         
     def validate( self, value ):
         # Given a value, assign it to self.value if it meets the min/max reqs.
@@ -201,7 +214,7 @@ class ParamInfo(object):
         elif isinstance( value, Enum ):
             dataType = cls.ENUM
         
-        elif value.startswith( 'NODE_0'):
+        elif value is None or value.startswith( 'NODE_0'):
             dataType = cls.NODE_0
             
         else:
@@ -283,6 +296,7 @@ class RegisterdMetaControl(type):
                 for kwargName, paramInfo in cls.ikInput.items():
                     if isinstance(paramInfo, ParamInfo):
                         cls.ikInput[kwargName].kwargName = kwargName
+                        paramInfo.parent_path = ['ikInput']
                     else:
                         for i, _pi in enumerate(paramInfo):
                             cls.ikInput[kwargName][i].kwargName = kwargName
@@ -291,6 +305,7 @@ class RegisterdMetaControl(type):
                 for kwargName, paramInfo in cls.fkInput.items():
                     if isinstance(paramInfo, ParamInfo):
                         cls.fkInput[kwargName].kwargName = kwargName
+                        paramInfo.parent_path = ['fkInput']
                     else:
                         for i, _pi in enumerate(paramInfo):
                             cls.fkInput[kwargName][i].kwargName = kwargName
@@ -428,7 +443,7 @@ class MetaControl(six.with_metaclass(RegisterdMetaControl)):
     
     readKwargs = classmethod( _readKwargs ) # I think I did this goofiness for a reason
     
-    #readIkKwargs = classmethod( partial(_readKwargs, kinematicType='ik') )
+    #readIkKwargs = classmethod( partial(_  , kinematicType='ik') )
     @classmethod
     def readIkKwargs(cls, card, isMirroredSide, sideAlteration=lambda **kwargs: kwargs):
         return cls.readKwargs(card, isMirroredSide, sideAlteration, kinematicType='ik')
@@ -461,6 +476,8 @@ class MetaControl(six.with_metaclass(RegisterdMetaControl)):
 
     @classmethod
     def _buildSide(cls, card, start, end, isMirroredSide, side=None, buildFk=True):
+        logBuildRig.debug('_buildSide card:{card} start:{start} end:{end} isMirroredSide:{isMirroredSide}'.format(
+            card=card, start=start, end=end, isMirroredSide=isMirroredSide))
         chain = rig.getChain(start, end)
         log.Rotation.check(chain, True)
         
@@ -557,7 +574,7 @@ class MetaControl(six.with_metaclass(RegisterdMetaControl)):
         log.TooStraight.targetCard(card)
         
         side = card.findSuffix()
-        if not side or card.isAsymmetric():
+        if not side or not card.isCardMirrored(): # This USED to be isAsymmetric, but that returns false if nothing mirrors, I think this is the actual check I want.
             
             if side:
                 ctrls = cls._buildSide(card, card.start().real, card.end().real, False, side, buildFk=buildFk)
@@ -636,21 +653,9 @@ class RotateChain(MetaControl):
     ''' Rotate only controls.  Unless this is a single joint, lead joint is always translatable too. '''
     fkArgs = {'translatable': False}
     fkInput = OrderedDict( [
-        ('scalable', ParamInfo('Scalable', 'Scalable', ParamInfo.BOOL, default=False)),
-        ('mirroredTranslate', ParamInfo( 'Mirror Translate', 'Translation is also mirrored on mirrored side', ParamInfo.BOOL, default=False)),
+        ('scalable', Param(False, 'Scalable', 'Scalable')),
+        ('mirroredTranslate', Param(False, 'Mirror Translate', 'Translation is also mirrored on mirrored side')),
     ] )
-
-
-class TranslateChain(MetaControl):
-    ''' Translatable and rotatable controls. '''
-    fkArgs = {'translatable': True}
-    fkInput = OrderedDict( [
-        ('scalable', ParamInfo('Scalable', 'Scalable', ParamInfo.BOOL, default=False)),
-        ('mirroredTranslate', ParamInfo( 'Mirror Translate', 'Translation is also mirrored on mirrored side', ParamInfo.BOOL, default=False)),
-    ] )
-
-
-
 
 
 def availableControlTypeNames():

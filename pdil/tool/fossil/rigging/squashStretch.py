@@ -6,7 +6,7 @@ from pymel.core import dt, hide, listRelatives, setDrivenKeyframe, spaceLocator,
 import pdil
 
 
-from ..cardRigging import MetaControl, ParamInfo, colorParity, OutputControls
+from ..cardRigging import MetaControl, Param, colorParity, OutputControls
 
 from .. import log
 from .. import node
@@ -32,9 +32,9 @@ def buildSquashAndStretch(joints, squashCenter, orientAsParent=True, rangeMin=-5
     container = util.parentGroup(joints[0])
     container.setParent( node.mainGroup() )
     
-    mainCtrl = controllerShape.build(   util.trimName(joints[0].getParent()) + "SquashMain_ctrl",
-                                controlSpec['main'],
-                                type=controllerShape.ControlType.TRANSLATE )
+    mainCtrl = controllerShape.build( util.trimName(joints[0].getParent()) + "SquashMain_ctrl",
+                                      controlSpec['main'],
+                                      type=controllerShape.ControlType.TRANSLATE )
     mainCtrl = pdil.nodeApi.RigController.convert(mainCtrl)
     mainCtrl.setParent(container)
     
@@ -52,8 +52,8 @@ def buildSquashAndStretch(joints, squashCenter, orientAsParent=True, rangeMin=-5
     subControls = []
     for i, j in enumerate(joints):
         subCtrl = controllerShape.build(util.trimName(j) + "_ctrl",
-                                controlSpec['manual'],
-                                type=controllerShape.ControlType.TRANSLATE )
+                                        controlSpec['manual'],
+                                        type=controllerShape.ControlType.TRANSLATE )
         subControls.append(subCtrl)
         pdil.dagObj.matchTo(subCtrl, j)
         subCtrl.setParent(container)
@@ -102,10 +102,10 @@ class SquashStretch(MetaControl):
     ik_ = __name__ + '.' + buildSquashAndStretch.__name__
     
     ikInput = OrderedDict( [
-        ('rangeMin', ParamInfo( 'Min Range', 'Lower bounds of the keyable attr.', ParamInfo.FLOAT, -5.0)),
-        ('rangeMax', ParamInfo( 'Max Range', 'Upper bounds of the keyable attr.', ParamInfo.FLOAT, 5.0)),
-        ('scaleMin', ParamInfo( 'Shrink Value', 'When the attr is at the lower bounds, scale it to this amount.', ParamInfo.FLOAT, .5)),
-        ('scaleMax', ParamInfo( 'Expand Value', 'When the attr is at the upper bounds, scale it to this amount.', ParamInfo.FLOAT, 2)),
+        ('rangeMin', Param(-5.0, 'Min Range', 'Lower bounds of the keyable attr.')),
+        ('rangeMax', Param(5.0, 'Max Range', 'Upper bounds of the keyable attr.')),
+        ('scaleMin', Param(.5, 'Shrink Value', 'When the attr is at the lower bounds, scale it to this amount.')),
+        ('scaleMax', Param(2, 'Expand Value', 'When the attr is at the upper bounds, scale it to this amount.')),
     ] )
     
     #orientAsParent=True, min=0.5, max=1.5

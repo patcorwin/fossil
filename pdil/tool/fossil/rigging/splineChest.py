@@ -9,7 +9,7 @@ import pdil
 
 from .._lib2 import controllerShape
 
-from ..cardRigging import MetaControl, ParamInfo
+from ..cardRigging import MetaControl, Param
 
 from .. import node
 from .. import rig
@@ -301,9 +301,9 @@ class SplineChest(MetaControl):
     #ik_ = 'pdil.tool.fossil.rigging.splineChest.buildSplineChest'
     ik_ = __name__ + '.' + buildSplineChest.__name__ # Uses strings so reloading development always grabs the latest
     
-    ikInput = OrderedDict( [('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, 'Chest')),
-                            ('useTrueZero', ParamInfo( 'Use True Zero', 'Use True Zero', ParamInfo.BOOL, False)),
-                            ('indexOfRibCage', ParamInfo( 'Base of Rib Cage Index', 'Index of the bottom of the rib cage.', ParamInfo.INT, -1)),
+    ikInput = OrderedDict( [('name', Param('Chest', 'Name', 'Name for lead control.')),
+                            ('useTrueZero', Param(False, 'Use True Zero', 'Use True Zero on lead control.')),
+                            ('indexOfRibCage', Param(-1, 'Base of Rib Cage Index', 'Index of the bottom of the rib cage. Negative numbers index from the end.')),
                             ] )
     
     fkArgs = {'translatable': True}

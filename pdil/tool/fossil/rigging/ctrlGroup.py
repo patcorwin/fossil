@@ -4,7 +4,7 @@ from pymel.core import group, parentConstraint, xform
 
 import pdil
 
-from ..cardRigging import MetaControl, ParamInfo, OutputControls
+from ..cardRigging import MetaControl, Param, OutputControls
 from .._core import config
 from .._lib2 import controllerShape
 from .. import node
@@ -31,9 +31,9 @@ def buildCtrlGroup(parentJoint, point, rotation, name='Group', translatable=True
     
     container.setParent( node.mainGroup() )
         
-    ctrl = controllerShape.build(   name + "_ctrl",
-                            controlSpec['main'],
-                            type=controllerShape.ControlType.TRANSLATE if translatable else controllerShape.ControlType.ROTATE )
+    ctrl = controllerShape.build( name + "_ctrl",
+                                  controlSpec['main'],
+                                  type=controllerShape.ControlType.TRANSLATE if translatable else controllerShape.ControlType.ROTATE )
     
     ctrl.t.set(point)
 
@@ -65,11 +65,16 @@ def buildCtrlGroup(parentJoint, point, rotation, name='Group', translatable=True
 class Group(MetaControl):
     ''' A control that doesn't control a joint.  Commonly used as a space for other controls. '''
     fkInput = OrderedDict( [
-        ('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, '')),
-        ('translatable', ParamInfo( 'Translatable', 'It can translate', ParamInfo.BOOL, default=True)),
-        ('scalable', ParamInfo( 'Scalable', 'It can scale', ParamInfo.BOOL, default=False)),
-        ('mirroredTranslate', ParamInfo( 'Mirror Translate', 'Translation is also mirrored on mirrored side', ParamInfo.BOOL, default=False)),
-        ('useTrueZero', ParamInfo( 'True Zero', 'Use true zero like ik controls', ParamInfo.BOOL, default=False)),
+        ('name', Param('', 'Name', 'Name')),
+        ('translatable', Param(True, 'Translatable', 'It can translate')),
+        ('scalable', Param(False, 'Scalable', 'It can scale')),
+        ('mirroredTranslate', Param(False, 'Mirror Translate', 'Translation is also mirrored on mirrored side')),
+        ('useTrueZero', Param(False, 'True Zero', 'Use true zero like ik controls')),
+        #('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, '')),
+        #('translatable', ParamInfo( 'Translatable', 'It can translate', ParamInfo.BOOL, default=True)),
+        #('scalable', ParamInfo( 'Scalable', 'It can scale', ParamInfo.BOOL, default=False)),
+        #('mirroredTranslate', ParamInfo( 'Mirror Translate', 'Translation is also mirrored on mirrored side', ParamInfo.BOOL, default=False)),
+        #('useTrueZero', ParamInfo( 'True Zero', 'Use true zero like ik controls', ParamInfo.BOOL, default=False)),
     ] )
 
     @classmethod

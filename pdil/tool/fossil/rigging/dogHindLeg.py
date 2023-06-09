@@ -31,7 +31,7 @@ def buildDogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.End
     '''
 
     boundChain = util.getChain(hipJoint, end)
-
+    
     container = group(n=name + '_dogHindleg', em=True, p=node.mainGroup())
     
     # &&& I think I want to turn this into the container for all extra stuff related to a given control
@@ -123,7 +123,7 @@ def buildDogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.End
     #ankleIk = ikHandle( sol='ikRPsolver', sj=offsetChain[0], ee=offsetChain[-2])[0]
     #offsetIk = ikHandle( sol='ikRPsolver', sj=offsetChain[-2], ee=offsetChain[-1])[0]
     #offsetIk.rename('metatarsusIk')
-
+    
     bend = controllerShape.build( name + '_bend', controlSpec['bend'], type=controllerShape.ControlType.ROTATE )
     pdil.dagObj.matchTo(bend, masterChain[-1] )
     
@@ -173,12 +173,12 @@ def buildDogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.End
     temp = orientConstraint( footCtrl, offsetChain[-1], mo=True)
     
     if not pdil.math.isClose( offsetChain[-1].r.get(), [0, 0, 0] ):
-
+        
         badVals = offsetChain[-1].r.get()
         delete(temp)
         offsetChain[-1].r.set( -badVals )
         temp = orientConstraint( footCtrl, offsetChain[-1], mo=True)
-
+        
         for a in 'xyz':
             val = offsetChain[-1].attr('r' + a).get()
             if abs(val - 360) < 0.00001:
@@ -189,14 +189,14 @@ def buildDogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.End
                 attr = temp.attr( 'offset' + a.upper() )
                 attr.set( attr.get() + 360 )
     # Hopefully the end of dumbness
-
-
+    
+    
     
     ankleIk.setParent( bend )
     
     # Adjust the offset ikHandle according to how long the final bone is.
-
-
+    
+    
     masterChain[-1].tx >> ankleIk.ty
 #    if masterChain[-1].tx.get() > 0:
 #        masterChain[-1].tx >> ankleIk.ty

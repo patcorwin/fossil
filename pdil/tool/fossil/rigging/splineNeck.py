@@ -6,7 +6,7 @@ from pymel.core import duplicate, dt, joint, group, hide, ikHandle, move, orient
 
 import pdil
 
-from ..cardRigging import MetaControl, Param, ParamInfo
+from ..cardRigging import MetaControl, Param
 from .._lib2 import controllerShape
 from .. import node
 from .._lib import space
@@ -276,7 +276,7 @@ class SplineNeck(MetaControl):
         ('name', Param('', 'Name', 'Name')),
         ('matchEndOrient', Param(False, 'DEP-Match Orient', 'Ik Control will match the orientation of the joint last joint')),
         ('endOrient', Param(util.EndOrient.JOINT, 'Control Orient', 'How to orient the last control')),
-        ('curve', ParamInfo('NODE_0', 'Curve', 'A nurbs curve to use for spline')),
+        ('curve', Param(None, 'Curve', 'A nurbs curve to use for spline')),
     ] )
 
     fkArgs = {'translatable': True}

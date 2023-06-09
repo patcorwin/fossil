@@ -1,4 +1,4 @@
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 import logging
 
 from pymel.core import group
@@ -6,12 +6,13 @@ from pymel.core import group
 import pdil
 
 from .._lib2 import controllerShape
-from ..cardRigging import MetaControl, ParamInfo, OutputControls
+from ..cardRigging import MetaControl, Param, OutputControls
 from .. import node
 
 from . import _util as util
 
 log = logging.getLogger('fossil_controller_debug')
+
 
 
 @util.adds()
@@ -47,9 +48,9 @@ def buildFreeform(joints, translatable=False, mirroredTranslate=False, scalable=
 
     for j in joints:
 
-        ctrl = controllerShape.build(   util.trimName(j) + "_ctrl",
-                                controlSpec['main'],
-                                type=controllerShape.ControlType.TRANSLATE if translatable else controllerShape.ControlType.ROTATE )
+        ctrl = controllerShape.build( util.trimName(j) + "_ctrl",
+                                      controlSpec['main'],
+                                      type=controllerShape.ControlType.TRANSLATE if translatable else controllerShape.ControlType.ROTATE )
         controls.append( ctrl )
         pdil.dagObj.matchTo( ctrl, j )
 
@@ -94,26 +95,59 @@ def buildFreeform(joints, translatable=False, mirroredTranslate=False, scalable=
 
     return ctrl, None # ConstraintResults(leadPoint, leadOrient )
     
-    
-class Freeform(MetaControl):
-    ''' Allows for non-linear arbitrary joint chains with translating and rotating controls. '''
+
+class TranslateChain(MetaControl):  # class Freeform(MetaControl):
+    ''' Translatable and rotatable controls. '''
+    fkArgs = {'translatable': True}
     fkInput = OrderedDict( [
-        ('translatable', ParamInfo( 'Translatable', 'It can translate', ParamInfo.BOOL, default=True)),
-        ('scalable', ParamInfo( 'Scalable', 'It can scale', ParamInfo.BOOL, default=False)),
-        ('mirroredTranslate', ParamInfo( 'Mirror Translate', 'Translation is also mirrored on mirrored side', ParamInfo.BOOL, default=False)),
+        ('scalable',          Param(False, 'Scalable', 'Scalable')), # noqa
+        ('mirroredTranslate', Param(False, 'Mirror Translate', 'Translation is also mirrored on mirrored side')),
     ] )
+
 
     @classmethod
     def validate(cls, card):
-        pass
+        if cls.hasLinearJoints(card):
+            MetaControl.validate(card) # Change to super() for stability
+        else:
+            pass
     
+
+    @classmethod
+    def hasLinearJoints(cls, card):
+        childCount = defaultdict(int)
+
+        joints = card.joints
+        for bpj in joints:
+            parent = bpj.bpParent
+            if parent in joints:
+                childCount[parent] += 1
+
+        for cnt in childCount.values():
+            if cnt != 1:
+                return False
+
+        if len(childCount) != len(joints) - 1:
+            return False
+
+        return True
+
+
     @classmethod
     def _buildSide(cls, card, start, end, isMirroredSide, side=None, buildFk=True):
+
+        if cls.hasLinearJoints(card):
+            #return MetaControl._buildSide(card, start, end, isMirroredSide, side, buildFk)
+            return super(TranslateChain, cls)._buildSide(card, start, end, isMirroredSide, side, buildFk)
+        else:
+            return cls.nonlinear_buildSide(card, start, end, isMirroredSide, side, buildFk)
+
+
+    @classmethod
+    def nonlinear_buildSide(cls, card, start, end, isMirroredSide, side=None, buildFk=True):
         '''
         Since the joints aren't in a chain, just pass them all along to get sorted out later.
         '''
-        
-        #log.Rotation.check(rig.getChain(start, end), True)
         
         ikCtrl = None
         

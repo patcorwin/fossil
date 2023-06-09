@@ -7,7 +7,7 @@ from pymel.core import aimConstraint, duplicate, hide, orientConstraint, parent
 
 import pdil
 
-from ..cardRigging import MetaControl, ParamInfo
+from ..cardRigging import MetaControl, Param
 
 from .._core import config
 from .._lib2 import controllerShape
@@ -86,7 +86,7 @@ class TwistHelper(MetaControl):
     fk_ = 'pdil.tool.fossil.rigging.twistHelper.buildTwist'
 
     fkInput = OrderedDict( [
-        ('defaultPower', ParamInfo( 'Default Power', 'Default automatic twist power', ParamInfo.FLOAT, 0.5)),
+        ('defaultPower', Param(0.5, 'Default Power', 'Default automatic twist power')),
     ] )
 
     @classmethod
@@ -118,4 +118,3 @@ class TwistHelper(MetaControl):
             side = config.otherSideCode(side)
             ctrl, container = cls.fk(card.joints[0].realMirror, card.extraNode[0].realMirror, **kwargs)
             card.getSide(side).fk = ctrl
-

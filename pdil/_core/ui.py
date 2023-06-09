@@ -55,9 +55,6 @@ except ImportError:
     pass
 
 
-#from pymel.core import *
-#from pymel.core import optionVar, Callback, checkBox, frameLayout, menuItem
-
 __all__ = [
     'singleWindow',
     'mayaMainWindow',

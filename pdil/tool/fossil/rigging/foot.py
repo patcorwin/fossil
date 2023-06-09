@@ -10,6 +10,7 @@ from __future__ import absolute_import, division, print_function
 
 from collections import OrderedDict
 from functools import partial
+import logging
 
 try:
     from enum import Enum
@@ -29,6 +30,8 @@ from .. import log
 from .. import node
 
 from . import _util as util
+
+logBuildRig = logging.getLogger('fossil.buildRig')
 
 
 class FootHierarchy(Enum):
@@ -65,6 +68,10 @@ def buildFoot(ballJnt, toePos, ballPos, heelPos, legControl, side, hierarchy, co
     toe = joint(n='FakeToe')
     hide(ankle)
     
+    logBuildRig.debug('buildFoot ankle={ankle} ball={ball} toe={toe} legControl={legControl} ballJnt={ballJnt} toePos={toePos}'.format(
+        ankle=ankle, ball=ball, toe=toe, legControl=legControl, ballJnt=ballJnt, toePos=toePos,
+    ))
+
     # Place the "Fake" joints
     pdil.dagObj.moveTo(ankle, legControl)
     pdil.dagObj.moveTo(ball, ballJnt)# ballPos)
@@ -290,7 +297,7 @@ class Foot(MetaControl):
         side = card.findSuffix()
         
         #if not util.canMirror( card.start() ) or card.isAsymmetric():
-        if not side or card.isAsymmetric():
+        if not side or not card.isCardMirrored():
             legControl = legCard.outputCenter.ik
             suffix = card.findSuffix()
             

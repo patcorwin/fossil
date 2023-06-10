@@ -3,8 +3,8 @@ from __future__ import print_function
 from pymel.core import hide, showHidden, selected, select
 
 from .. import _core as core
-from ..nodeApi import fossilNodes
 from ..tool import fossil
+
 
 class QuickHideControls(object):
     '''
@@ -31,7 +31,7 @@ class QuickHideControls(object):
         # Artificially add the parents of the selected controls so they are hidden as a result
         selectedControls = set(selected())
         for ctrl in selected():
-            if type(ctrl) in (fossilNodes.SubController, fossilNodes.RigController):
+            if type(ctrl) in (fossil.nodeApi.SubController, fossil.nodeApi.RigController):
                 selectedControls.update(ctrl.getAllParents())
         
         # Hide the spaces since the controls vis is locked and hidden to prevent accidentally being keyed hidden.

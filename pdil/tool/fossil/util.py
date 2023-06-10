@@ -12,7 +12,7 @@ from pymel.core import makeIdentity, xform, scale, aimConstraint, objExists
 import pdil
 
 from . import _core as core
-from ... import nodeApi
+from . import nodeApi
 
 
 def parse( names ):

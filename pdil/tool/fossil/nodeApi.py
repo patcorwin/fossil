@@ -20,25 +20,30 @@ from pymel.core import cmds, objExists, PyNode, ls, nt, listRelatives, joint, ha
 
 import pdil
 
-from ..tool.fossil import cardRigging
-from ..tool.fossil import enums
-from ..tool.fossil import rig
-from ..tool.fossil import node
-from ..tool.fossil import log
-from ..tool.fossil._core import ids
-from ..tool.fossil._core import config
-from ..tool.fossil._core import exceptions
-from ..tool.fossil._lib import misc
-from ..tool.fossil._lib import proxyskel
-from ..tool.fossil._lib import visNode
-from ..tool.fossil._lib import space
-from ..tool.fossil._lib2 import controllerShape
+from . import cardRigging
+from . import enums
+from . import rig
+from . import node
+from . import log
+from ._core import ids
+from ._core import config
+from ._core import exceptions
+from ._lib import misc
+from ._lib import proxyskel
+from ._lib import visNode
+from ._lib import space
+from ._lib2 import controllerShape
 
-from ..tool.fossil import util
+from . import util
 
 
 
-from . import registerNodeType
+import pymel.internal.factories
+
+
+def registerNodeType(classApi):
+    pymel.internal.factories.registerVirtualClass( classApi )
+
 
 try:
     basestring
@@ -137,6 +142,56 @@ def findLockedAttrs(ctrl):
 def lockAttrs(ctrl, info):
     for attr in info:
         ctrl.attr(attr).lock()
+
+
+def _storeAltered(info, key, val, default):
+    if val != default:
+        info[key] = val
+
+
+def _restoreAltered(info, key, plug):
+    val = info.get(key, None)
+    if val is not None:
+        plug.set(val)
+
+
+def getAttrState(ctrl):
+    ''' Save locked, keyable and rotation order.
+    '''
+    locked = 0
+    for i, attr in enumerate([t + a for t in 'trs' for a in 'xyz']):
+        if ctrl.attr(attr).isLocked():
+            locked |= (1 << i)
+
+    keyable = 0
+    for i, attr in enumerate([t + a for t in 'trs' for a in 'xyz']):
+        if ctrl.attr(attr).isKeyable():
+            keyable |= (1 << i)
+
+    info = collections.OrderedDict()
+
+    info['locked'] = locked
+    info['keyable'] = keyable
+
+    _storeAltered(info, 'ro', ctrl.rotateOrder.get(), 0)
+    _storeAltered(info, 'display', ctrl.display.get(), 1)
+
+    return info
+
+
+def setAttrState(ctrl, info):
+
+    if 'locked' in info:
+        for i, attr in enumerate([t + a for t in 'trs' for a in 'xyz']):
+            if (1 << i) & info['locked']:
+                ctrl.attr(attr).lock()
+
+    if 'keyable' in info:
+        for i, attr in enumerate([t + a for t in 'trs' for a in 'xyz']):
+            ctrl.attr(attr).setKeyable( (1 << i) & info['keyable'] )
+
+    _restoreAltered(info, 'ro', ctrl.rotateOrder)
+    _restoreAltered(info, 'display', ctrl.display)
 
 
 def addExtraRigAttr(obj):
@@ -1651,16 +1706,6 @@ class Card(nt.Transform):
         self.removeRig()
 
         delete(self.getRealJoints())
-
-    thingsToSave = [
-        ('customAttrs', controllerShape.identifyCustomAttrs, restoreCustomAttr),
-        ('visGroup',    visNode.getVisLevel,               visNode.connect),
-        ('connections', getLinks,                           setLinks),
-        ('setDriven',   findSDK,                            applySDK),
-        ('spaces',      space.serializeSpaces,              space.deserializeSpaces),
-        ('constraints', findConstraints,                    applyConstraints),
-        ('lockedAttrs', findLockedAttrs,                    lockAttrs),
-    ]
     
     toSave = collections.OrderedDict( [
         ('customAttrs', (controllerShape.identifyCustomAttrs, restoreCustomAttr)), # Do this first!
@@ -1669,7 +1714,8 @@ class Card(nt.Transform):
         ('setDriven',   (findSDK,                           applySDK)),
         ('spaces',      (space.serializeSpaces,             space.deserializeSpaces)),
         ('constraints', (findConstraints,                   applyConstraints)),
-        ('lockedAttrs', (findLockedAttrs,                   lockAttrs)),
+        #('lockedAttrs', (findLockedAttrs,                   lockAttrs)),
+        ('attrState',   (getAttrState,                      setAttrState)),
     ] )
     
 

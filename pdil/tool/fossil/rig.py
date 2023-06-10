@@ -14,8 +14,9 @@ from pdil import simpleName, shortName
 
 from ._lib2 import controllerShape
 from . import node
+from . import nodeApi
 
-from .rigging._util import adds, defaultspec, getChain, constrainTo, parentGroup, trimName, ConstraintResults, drive,   saveRestLength, identifyAxis
+from .rigging._util import adds, defaultspec, getChain, constrainTo, parentGroup, trimName, ConstraintResults, drive, saveRestLength, identifyAxis
 
 mel.ikSpringSolver()
 
@@ -329,7 +330,7 @@ def twistSetup(control, twistJoints, startSegment, endSegment, jointLenMultiplie
 
 
 def getBPJoint(realJoint):
-    jnt = realJoint.message.listConnections(type=pdil.nodeApi.BPJoint)
+    jnt = realJoint.message.listConnections(type=nodeApi.BPJoint)
     if jnt:
         return jnt[0]
 
@@ -437,7 +438,7 @@ def fkChain(start, end, translatable=False, scalable=False, names=None, groupNam
         controls[0].ty.setKeyable(True)
         controls[0].tz.setKeyable(True)
         
-    controls[0] = pdil.nodeApi.RigController.convert(controls[0])
+    controls[0] = nodeApi.RigController.convert(controls[0])
     controls[0].container = container
     for i, c in enumerate(controls[1:]):
         controls[0].subControl[str(i)] = c

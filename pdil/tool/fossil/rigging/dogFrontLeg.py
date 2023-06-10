@@ -24,6 +24,7 @@ import pdil
 from ..cardRigging import MetaControl, Param
 from .._lib2 import controllerShape
 from .. import node
+from .. import nodeApi
 from .._lib import space
 
 from . import _util as util
@@ -230,7 +231,7 @@ def buildDogFrontLeg(hipJoint, end, aim='x', upVector=dt.Vector(1, 0, 0), pvLen=
     footCtrl.straighten.set(straighten)
     #-
 
-    footCtrl = pdil.nodeApi.RigController.convert(footCtrl)
+    footCtrl = nodeApi.RigController.convert(footCtrl)
     footCtrl.container = container
     footCtrl.subControl['socket'] = socketOffset
     footCtrl.subControl['pv'] = pvCtrl

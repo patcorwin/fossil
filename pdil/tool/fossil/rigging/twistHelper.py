@@ -12,6 +12,7 @@ from ..cardRigging import MetaControl, Param
 from .._core import config
 from .._lib2 import controllerShape
 from .. import node
+from .. import nodeApi
 
 from . import _util as util
 
@@ -73,7 +74,7 @@ def buildTwist(twist, twistDriver, twistLateralAxis=[0, 1, 0], driverLateralAxis
     
     orientConstraint( ctrl, twist )
     
-    ctrl = pdil.nodeApi.RigController.convert(ctrl)
+    ctrl = nodeApi.RigController.convert(ctrl)
     ctrl.container = container
     
     return ctrl, container

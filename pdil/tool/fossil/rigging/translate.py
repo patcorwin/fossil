@@ -8,6 +8,7 @@ import pdil
 from .._lib2 import controllerShape
 from ..cardRigging import MetaControl, Param, OutputControls
 from .. import node
+from .. import nodeApi
 
 from . import _util as util
 
@@ -85,7 +86,7 @@ def buildFreeform(joints, translatable=False, mirroredTranslate=False, scalable=
             space.setParent(container)
 
     # A leader must be choosen, so just use the order they were built in
-    ctrl = pdil.nodeApi.RigController.convert(controls[0])
+    ctrl = nodeApi.RigController.convert(controls[0])
     log.debug( 'The leader is {}'.format(ctrl) )
     for i, c in enumerate(controls[1:]):
         ctrl.subControl[str(i)] = c

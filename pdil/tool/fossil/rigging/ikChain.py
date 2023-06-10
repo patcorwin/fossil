@@ -8,6 +8,7 @@ import pdil
 from ..cardRigging import MetaControl, Param
 
 from .. import node
+from .. import nodeApi
 from .. import rig
 from .._lib import space
 from .._lib2 import controllerShape
@@ -19,6 +20,7 @@ try:
     basestring  # noqa
 except Exception:
     basestring = str
+
 
 @util.adds('stretch', 'length')
 @util.defaultspec( {'shape': 'box',    'size': 10, 'color': 'green 0.22' },  # noqa e231
@@ -314,7 +316,7 @@ def buildIkChain(start, end, pvLen=None, stretchDefault=1, endOrientType=util.En
         """
     
     # Register all the parts of the control for easy identification at other times.
-    ctrl = pdil.nodeApi.RigController.convert(ctrl)
+    ctrl = nodeApi.RigController.convert(ctrl)
     ctrl.container = container
     
     ctrl.subControl['socket'] = socketOffset

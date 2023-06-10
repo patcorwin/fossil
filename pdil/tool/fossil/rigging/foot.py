@@ -17,7 +17,7 @@ try:
 except ImportError:
     from pdil.vendor.enum import Enum
 
-from pymel.core import createNode, group, hide, ikHandle, joint, move, rotate, xform, upAxis, duplicate
+from pymel.core import createNode, group, hide, ikHandle, joint, move, rotate, xform, upAxis
 
 import pdil
 
@@ -28,6 +28,7 @@ from .._lib2 import controllerShape
 from .. import enums
 from .. import log
 from .. import node
+from .. import nodeApi
 
 from . import _util as util
 
@@ -85,7 +86,7 @@ def buildFoot(ballJnt, toePos, ballPos, heelPos, legControl, side, hierarchy, co
     # Heel Control
     footCtrl = controllerShape.build( "Heel" + side + "_ctrl", controlSpec['main'], type=controllerShape.ControlType.TRANSLATE )
     pdil.dagObj.moveTo(footCtrl, heelPos)
-    footCtrl = pdil.nodeApi.RigController.convert(footCtrl)
+    footCtrl = nodeApi.RigController.convert(footCtrl)
     footCtrl.container = container
     
     # HeelTilt (for Roll automation)

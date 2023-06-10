@@ -144,11 +144,11 @@ def accessoryGroup():
 def leadController(obj):
     ''' Returns the lead controller (possibly itself) when given a fossil controller.
     '''
-    if obj.__class__.__name__ == 'RigController' and obj.__class__.__module__ == 'pdil.nodeApi.fossilNodes':
+    if obj.__class__.__name__ == 'RigController' and obj.__class__.__module__ == 'pdil.tool.fossil.nodeApi':
         return obj
     else:
         objs = [ other for other in obj.message.listConnections()
-            if other.__class__.__name__ == 'RigController' and other.__class__.__module__ == 'pdil.nodeApi.fossilNodes']
+                 if other.__class__.__name__ == 'RigController' and other.__class__.__module__ == 'pdil.tool.fossil.nodeApi']
             
         if objs:
             return objs[0]

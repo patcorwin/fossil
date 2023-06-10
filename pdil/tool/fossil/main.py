@@ -17,7 +17,7 @@ from pymel.core import Callback, cmds, hide, scriptJob, select, selected, setPar
     button, columnLayout, deleteUI, textFieldGrp
     
 import pdil
-from ... import nodeApi
+from . import nodeApi
 
 from . import cardparams
 from ._lib2 import controllerShape

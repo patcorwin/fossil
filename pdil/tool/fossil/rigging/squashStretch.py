@@ -10,6 +10,7 @@ from ..cardRigging import MetaControl, Param, colorParity, OutputControls
 
 from .. import log
 from .. import node
+from .. import nodeApi
 from .._lib import misc
 from .._lib import space
 from .._lib2 import controllerShape
@@ -35,7 +36,7 @@ def buildSquashAndStretch(joints, squashCenter, orientAsParent=True, rangeMin=-5
     mainCtrl = controllerShape.build( util.trimName(joints[0].getParent()) + "SquashMain_ctrl",
                                       controlSpec['main'],
                                       type=controllerShape.ControlType.TRANSLATE )
-    mainCtrl = pdil.nodeApi.RigController.convert(mainCtrl)
+    mainCtrl = nodeApi.RigController.convert(mainCtrl)
     mainCtrl.setParent(container)
     
     mainCtrl.addAttr( 'size', at='double', min=rangeMin, max=rangeMax, dv=0.0, k=True )

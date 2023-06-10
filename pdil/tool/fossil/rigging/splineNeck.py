@@ -9,6 +9,7 @@ import pdil
 from ..cardRigging import MetaControl, Param
 from .._lib2 import controllerShape
 from .. import node
+from .. import nodeApi
 from .._lib import space
 
 from . import _util as util
@@ -254,7 +255,7 @@ def buildSplineNeck(start, end, name='', matchEndOrient=False, endOrient=util.En
     
     # Setup the endControl as the leader
     
-    endCtrl = pdil.nodeApi.RigController.convert(endCtrl)
+    endCtrl = nodeApi.RigController.convert(endCtrl)
     endCtrl.container = container
     endCtrl.subControl['start'] = startCtrl
     endCtrl.subControl['mid'] = midCtrl

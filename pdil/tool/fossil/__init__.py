@@ -1,5 +1,5 @@
 # fossileNodes defines pymel factories that fossil needs, so make sure it is loaded.
-from ...nodeApi import fossilNodes  # noqa
+from . import nodeApi  # noqa
 
 from ._core import config # noqa
 from ._core import find # noqa

@@ -12,12 +12,14 @@ from .._lib2 import controllerShape
 from ..cardRigging import MetaControl, Param
 
 from .. import node
+from .. import nodeApi
 from .. import rig
 from .._core import find
 from .._lib import space
 from .._lib import visNode
 
 from . import _util as util
+
 
 @util.adds('stretch')
 @util.defaultspec( {'shape': 'box',    'color': 'orange 0.22', 'size': 10 },
@@ -251,7 +253,7 @@ def buildSplineChest(start, end, name='Chest', indexOfRibCage=-1, useTrueZero=Tr
     else:
         skinCluster( crv, base, mid, chest, tsb=True )
     
-    chestCtrl = pdil.nodeApi.RigController.convert(chestCtrl)
+    chestCtrl = nodeApi.RigController.convert(chestCtrl)
     chestCtrl.container = container
     chestCtrl.subControl['mid'] = midCtrl
     if chestOffsetCtrl:

@@ -14,6 +14,7 @@ import pdil
 
 from .._lib2 import controllerShape
 from .. import node
+from .. import nodeApi
 from .._lib import space
 
 from ..cardRigging import MetaControl, Param
@@ -240,7 +241,7 @@ def buildSplineTwist(start, end, controlCountOrCrv=4, twistInfDist=0, simplifyCu
         
         del controls[1]
         
-    controls[0] = pdil.nodeApi.RigController.convert(controls[0])
+    controls[0] = nodeApi.RigController.convert(controls[0])
     controls[0].container = grp
     
     stretchAttr, jointLenMultiplier = util.makeStretchySpline(controls[0], mainIk)

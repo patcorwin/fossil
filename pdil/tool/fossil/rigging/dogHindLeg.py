@@ -8,6 +8,7 @@ import pdil
 
 from ..cardRigging import MetaControl, Param
 from .. import node
+from .. import nodeApi
 from .._lib import space
 from .._lib2 import controllerShape
 
@@ -233,7 +234,7 @@ def buildDogleg(hipJoint, end, pvLen=None, name='Dogleg', endOrientType=util.End
     for src, dest in zip( masterChain[1:], offsetChain[1:] ):
         src.tx >> dest.tx
     
-    footCtrl = pdil.nodeApi.RigController.convert(footCtrl)
+    footCtrl = nodeApi.RigController.convert(footCtrl)
     footCtrl.container = container
     footCtrl.subControl['socket'] = socketOffset
     footCtrl.subControl['pv'] = pvCtrl

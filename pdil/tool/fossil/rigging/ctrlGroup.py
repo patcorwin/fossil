@@ -8,7 +8,7 @@ from ..cardRigging import MetaControl, Param, OutputControls
 from .._core import config
 from .._lib2 import controllerShape
 from .. import node
-
+from .. import nodeApi
 from . import _util as util
 
 
@@ -55,7 +55,7 @@ def buildCtrlGroup(parentJoint, point, rotation, name='Group', translatable=True
     if mirroredTranslate:
         zeroGroup.s.set(-1, -1, -1)
     
-    ctrl = pdil.nodeApi.RigController.convert(ctrl)
+    ctrl = nodeApi.RigController.convert(ctrl)
     ctrl.container = container
     
     leadOrient, leadPoint = None, None
@@ -70,11 +70,6 @@ class Group(MetaControl):
         ('scalable', Param(False, 'Scalable', 'It can scale')),
         ('mirroredTranslate', Param(False, 'Mirror Translate', 'Translation is also mirrored on mirrored side')),
         ('useTrueZero', Param(False, 'True Zero', 'Use true zero like ik controls')),
-        #('name', ParamInfo( 'Name', 'Name', ParamInfo.STR, '')),
-        #('translatable', ParamInfo( 'Translatable', 'It can translate', ParamInfo.BOOL, default=True)),
-        #('scalable', ParamInfo( 'Scalable', 'It can scale', ParamInfo.BOOL, default=False)),
-        #('mirroredTranslate', ParamInfo( 'Mirror Translate', 'Translation is also mirrored on mirrored side', ParamInfo.BOOL, default=False)),
-        #('useTrueZero', ParamInfo( 'True Zero', 'Use true zero like ik controls', ParamInfo.BOOL, default=False)),
     ] )
 
     @classmethod

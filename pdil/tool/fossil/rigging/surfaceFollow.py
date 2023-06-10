@@ -15,6 +15,7 @@ from .._lib2 import controllerShape
 
 from . import _util as util
 from .. import node
+from .. import nodeApi
 
 
 def getUpVectors(j):
@@ -38,7 +39,7 @@ def buildSurfaceFollow(joints, groupOrigin, surface=None, controlSpec={}):
         controlSpec['main'],
         type=controllerShape.ControlType.TRANSLATE )
     
-    mainCtrl = pdil.nodeApi.RigController.convert(mainCtrl)
+    mainCtrl = nodeApi.RigController.convert(mainCtrl)
     
     mainCtrl.setParent(container)
     xform(mainCtrl, ws=True, t=groupOrigin)

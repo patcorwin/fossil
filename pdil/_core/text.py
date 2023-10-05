@@ -10,6 +10,11 @@ try:
 except AttributeError:
     base64_decodebytes = base64.decodestring # decodestring is a deprecated alias in 3.1
 
+try:
+    base64_encodebytes = base64.encodebytes
+except AttributeError:
+    base64_encodebytes = base64.encodestring
+
 
 def writeInBox(msg):
     '''
@@ -24,7 +29,7 @@ def writeInBox(msg):
         newMsg.append( '| {0:<{1}} |'.format(line, largest) )
         
     return ' ' + '_' * (largest + 2) + '\n/' + ' ' * (largest + 2) + '\\\n' + \
-            '\n'.join(newMsg) + '\n' + '\\' + '_' * (largest + 2) + '/'
+           '\n'.join(newMsg) + '\n' + '\\' + '_' * (largest + 2) + '/'
 
 
 def asciiCompress(data, level=9):
@@ -37,10 +42,7 @@ def asciiCompress(data, level=9):
     except TypeError: # python 3 compatibility, most sources will probably be strings
         code = zlib.compress(data.encode(), level)
     
-    try:
-        code = base64.encodestring(code)
-    except:
-        code = base64.encodebytes(code)
+    code = base64_encodebytes(code)
     return code
 
 

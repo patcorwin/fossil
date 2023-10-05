@@ -1,6 +1,7 @@
 ''' Keys for card.rigData and card.rigState.  More can exist but autocomplete for the main ones is nice.
 '''
 
+
 class RigData:
     rigCmd = 'rigCmd'
     mirrorCode = 'mirrorCode'
@@ -16,3 +17,4 @@ class RigState:
     spaces = 'spaces'
     constraints = 'constraints'
     lockedAttrs = 'lockedAttrs'
+    attrState = 'attrState'

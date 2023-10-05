@@ -15,8 +15,9 @@ from ..._core import skinning
 from ..._lib import space
 from ..._lib import tpose
 from ..._lib2 import controllerShape
+from ...vendor.session_memo import session, session_memoize
 
-from pdil import nodeApi
+from ... import nodeApi
 
 
 log = logging.getLogger(__name__)
@@ -58,7 +59,7 @@ def buildBones(cards=None, removeTempBind=True):
             with tpose.matchReposer(cardBuildOrder):
                 for card in cardBuildOrder:
                     if card in cards:
-                        newJoints = card.buildJoints_core(nodeApi.fossilNodes.JointMode.tpose)
+                        newJoints = card.buildJoints_core(nodeApi.JointMode.tpose)
                         realJoints += newJoints
                         
                         accessoryFixup(newJoints, card)
@@ -74,7 +75,7 @@ def buildBones(cards=None, removeTempBind=True):
             
             # Temp build the bind pose joints
             for card in bindCardsToBuild:
-                joints = card.buildJoints_core(nodeApi.fossilNodes.JointMode.bind)
+                joints = card.buildJoints_core(nodeApi.JointMode.bind)
                 tempBindJoints += joints
                 if card in cards:
                     bindPoseJoints += joints
@@ -146,7 +147,7 @@ def buildBones(cards=None, removeTempBind=True):
         with pdil.ui.progressWin(title='Build Bones', max=len(cards)) as prog:
             for card in cardBuildOrder:
                 if card in cards:
-                    newJoints = card.buildJoints_core(nodeApi.fossilNodes.JointMode.default)
+                    newJoints = card.buildJoints_core(nodeApi.JointMode.default)
                     accessoryFixup(newJoints, card)
                     prog.update()
     
@@ -327,6 +328,33 @@ def validateBoneNames(cards):
             overlap = currentJoints.intersection( allJoints[otherCard] )
             if overlap:
                 issues.append( '{} and {} overlap {}'.format( current, otherCard, overlap ))
+
+    return issues
+
+
+def validateNoHelperParent(cards):
+
+    @session_memoize
+    def bpParent(bpJoint):
+        return bpJoint.bpParent
+
+    @session_memoize
+    def helperAncestor(bpJoint):
+        if bpJoint.isHelper:
+            return True
+
+        p = bpParent(bpJoint)
+        while p:
+            if p.isHelper:
+                return True
+            p = bpParent(p)
+
+    issues = []
+
+    with session():
+        for card in cards:
+            if helperAncestor(card.parentCardJoint) and not all( [j.isHelper for j in card.joints ] ):
+                issues.append('{}'.format(card))
 
     return issues
 
